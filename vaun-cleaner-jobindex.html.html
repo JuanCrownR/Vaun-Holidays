@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Vaun Holidays — Job Sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #1a1a2e;
+    --brand-mid: #16213e;
+    --accent: #e8c547;
+    --accent-dim: rgba(232,197,71,0.12);
+    --success: #2ecc71;
+    --success-dim: rgba(46,204,113,0.12);
+    --danger: #e74c3c;
+    --danger-dim: rgba(231,76,60,0.1);
+    --warning: #f39c12;
+    --surface: #ffffff;
+    --surface2: #f7f7f5;
+    --border: #e8e8e4;
+    --text: #1a1a2e;
+    --text2: #6b6b7a;
+    --text3: #9b9baa;
+    --radius: 14px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface2);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  /* Header */
+  .header {
+    background: var(--brand);
+    padding: 20px 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -20px; left: 0; right: 0;
+    height: 40px;
+    background: var(--surface2);
+    border-radius: 40px 40px 0 0;
+  }
+  .header-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .header-property {
+    font-size: 22px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+  .header-address {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 16px;
+  }
+  .header-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .meta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+  }
+  .meta-pill svg { opacity: 0.7; }
+
+  /* Status bar */
+  .status-bar {
+    margin: 28px 16px 0;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .status-label { font-size: 12px; color: var(--text2); }
+  .status-value {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .status-pending { background: var(--accent-dim); color: #a07c00; }
+  .status-complete { background: var(--success-dim); color: #1a8a4a; }
+
+  /* Section */
+  .section {
+    margin: 16px 16px 0;
+  }
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-left: 2px;
+  }
+
+  /* Checklist */
+  .checklist-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+  .checklist-item.completed {
+    border-color: var(--success);
+    background: var(--success-dim);
+  }
+  .checklist-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .checklist-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .completed .checklist-icon { background: var(--success-dim); }
+  .checklist-info { flex: 1; }
+  .checklist-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .checklist-sub { font-size: 12px; color: var(--text2); }
+  .checklist-check {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+  .completed .checklist-check {
+    background: var(--success);
+    border-color: var(--success);
+  }
+  .check-svg { display: none; }
+  .completed .check-svg { display: block; }
+
+  /* Expand panel */
+  .checklist-body {
+    display: none;
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .checklist-body.open { display: block; }
+  .completed .checklist-body { border-top-color: rgba(46,204,113,0.2); }
+
+  .tasks-list { margin: 12px 0; }
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .task-row:last-child { border-bottom: none; }
+  .task-cb {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .task-cb.ticked { background: var(--success); border-color: var(--success); }
+  .task-label { font-size: 13px; color: var(--text); flex: 1; }
+  .task-label.done { text-decoration: line-through; color: var(--text3); }
+
+  /* Photo upload */
+  .photo-upload {
+    margin-top: 12px;
+  }
+  .photo-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    object-fit: cover;
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .photo-add {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    border: 1.5px dashed var(--border);
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .photo-add:active { background: var(--accent-dim); border-color: var(--accent); }
+  .photo-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .photo-add-icon { font-size: 22px; color: var(--text3); pointer-events: none; }
+  .photo-count { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  .done-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--brand);
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .done-btn:active { opacity: 0.8; }
+  .done-btn.marked { background: var(--success); }
+
+  /* Maintenance */
+  .maintenance-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .maint-title {
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .maint-sub { font-size: 13px; color: var(--text2); margin-bottom: 14px; }
+  .maint-input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface2);
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 10px;
+  }
+  .maint-input:focus { border-color: var(--warning); background: var(--surface); }
+  .maint-photo-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1.5px dashed var(--border);
+    background: var(--surface2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    width: 100%;
+    position: relative;
+    margin-bottom: 10px;
+  }
+  .maint-photo-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .maint-submit {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--danger);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .maint-submit:active { opacity: 0.8; }
+
+  /* Submit job */
+  .submit-section {
+    margin: 20px 16px 0;
+  }
+  .progress-bar {
+    background: var(--border);
+    border-radius: 10px;
+    height: 6px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 10px;
+    transition: width 0.4s ease;
+  }
+  .progress-label {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .submit-btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: var(--radius);
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    background: var(--brand);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .submit-btn:disabled {
+    background: var(--border);
+    color: var(--text3);
+    cursor: not-allowed;
+  }
+  .submit-btn.ready { background: var(--success); }
+  .submit-btn:not(:disabled):active { opacity: 0.85; transform: scale(0.98); }
+
+  /* Success overlay */
+  .success-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--brand);
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    text-align: center;
+  }
+  .success-overlay.show { display: flex; }
+  .success-icon { font-size: 64px; margin-bottom: 24px; }
+  .success-title { font-size: 26px; font-weight: 600; color: white; margin-bottom: 8px; }
+  .success-sub { font-size: 15px; color: rgba(255,255,255,0.5); margin-bottom: 32px; line-height: 1.5; }
+  .success-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    background: rgba(232,197,71,0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">Vaun Holidays · Job Sheet</div>
+  <div class="header-property" id="prop-name">Unit 12, The Waves</div>
+  <div class="header-address" id="prop-address">42 Surfers Paradise Blvd, Surfers Paradise QLD 4217</div>
+  <div class="header-meta">
+    <div class="meta-pill">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span id="job-date">Sat 14 June 2026</span>
+    </div>
+    <div class="meta-pill">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span id="job-window">10:00am — 2:00pm</span>
+    </div>
+    <div class="meta-pill">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span id="job-cleaner">Maria S.</span>
+    </div>
+  </div>
+</div>
+
+<!-- Status -->
+<div class="status-bar">
+  <span class="status-label">Job status</span>
+  <span class="status-value status-pending" id="status-badge">In progress</span>
+</div>
+
+<!-- Checklist -->
+<div class="section">
+  <div class="section-title">Room checklist</div>
+
+  <!-- Bedroom 1 -->
+  <div class="checklist-item" id="room-0">
+    <div class="checklist-header" onclick="toggleRoom(0)">
+      <div class="checklist-icon">🛏️</div>
+      <div class="checklist-info">
+        <div class="checklist-name">Bedroom 1</div>
+        <div class="checklist-sub" id="room-0-sub">0 of 5 tasks · 0 photos</div>
+      </div>
+      <div class="checklist-check">
+        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </div>
+    <div class="checklist-body" id="room-0-body">
+      <div class="tasks-list" id="tasks-0"></div>
+      <div class="photo-upload">
+        <div class="photo-label">📸 Photos</div>
+        <div class="photo-grid" id="photos-0"></div>
+        <div class="photo-count" id="photo-count-0">No photos yet</div>
+      </div>
+      <button class="done-btn" id="done-0" onclick="markRoomDone(0)">Mark bedroom done</button>
+    </div>
+  </div>
+
+  <!-- Bedroom 2 -->
+  <div class="checklist-item" id="room-1">
+    <div class="checklist-header" onclick="toggleRoom(1)">
+      <div class="checklist-icon">🛏️</div>
+      <div class="checklist-info">
+        <div class="checklist-name">Bedroom 2</div>
+        <div class="checklist-sub" id="room-1-sub">0 of 4 tasks · 0 photos</div>
+      </div>
+      <div class="checklist-check">
+        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </div>
+    <div class="checklist-body" id="room-1-body">
+      <div class="tasks-list" id="tasks-1"></div>
+      <div class="photo-upload">
+        <div class="photo-label">📸 Photos</div>
+        <div class="photo-grid" id="photos-1"></div>
+        <div class="photo-count" id="photo-count-1">No photos yet</div>
+      </div>
+      <button class="done-btn" id="done-1" onclick="markRoomDone(1)">Mark bedroom done</button>
+    </div>
+  </div>
+
+  <!-- Bathroom -->
+  <div class="checklist-item" id="room-2">
+    <div class="checklist-header" onclick="toggleRoom(2)">
+      <div class="checklist-icon">🚿</div>
+      <div class="checklist-info">
+        <div class="checklist-name">Bathroom</div>
+        <div class="checklist-sub" id="room-2-sub">0 of 5 tasks · 0 photos</div>
+      </div>
+      <div class="checklist-check">
+        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </div>
+    <div class="checklist-body" id="room-2-body">
+      <div class="tasks-list" id="tasks-2"></div>
+      <div class="photo-upload">
+        <div class="photo-label">📸 Photos</div>
+        <div class="photo-grid" id="photos-2"></div>
+        <div class="photo-count" id="photo-count-2">No photos yet</div>
+      </div>
+      <button class="done-btn" id="done-2" onclick="markRoomDone(2)">Mark bathroom done</button>
+    </div>
+  </div>
+
+  <!-- Kitchen -->
+  <div class="checklist-item" id="room-3">
+    <div class="checklist-header" onclick="toggleRoom(3)">
+      <div class="checklist-icon">🍳</div>
+      <div class="checklist-info">
+        <div class="checklist-name">Kitchen</div>
+        <div class="checklist-sub" id="room-3-sub">0 of 6 tasks · 0 photos</div>
+      </div>
+      <div class="checklist-check">
+        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </div>
+    <div class="checklist-body" id="room-3-body">
+      <div class="tasks-list" id="tasks-3"></div>
+      <div class="photo-upload">
+        <div class="photo-label">📸 Photos</div>
+        <div class="photo-grid" id="photos-3"></div>
+        <div class="photo-count" id="photo-count-3">No photos yet</div>
+      </div>
+      <button class="done-btn" id="done-3" onclick="markRoomDone(3)">Mark kitchen done</button>
+    </div>
+  </div>
+
+  <!-- Living Area -->
+  <div class="checklist-item" id="room-4">
+    <div class="checklist-header" onclick="toggleRoom(4)">
+      <div class="checklist-icon">🛋️</div>
+      <div class="checklist-info">
+        <div class="checklist-name">Living Area</div>
+        <div class="checklist-sub" id="room-4-sub">0 of 4 tasks · 0 photos</div>
+      </div>
+      <div class="checklist-check">
+        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </div>
+    <div class="checklist-body" id="room-4-body">
+      <div class="tasks-list" id="tasks-4"></div>
+      <div class="photo-upload">
+        <div class="photo-label">📸 Photos</div>
+        <div class="photo-grid" id="photos-4"></div>
+        <div class="photo-count" id="photo-count-4">No photos yet</div>
+      </div>
+      <button class="done-btn" id="done-4" onclick="markRoomDone(4)">Mark living area done</button>
+    </div>
+  </div>
+
+  <!-- Entry & Outdoor -->
+  <div class="checklist-item" id="room-5">
+    <div class="checklist-header" onclick="toggleRoom(5)">
+      <div class="checklist-icon">🚪</div>
+      <div class="checklist-info">
+        <div class="checklist-name">Entry & Outdoor</div>
+        <div class="checklist-sub" id="room-5-sub">0 of 3 tasks · 0 photos</div>
+      </div>
+      <div class="checklist-check">
+        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </div>
+    <div class="checklist-body" id="room-5-body">
+      <div class="tasks-list" id="tasks-5"></div>
+      <div class="photo-upload">
+        <div class="photo-label">📸 Photos</div>
+        <div class="photo-grid" id="photos-5"></div>
+        <div class="photo-count" id="photo-count-5">No photos yet</div>
+      </div>
+      <button class="done-btn" id="done-5" onclick="markRoomDone(5)">Mark entry done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Maintenance -->
+<div class="section" style="margin-top:20px;">
+  <div class="section-title">Report a maintenance issue</div>
+  <div class="maintenance-card">
+    <div class="maint-title">⚠️ Found something wrong?</div>
+    <div class="maint-sub">Report any damage, broken items, or issues found during the clean.</div>
+    <textarea class="maint-input" rows="3" placeholder="Describe the issue — e.g. 'Shower head leaking in main bathroom'" id="maint-text"></textarea>
+    <label class="maint-photo-btn">
+      <span>📷</span> Attach photo
+      <input type="file" accept="image/*" capture="environment" onchange="maintPhotoAdded(this)">
+    </label>
+    <div id="maint-photo-label" style="font-size:12px;color:var(--text3);margin-bottom:10px;display:none;"></div>
+    <button class="maint-submit" onclick="submitMaintenance()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Submit issue
+    </button>
+  </div>
+</div>
+
+<!-- Submit Job -->
+<div class="submit-section">
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+  <div class="progress-label" id="progress-label">0 of 6 rooms completed</div>
+  <button class="submit-btn" id="submit-btn" disabled onclick="submitJob()">
+    Complete & submit job
+  </button>
+</div>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="success-overlay">
+  <div class="success-icon">✅</div>
+  <div class="success-title">Job complete!</div>
+  <div class="success-sub">Your checklist and photos have been submitted.<br>The property manager has been notified.</div>
+  <div class="success-time" id="success-time"></div>
+</div>
+
+<script>
+const rooms = [
+  { name: 'Bedroom 1', tasks: ['Strip and replace all bed linen', 'Fluff and stage pillows', 'Vacuum floor and under bed', 'Wipe all surfaces and bedside tables', 'Check wardrobe — hangers straight, no guest items left'] },
+  { name: 'Bedroom 2', tasks: ['Strip and replace all bed linen', 'Fluff and stage pillows', 'Vacuum floor', 'Wipe surfaces and check wardrobe'] },
+  { name: 'Bathroom', tasks: ['Scrub toilet, sink, and shower/bath', 'Replace towels and toiletries', 'Clean mirror', 'Mop floor', 'Check and restock toilet paper'] },
+  { name: 'Kitchen', tasks: ['Clean all benchtops and splashback', 'Wipe stovetop and oven exterior', 'Check inside microwave', 'Wash and dry any remaining dishes', 'Restock tea, coffee, sugar', 'Empty and reline bin'] },
+  { name: 'Living Area', tasks: ['Vacuum sofa and rugs', 'Wipe TV remote, light switches, door handles', 'Straighten cushions and throws', 'Vacuum / mop floor'] },
+  { name: 'Entry & Outdoor', tasks: ['Sweep or mop entry floor', 'Wipe front door handle and intercom', 'Check balcony — sweep and stage furniture'] }
+];
+
+const state = {
+  tasks: rooms.map(r => new Array(r.tasks.length).fill(false)),
+  photos: rooms.map(() => []),
+  roomDone: new Array(rooms.length).fill(false)
+};
+
+// Init task lists
+rooms.forEach((room, ri) => {
+  const container = document.getElementById('tasks-' + ri);
+  room.tasks.forEach((task, ti) => {
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    row.innerHTML = `
+      <div class="task-cb" id="cb-${ri}-${ti}"></div>
+      <div class="task-label" id="tl-${ri}-${ti}">${task}</div>
+    `;
+    row.onclick = () => toggleTask(ri, ti);
+    container.appendChild(row);
+  });
+
+  // Add photo input
+  const grid = document.getElementById('photos-' + ri);
+  const addBtn = document.createElement('label');
+  addBtn.className = 'photo-add';
+  addBtn.innerHTML = `<input type="file" accept="image/*" capture="environment" multiple><div class="photo-add-icon">+</div>`;
+  addBtn.querySelector('input').addEventListener('change', (e) => addPhotos(ri, e));
+  grid.appendChild(addBtn);
+});
+
+function toggleTask(ri, ti) {
+  state.tasks[ri][ti] = !state.tasks[ri][ti];
+  const cb = document.getElementById('cb-' + ri + '-' + ti);
+  const lbl = document.getElementById('tl-' + ri + '-' + ti);
+  cb.classList.toggle('ticked', state.tasks[ri][ti]);
+  lbl.classList.toggle('done', state.tasks[ri][ti]);
+  updateRoomSub(ri);
+}
+
+function addPhotos(ri, e) {
+  const files = Array.from(e.target.files);
+  files.forEach(file => {
+    const url = URL.createObjectURL(file);
+    state.photos[ri].push(url);
+    const grid = document.getElementById('photos-' + ri);
+    const img = document.createElement('img');
+    img.className = 'photo-thumb';
+    img.src = url;
+    grid.insertBefore(img, grid.lastElementChild);
+  });
+  updateRoomSub(ri);
+  const countEl = document.getElementById('photo-count-' + ri);
+  const n = state.photos[ri].length;
+  countEl.textContent = n === 1 ? '1 photo added' : n + ' photos added';
+}
+
+function updateRoomSub(ri) {
+  const done = state.tasks[ri].filter(Boolean).length;
+  const total = state.tasks[ri].length;
+  const photos = state.photos[ri].length;
+  document.getElementById('room-' + ri + '-sub').textContent =
+    `${done} of ${total} tasks · ${photos} photo${photos !== 1 ? 's' : ''}`;
+}
+
+function toggleRoom(ri) {
+  const body = document.getElementById('room-' + ri + '-body');
+  body.classList.toggle('open');
+}
+
+function markRoomDone(ri) {
+  state.roomDone[ri] = true;
+  state.tasks[ri] = state.tasks[ri].map(() => true);
+  document.getElementById('room-' + ri).classList.add('completed');
+  const btn = document.getElementById('done-' + ri);
+  btn.textContent = '✓ Done';
+  btn.classList.add('marked');
+  // tick all tasks
+  rooms[ri].tasks.forEach((_, ti) => {
+    const cb = document.getElementById('cb-' + ri + '-' + ti);
+    const lbl = document.getElementById('tl-' + ri + '-' + ti);
+    if (cb) { cb.classList.add('ticked'); lbl.classList.add('done'); }
+  });
+  updateRoomSub(ri);
+  document.getElementById('room-' + ri + '-body').classList.remove('open');
+  updateProgress();
+}
+
+function updateProgress() {
+  const done = state.roomDone.filter(Boolean).length;
+  const total = rooms.length;
+  const pct = Math.round((done / total) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${done} of ${total} rooms completed`;
+  const btn = document.getElementById('submit-btn');
+  if (done === total) {
+    btn.disabled = false;
+    btn.classList.add('ready');
+    btn.textContent = '✅ Submit completed job';
+  }
+}
+
+function maintPhotoAdded(input) {
+  if (input.files[0]) {
+    const label = document.getElementById('maint-photo-label');
+    label.textContent = '📎 ' + input.files[0].name;
+    label.style.display = 'block';
+  }
+}
+
+function submitMaintenance() {
+  const text = document.getElementById('maint-text').value.trim();
+  if (!text) { alert('Please describe the issue before submitting.'); return; }
+  alert('✅ Maintenance issue reported. The property manager has been notified.');
+  document.getElementById('maint-text').value = '';
+  document.getElementById('maint-photo-label').style.display = 'none';
+}
+
+function submitJob() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+  document.getElementById('success-time').textContent = 'Submitted ' + dateStr + ' at ' + timeStr;
+  document.getElementById('success-overlay').classList.add('show');
+  document.getElementById('status-badge').textContent = 'Completed';
+  document.getElementById('status-badge').className = 'status-value status-complete';
+}
+</script>
+</body>
+</html>
