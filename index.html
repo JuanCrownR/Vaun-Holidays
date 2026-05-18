@@ -2,765 +2,1443 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Vaun Holidays — Job Sheet</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vaun Holidays — Property Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root {
-    --brand: #1a1a2e;
-    --brand-mid: #16213e;
-    --accent: #e8c547;
-    --accent-dim: rgba(232,197,71,0.12);
-    --success: #2ecc71;
-    --success-dim: rgba(46,204,113,0.12);
-    --danger: #e74c3c;
-    --danger-dim: rgba(231,76,60,0.1);
-    --warning: #f39c12;
-    --surface: #ffffff;
-    --surface2: #f7f7f5;
-    --border: #e8e8e4;
-    --text: #1a1a2e;
-    --text2: #6b6b7a;
-    --text3: #9b9baa;
-    --radius: 14px;
-    --shadow: 0 2px 12px rgba(0,0,0,0.08);
-  }
+:root {
+  --brand: #0d0d0d;
+  --brand2: #1a1a1a;
+  --accent: #c8f55a;
+  --accent2: #a8d43a;
+  --surface: #ffffff;
+  --surface2: #f5f5f3;
+  --surface3: #eeeeeb;
+  --border: #e2e2de;
+  --border2: #d0d0cb;
+  --text: #0d0d0d;
+  --text2: #5a5a5a;
+  --text3: #9a9a9a;
+  --radius: 12px;
+  --radius-lg: 20px;
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Property colours */
+  --p1: #4f8ef7;
+  --p2: #f7714f;
+  --p3: #9b6ff7;
+  --p4: #f7c44f;
 
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--surface2);
-    color: var(--text);
-    min-height: 100vh;
-    padding-bottom: 40px;
-  }
+  /* Department colours */
+  --cleaning: #2ecc71;
+  --maintenance: #e74c3c;
+  --inspections: #3498db;
+  --operations: #f39c12;
+}
 
-  /* Header */
-  .header {
-    background: var(--brand);
-    padding: 20px 20px 24px;
-    position: relative;
-    overflow: hidden;
-  }
-  .header::after {
-    content: '';
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--surface2); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
+
+/* ===== LOGIN PAGE ===== */
+#login-page {
+  min-height: 100vh;
+  display: flex;
+  background: var(--brand);
+  position: relative;
+  overflow: hidden;
+}
+#login-page::before {
+  content: '';
+  position: absolute;
+  top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,245,90,0.08) 0%, transparent 70%);
+}
+#login-page::after {
+  content: '';
+  position: absolute;
+  bottom: -150px; left: -150px;
+  width: 400px; height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,245,90,0.05) 0%, transparent 70%);
+}
+
+.login-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 60px;
+  position: relative;
+  z-index: 1;
+}
+.login-brand {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 48px;
+}
+.login-headline {
+  font-size: clamp(36px, 5vw, 56px);
+  font-weight: 700;
+  color: white;
+  line-height: 1.1;
+  margin-bottom: 16px;
+}
+.login-headline span { color: var(--accent); }
+.login-sub {
+  font-size: 16px;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.6;
+  max-width: 360px;
+}
+.login-props {
+  display: flex;
+  gap: 8px;
+  margin-top: 48px;
+  flex-wrap: wrap;
+}
+.login-prop-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+}
+.prop-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.login-right {
+  width: 460px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  position: relative;
+  z-index: 1;
+}
+.login-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  width: 100%;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.3);
+}
+.login-card-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.login-card-sub {
+  font-size: 14px;
+  color: var(--text2);
+  margin-bottom: 32px;
+}
+.form-group { margin-bottom: 18px; }
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
+.form-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface2);
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.form-input:focus { border-color: var(--accent2); background: white; }
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--brand);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.2s, transform 0.1s;
+  letter-spacing: 0.02em;
+}
+.login-btn:hover { background: #222; }
+.login-btn:active { transform: scale(0.98); }
+.login-btn.loading { background: var(--border); color: var(--text3); cursor: not-allowed; }
+.login-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+  display: none;
+}
+.role-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.role-option {
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.role-option.selected { border-color: var(--brand); background: var(--brand); color: white; }
+.role-option-name { font-size: 13px; font-weight: 500; }
+.role-option-desc { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.role-option.selected .role-option-desc { color: rgba(255,255,255,0.6); }
+
+/* ===== APP SHELL ===== */
+#app { display: none; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: 240px;
+  background: var(--brand);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  transition: transform 0.3s;
+}
+.sidebar-logo {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.sidebar-logo-text {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+}
+.sidebar-logo-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
+.nav-section-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0 12px;
+  margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 2px;
+  color: rgba(255,255,255,0.55);
+  font-size: 14px;
+  font-weight: 400;
+  user-select: none;
+}
+.nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); }
+.nav-item.active { background: var(--accent); color: var(--brand); font-weight: 500; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--maintenance);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+.sidebar-user {
+  padding: 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand);
+  flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 13px; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: rgba(255,255,255,0.35); text-transform: capitalize; }
+.logout-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.3);
+  font-size: 16px; padding: 4px;
+  transition: color 0.15s;
+}
+.logout-btn:hover { color: rgba(255,255,255,0.7); }
+
+/* Main content */
+.main {
+  margin-left: 240px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  background: white;
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0; z-index: 40;
+}
+.topbar-title { font-size: 20px; font-weight: 700; color: var(--text); }
+.topbar-actions { display: flex; gap: 10px; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px;
+  border-radius: 9px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none; transition: all 0.15s;
+}
+.btn-primary { background: var(--brand); color: white; }
+.btn-primary:hover { background: #333; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface3); }
+
+.content { padding: 24px 28px; flex: 1; }
+
+/* ===== VIEWS ===== */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ===== OVERVIEW ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+.stat-label { font-size: 12px; color: var(--text3); margin-bottom: 8px; font-weight: 500; letter-spacing: 0.03em; }
+.stat-value { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; }
+.stat-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+.stat-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.card {
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.card-body { padding: 16px 20px; }
+
+/* Property list */
+.property-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.property-row:last-child { border-bottom: none; }
+.prop-color-bar { width: 4px; height: 36px; border-radius: 2px; flex-shrink: 0; }
+.prop-info { flex: 1; min-width: 0; }
+.prop-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prop-detail { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.prop-status {
+  font-size: 11px; font-weight: 500; padding: 3px 8px;
+  border-radius: 20px;
+}
+.status-available { background: #dcfce7; color: #166534; }
+.status-occupied { background: #dbeafe; color: #1e40af; }
+.status-cleaning { background: #fef9c3; color: #854d0e; }
+.status-maintenance { background: #fee2e2; color: #991b1b; }
+
+/* Activity feed */
+.activity-item {
+  display: flex; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+}
+.activity-content { flex: 1; }
+.activity-text { font-size: 13px; color: var(--text); line-height: 1.4; }
+.activity-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ===== CALENDAR ===== */
+.calendar-controls {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px; flex-wrap: wrap;
+}
+.cal-nav { display: flex; align-items: center; gap: 8px; }
+.cal-nav-btn {
+  width: 34px; height: 34px; border-radius: 8px;
+  border: 1px solid var(--border); background: white;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: background 0.15s;
+}
+.cal-nav-btn:hover { background: var(--surface2); }
+.cal-month-label { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 600; min-width: 160px; }
+.filter-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.filter-pill {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1.5px solid var(--border); background: white; color: var(--text2);
+  transition: all 0.15s;
+}
+.filter-pill.active { border-color: transparent; color: white; }
+.filter-pill[data-filter="all"].active { background: var(--brand); }
+.filter-pill[data-filter="cleaning"].active { background: var(--cleaning); }
+.filter-pill[data-filter="maintenance"].active { background: var(--maintenance); }
+.filter-pill[data-filter="inspections"].active { background: var(--inspections); }
+.filter-pill[data-filter="operations"].active { background: var(--operations); }
+
+.calendar-grid {
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.cal-header-row {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.cal-header-cell {
+  padding: 10px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.cal-body { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-cell {
+  min-height: 100px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 6px;
+  vertical-align: top;
+  position: relative;
+}
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-date {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  margin-bottom: 4px;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+}
+.cal-cell.today .cal-date {
+  background: var(--brand);
+  color: white;
+}
+.cal-cell.other-month .cal-date { color: var(--text3); }
+.cal-event {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.cal-event:hover { opacity: 0.8; }
+.cal-event.cleaning { background: rgba(46,204,113,0.15); color: #166534; }
+.cal-event.maintenance { background: rgba(231,76,60,0.12); color: #991b1b; }
+.cal-event.inspections { background: rgba(52,152,219,0.15); color: #1e40af; }
+.cal-event.operations { background: rgba(243,156,18,0.15); color: #854d0e; }
+
+/* Property legend */
+.prop-legend {
+  display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text2);
+}
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* ===== DEPARTMENT VIEWS ===== */
+.dept-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.dept-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.dept-title { font-size: 22px; font-weight: 700; }
+.dept-sub { font-size: 13px; color: var(--text2); }
+
+.jobs-table {
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.table-header {
+  display: grid;
+  padding: 10px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.table-row {
+  display: grid;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.table-row:last-child { border-bottom: none; }
+.table-row:hover { background: var(--surface2); }
+.grid-cleaning { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
+.grid-maintenance { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
+.grid-inspections { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
+.grid-operations { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500; padding: 3px 9px;
+  border-radius: 20px;
+}
+.badge-pending { background: #fef9c3; color: #854d0e; }
+.badge-inprogress { background: #dbeafe; color: #1e40af; }
+.badge-complete { background: #dcfce7; color: #166534; }
+.badge-open { background: #fee2e2; color: #991b1b; }
+.badge-resolved { background: #dcfce7; color: #166534; }
+.badge-scheduled { background: #ede9fe; color: #5b21b6; }
+
+.prop-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--text2);
+}
+.prop-tag-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 100;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: white; border-radius: var(--radius-lg);
+  width: 100%; max-width: 520px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+}
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-title { font-size: 18px; font-weight: 700; }
+.modal-close {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: none; background: var(--surface2); cursor: pointer;
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+}
+.modal-body { padding: 20px 24px; }
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-select {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; color: var(--text);
+  background: var(--surface2); outline: none;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.form-select:focus { border-color: var(--accent2); background: white; }
+.form-textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; color: var(--text);
+  background: var(--surface2); outline: none;
+  resize: vertical; min-height: 80px;
+  transition: border-color 0.15s;
+}
+.form-textarea:focus { border-color: var(--accent2); background: white; }
+
+/* Mobile toggle */
+.mobile-menu-btn {
+  display: none;
+  position: fixed; bottom: 20px; right: 20px;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--brand); color: white;
+  border: none; font-size: 20px; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 60;
+  align-items: center; justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .login-left { display: none; }
+  .login-right { width: 100%; padding: 24px; }
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .mobile-menu-btn { display: flex; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .two-col { grid-template-columns: 1fr; }
+  .content { padding: 16px; }
+  .topbar { padding: 12px 16px; }
+  .cal-cell { min-height: 60px; }
+  .cal-event { display: none; }
+  .cal-cell.has-events::after {
+    content: '●';
+    font-size: 8px;
+    color: var(--brand);
     position: absolute;
-    bottom: -20px; left: 0; right: 0;
-    height: 40px;
-    background: var(--surface2);
-    border-radius: 40px 40px 0 0;
+    bottom: 4px; right: 4px;
   }
-  .header-logo {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--accent);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-  }
-  .header-property {
-    font-size: 22px;
-    font-weight: 600;
-    color: #ffffff;
-    margin-bottom: 4px;
-    line-height: 1.2;
-  }
-  .header-address {
-    font-size: 13px;
-    color: rgba(255,255,255,0.5);
-    margin-bottom: 16px;
-  }
-  .header-meta {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .meta-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 20px;
-    padding: 5px 10px;
-    font-size: 12px;
-    color: rgba(255,255,255,0.85);
-  }
-  .meta-pill svg { opacity: 0.7; }
-
-  /* Status bar */
-  .status-bar {
-    margin: 28px 16px 0;
-    background: var(--surface);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: var(--shadow);
-    border: 1px solid var(--border);
-  }
-  .status-label { font-size: 12px; color: var(--text2); }
-  .status-value {
-    font-size: 13px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 20px;
-  }
-  .status-pending { background: var(--accent-dim); color: #a07c00; }
-  .status-complete { background: var(--success-dim); color: #1a8a4a; }
-
-  /* Section */
-  .section {
-    margin: 16px 16px 0;
-  }
-  .section-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text3);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-    padding-left: 2px;
-  }
-
-  /* Checklist */
-  .checklist-item {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    margin-bottom: 8px;
-    overflow: hidden;
-    transition: box-shadow 0.2s;
-  }
-  .checklist-item.completed {
-    border-color: var(--success);
-    background: var(--success-dim);
-  }
-  .checklist-header {
-    display: flex;
-    align-items: center;
-    padding: 14px 16px;
-    gap: 12px;
-    cursor: pointer;
-    user-select: none;
-  }
-  .checklist-icon {
-    width: 38px; height: 38px;
-    border-radius: 10px;
-    background: var(--surface2);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
-    flex-shrink: 0;
-    transition: background 0.2s;
-  }
-  .completed .checklist-icon { background: var(--success-dim); }
-  .checklist-info { flex: 1; }
-  .checklist-name {
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--text);
-    margin-bottom: 2px;
-  }
-  .checklist-sub { font-size: 12px; color: var(--text2); }
-  .checklist-check {
-    width: 26px; height: 26px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    transition: all 0.2s;
-    background: var(--surface);
-  }
-  .completed .checklist-check {
-    background: var(--success);
-    border-color: var(--success);
-  }
-  .check-svg { display: none; }
-  .completed .check-svg { display: block; }
-
-  /* Expand panel */
-  .checklist-body {
-    display: none;
-    padding: 0 16px 16px;
-    border-top: 1px solid var(--border);
-  }
-  .checklist-body.open { display: block; }
-  .completed .checklist-body { border-top-color: rgba(46,204,113,0.2); }
-
-  .tasks-list { margin: 12px 0; }
-  .task-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-  }
-  .task-row:last-child { border-bottom: none; }
-  .task-cb {
-    width: 20px; height: 20px;
-    border-radius: 5px;
-    border: 1.5px solid var(--border);
-    background: var(--surface);
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    transition: all 0.15s;
-  }
-  .task-cb.ticked { background: var(--success); border-color: var(--success); }
-  .task-label { font-size: 13px; color: var(--text); flex: 1; }
-  .task-label.done { text-decoration: line-through; color: var(--text3); }
-
-  /* Photo upload */
-  .photo-upload {
-    margin-top: 12px;
-  }
-  .photo-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text2);
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .photo-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-bottom: 8px;
-  }
-  .photo-thumb {
-    aspect-ratio: 1;
-    border-radius: 8px;
-    object-fit: cover;
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-  }
-  .photo-add {
-    aspect-ratio: 1;
-    border-radius: 8px;
-    border: 1.5px dashed var(--border);
-    background: var(--surface2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-  .photo-add:active { background: var(--accent-dim); border-color: var(--accent); }
-  .photo-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .photo-add-icon { font-size: 22px; color: var(--text3); pointer-events: none; }
-  .photo-count { font-size: 11px; color: var(--text3); margin-top: 4px; }
-
-  .done-btn {
-    width: 100%;
-    margin-top: 12px;
-    padding: 12px;
-    border-radius: 10px;
-    border: none;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    background: var(--brand);
-    color: white;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
-  .done-btn:active { opacity: 0.8; }
-  .done-btn.marked { background: var(--success); }
-
-  /* Maintenance */
-  .maintenance-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-  }
-  .maint-title {
-    font-size: 15px;
-    font-weight: 500;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .maint-sub { font-size: 13px; color: var(--text2); margin-bottom: 14px; }
-  .maint-input {
-    width: 100%;
-    border: 1.5px solid var(--border);
-    border-radius: 10px;
-    padding: 11px 13px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    color: var(--text);
-    background: var(--surface2);
-    resize: none;
-    outline: none;
-    transition: border-color 0.15s;
-    margin-bottom: 10px;
-  }
-  .maint-input:focus { border-color: var(--warning); background: var(--surface); }
-  .maint-photo-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: 1.5px dashed var(--border);
-    background: var(--surface2);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    color: var(--text2);
-    cursor: pointer;
-    width: 100%;
-    position: relative;
-    margin-bottom: 10px;
-  }
-  .maint-photo-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .maint-submit {
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    border: none;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    background: var(--danger);
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-  }
-  .maint-submit:active { opacity: 0.8; }
-
-  /* Submit job */
-  .submit-section {
-    margin: 20px 16px 0;
-  }
-  .progress-bar {
-    background: var(--border);
-    border-radius: 10px;
-    height: 6px;
-    margin-bottom: 8px;
-    overflow: hidden;
-  }
-  .progress-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 10px;
-    transition: width 0.4s ease;
-  }
-  .progress-label {
-    font-size: 12px;
-    color: var(--text2);
-    margin-bottom: 14px;
-    text-align: center;
-  }
-  .submit-btn {
-    width: 100%;
-    padding: 16px;
-    border-radius: var(--radius);
-    border: none;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 16px;
-    font-weight: 600;
-    background: var(--brand);
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .submit-btn:disabled {
-    background: var(--border);
-    color: var(--text3);
-    cursor: not-allowed;
-  }
-  .submit-btn.ready { background: var(--success); }
-  .submit-btn:not(:disabled):active { opacity: 0.85; transform: scale(0.98); }
-
-  /* Success overlay */
-  .success-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: var(--brand);
-    z-index: 100;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    text-align: center;
-  }
-  .success-overlay.show { display: flex; }
-  .success-icon { font-size: 64px; margin-bottom: 24px; }
-  .success-title { font-size: 26px; font-weight: 600; color: white; margin-bottom: 8px; }
-  .success-sub { font-size: 15px; color: rgba(255,255,255,0.5); margin-bottom: 32px; line-height: 1.5; }
-  .success-time {
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    color: var(--accent);
-    background: rgba(232,197,71,0.1);
-    padding: 8px 16px;
-    border-radius: 20px;
-  }
+  .table-header, .table-row { grid-template-columns: 1fr 1fr 80px !important; }
+  .table-row > *:nth-child(3),
+  .table-row > *:nth-child(4) { display: none; }
+}
 </style>
 </head>
 <body>
 
-<!-- Header -->
-<div class="header">
-  <div class="header-logo">Vaun Holidays · Job Sheet</div>
-  <div class="header-property" id="prop-name">Unit 12, The Waves</div>
-  <div class="header-address" id="prop-address">42 Surfers Paradise Blvd, Surfers Paradise QLD 4217</div>
-  <div class="header-meta">
-    <div class="meta-pill">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <span id="job-date">Sat 14 June 2026</span>
+<!-- LOGIN PAGE -->
+<div id="login-page">
+  <div class="login-left">
+    <div class="login-brand">Vaun Holidays · PMS</div>
+    <h1 class="login-headline">Property<br>Management<br><span>Platform</span></h1>
+    <p class="login-sub">Internal operations system for cleaning, maintenance, inspections and operations across all properties.</p>
+    <div class="login-props">
+      <div class="login-prop-tag"><div class="prop-dot" style="background:var(--p1)"></div>9 Ferny Avenue</div>
+      <div class="login-prop-tag"><div class="prop-dot" style="background:var(--p2)"></div>Property 2</div>
+      <div class="login-prop-tag"><div class="prop-dot" style="background:var(--p3)"></div>Property 3</div>
+      <div class="login-prop-tag"><div class="prop-dot" style="background:var(--p4)"></div>Property 4</div>
     </div>
-    <div class="meta-pill">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <span id="job-window">10:00am — 2:00pm</span>
-    </div>
-    <div class="meta-pill">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span id="job-cleaner">Maria S.</span>
+  </div>
+  <div class="login-right">
+    <div class="login-card">
+      <h2 class="login-card-title">Welcome back</h2>
+      <p class="login-card-sub">Sign in to your account</p>
+      <div class="form-group">
+        <label class="form-label">Email address</label>
+        <input type="email" class="form-input" id="login-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-input" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="login-btn" id="login-submit" onclick="handleLogin()">Sign in</button>
+      <div class="login-error" id="login-error"></div>
+      <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+        <p style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Don't have an account?</p>
+        <button class="login-btn" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);" onclick="showSignup()">Create account</button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Status -->
-<div class="status-bar">
-  <span class="status-label">Job status</span>
-  <span class="status-value status-pending" id="status-badge">In progress</span>
-</div>
-
-<!-- Checklist -->
-<div class="section">
-  <div class="section-title">Room checklist</div>
-
-  <!-- Bedroom 1 -->
-  <div class="checklist-item" id="room-0">
-    <div class="checklist-header" onclick="toggleRoom(0)">
-      <div class="checklist-icon">🛏️</div>
-      <div class="checklist-info">
-        <div class="checklist-name">Bedroom 1</div>
-        <div class="checklist-sub" id="room-0-sub">0 of 5 tasks · 0 photos</div>
-      </div>
-      <div class="checklist-check">
-        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
+<!-- SIGNUP MODAL -->
+<div class="modal-overlay" id="signup-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Create account</h3>
+      <button class="modal-close" onclick="closeSignup()">✕</button>
     </div>
-    <div class="checklist-body" id="room-0-body">
-      <div class="tasks-list" id="tasks-0"></div>
-      <div class="photo-upload">
-        <div class="photo-label">📸 Photos</div>
-        <div class="photo-grid" id="photos-0"></div>
-        <div class="photo-count" id="photo-count-0">No photos yet</div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Full name</label>
+        <input type="text" class="form-input" id="signup-name" placeholder="Juan Crown">
       </div>
-      <button class="done-btn" id="done-0" onclick="markRoomDone(0)">Mark bedroom done</button>
+      <div class="form-group">
+        <label class="form-label">Email address</label>
+        <input type="email" class="form-input" id="signup-email" placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-input" id="signup-password" placeholder="Min. 8 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <div class="role-selector">
+          <div class="role-option selected" onclick="selectRole(this,'admin')">
+            <div class="role-option-name">Admin</div>
+            <div class="role-option-desc">Full access</div>
+          </div>
+          <div class="role-option" onclick="selectRole(this,'manager')">
+            <div class="role-option-name">Manager</div>
+            <div class="role-option-desc">View + manage</div>
+          </div>
+          <div class="role-option" onclick="selectRole(this,'cleaner')">
+            <div class="role-option-name">Cleaner</div>
+            <div class="role-option-desc">Jobs only</div>
+          </div>
+          <div class="role-option" onclick="selectRole(this,'staff')">
+            <div class="role-option-name">Staff</div>
+            <div class="role-option-desc">Assigned tasks</div>
+          </div>
+        </div>
+        <input type="hidden" id="signup-role" value="admin">
+      </div>
+      <div class="login-error" id="signup-error"></div>
     </div>
-  </div>
-
-  <!-- Bedroom 2 -->
-  <div class="checklist-item" id="room-1">
-    <div class="checklist-header" onclick="toggleRoom(1)">
-      <div class="checklist-icon">🛏️</div>
-      <div class="checklist-info">
-        <div class="checklist-name">Bedroom 2</div>
-        <div class="checklist-sub" id="room-1-sub">0 of 4 tasks · 0 photos</div>
-      </div>
-      <div class="checklist-check">
-        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-    </div>
-    <div class="checklist-body" id="room-1-body">
-      <div class="tasks-list" id="tasks-1"></div>
-      <div class="photo-upload">
-        <div class="photo-label">📸 Photos</div>
-        <div class="photo-grid" id="photos-1"></div>
-        <div class="photo-count" id="photo-count-1">No photos yet</div>
-      </div>
-      <button class="done-btn" id="done-1" onclick="markRoomDone(1)">Mark bedroom done</button>
-    </div>
-  </div>
-
-  <!-- Bathroom -->
-  <div class="checklist-item" id="room-2">
-    <div class="checklist-header" onclick="toggleRoom(2)">
-      <div class="checklist-icon">🚿</div>
-      <div class="checklist-info">
-        <div class="checklist-name">Bathroom</div>
-        <div class="checklist-sub" id="room-2-sub">0 of 5 tasks · 0 photos</div>
-      </div>
-      <div class="checklist-check">
-        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-    </div>
-    <div class="checklist-body" id="room-2-body">
-      <div class="tasks-list" id="tasks-2"></div>
-      <div class="photo-upload">
-        <div class="photo-label">📸 Photos</div>
-        <div class="photo-grid" id="photos-2"></div>
-        <div class="photo-count" id="photo-count-2">No photos yet</div>
-      </div>
-      <button class="done-btn" id="done-2" onclick="markRoomDone(2)">Mark bathroom done</button>
-    </div>
-  </div>
-
-  <!-- Kitchen -->
-  <div class="checklist-item" id="room-3">
-    <div class="checklist-header" onclick="toggleRoom(3)">
-      <div class="checklist-icon">🍳</div>
-      <div class="checklist-info">
-        <div class="checklist-name">Kitchen</div>
-        <div class="checklist-sub" id="room-3-sub">0 of 6 tasks · 0 photos</div>
-      </div>
-      <div class="checklist-check">
-        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-    </div>
-    <div class="checklist-body" id="room-3-body">
-      <div class="tasks-list" id="tasks-3"></div>
-      <div class="photo-upload">
-        <div class="photo-label">📸 Photos</div>
-        <div class="photo-grid" id="photos-3"></div>
-        <div class="photo-count" id="photo-count-3">No photos yet</div>
-      </div>
-      <button class="done-btn" id="done-3" onclick="markRoomDone(3)">Mark kitchen done</button>
-    </div>
-  </div>
-
-  <!-- Living Area -->
-  <div class="checklist-item" id="room-4">
-    <div class="checklist-header" onclick="toggleRoom(4)">
-      <div class="checklist-icon">🛋️</div>
-      <div class="checklist-info">
-        <div class="checklist-name">Living Area</div>
-        <div class="checklist-sub" id="room-4-sub">0 of 4 tasks · 0 photos</div>
-      </div>
-      <div class="checklist-check">
-        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-    </div>
-    <div class="checklist-body" id="room-4-body">
-      <div class="tasks-list" id="tasks-4"></div>
-      <div class="photo-upload">
-        <div class="photo-label">📸 Photos</div>
-        <div class="photo-grid" id="photos-4"></div>
-        <div class="photo-count" id="photo-count-4">No photos yet</div>
-      </div>
-      <button class="done-btn" id="done-4" onclick="markRoomDone(4)">Mark living area done</button>
-    </div>
-  </div>
-
-  <!-- Entry & Outdoor -->
-  <div class="checklist-item" id="room-5">
-    <div class="checklist-header" onclick="toggleRoom(5)">
-      <div class="checklist-icon">🚪</div>
-      <div class="checklist-info">
-        <div class="checklist-name">Entry & Outdoor</div>
-        <div class="checklist-sub" id="room-5-sub">0 of 3 tasks · 0 photos</div>
-      </div>
-      <div class="checklist-check">
-        <svg class="check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-    </div>
-    <div class="checklist-body" id="room-5-body">
-      <div class="tasks-list" id="tasks-5"></div>
-      <div class="photo-upload">
-        <div class="photo-label">📸 Photos</div>
-        <div class="photo-grid" id="photos-5"></div>
-        <div class="photo-count" id="photo-count-5">No photos yet</div>
-      </div>
-      <button class="done-btn" id="done-5" onclick="markRoomDone(5)">Mark entry done</button>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSignup()">Cancel</button>
+      <button class="btn btn-primary" onclick="handleSignup()">Create account</button>
     </div>
   </div>
 </div>
 
-<!-- Maintenance -->
-<div class="section" style="margin-top:20px;">
-  <div class="section-title">Report a maintenance issue</div>
-  <div class="maintenance-card">
-    <div class="maint-title">⚠️ Found something wrong?</div>
-    <div class="maint-sub">Report any damage, broken items, or issues found during the clean.</div>
-    <textarea class="maint-input" rows="3" placeholder="Describe the issue — e.g. 'Shower head leaking in main bathroom'" id="maint-text"></textarea>
-    <label class="maint-photo-btn">
-      <span>📷</span> Attach photo
-      <input type="file" accept="image/*" capture="environment" onchange="maintPhotoAdded(this)">
-    </label>
-    <div id="maint-photo-label" style="font-size:12px;color:var(--text3);margin-bottom:10px;display:none;"></div>
-    <button class="maint-submit" onclick="submitMaintenance()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      Submit issue
-    </button>
+<!-- APP -->
+<div id="app">
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-text">Vaun Holidays</div>
+      <div class="sidebar-logo-sub">Property Management</div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <div class="nav-item active" onclick="showView('overview',this)">
+        <span class="nav-icon">⬡</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="showView('calendar',this)">
+        <span class="nav-icon">📅</span> Calendar
+      </div>
+
+      <div class="nav-section-label">Departments</div>
+      <div class="nav-item" onclick="showView('cleaning',this)">
+        <span class="nav-icon">🧹</span> Cleaning
+      </div>
+      <div class="nav-item" onclick="showView('maintenance',this)">
+        <span class="nav-icon">🔧</span> Maintenance
+        <span class="nav-badge" id="maint-badge">2</span>
+      </div>
+      <div class="nav-item" onclick="showView('inspections',this)">
+        <span class="nav-icon">🔍</span> Inspections
+      </div>
+      <div class="nav-item" onclick="showView('operations',this)">
+        <span class="nav-icon">📋</span> Operations
+      </div>
+
+      <div class="nav-section-label">Properties</div>
+      <div class="nav-item" onclick="showView('properties',this)">
+        <span class="nav-icon">🏢</span> All Properties
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">J</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">Loading...</div>
+        <div class="user-role" id="user-role">admin</div>
+      </div>
+      <button class="logout-btn" onclick="handleLogout()" title="Sign out">⏻</button>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" onclick="openNewJobModal()">+ New Job</button>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <div class="view active" id="view-overview">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Active Properties</div>
+            <div class="stat-value">1</div>
+            <div class="stat-sub">of 4 onboarded</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Jobs This Week</div>
+            <div class="stat-value" id="stat-jobs">0</div>
+            <div class="stat-sub">across all properties</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Open Maintenance</div>
+            <div class="stat-value" id="stat-maint" style="color:var(--maintenance)">0</div>
+            <div class="stat-sub">issues requiring attention</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Next Clean</div>
+            <div class="stat-value" style="font-size:18px;" id="stat-next">—</div>
+            <div class="stat-sub" id="stat-next-prop">No jobs scheduled</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Properties</span>
+            </div>
+            <div class="card-body">
+              <div class="property-row">
+                <div class="prop-color-bar" style="background:var(--p1)"></div>
+                <div class="prop-info">
+                  <div class="prop-name">2534/9 Ferny Avenue</div>
+                  <div class="prop-detail">Surfers Paradise · 4 bed · 2.5 bath · 2 car</div>
+                </div>
+                <span class="prop-status status-available">Active</span>
+              </div>
+              <div class="property-row">
+                <div class="prop-color-bar" style="background:var(--p2)"></div>
+                <div class="prop-info">
+                  <div class="prop-name">Property 2</div>
+                  <div class="prop-detail">Surfers Paradise · TBC</div>
+                </div>
+                <span class="prop-status status-maintenance">Pending</span>
+              </div>
+              <div class="property-row">
+                <div class="prop-color-bar" style="background:var(--p3)"></div>
+                <div class="prop-info">
+                  <div class="prop-name">Property 3</div>
+                  <div class="prop-detail">Surfers Paradise · TBC</div>
+                </div>
+                <span class="prop-status status-maintenance">Pending</span>
+              </div>
+              <div class="property-row">
+                <div class="prop-color-bar" style="background:var(--p4)"></div>
+                <div class="prop-info">
+                  <div class="prop-name">Property 4</div>
+                  <div class="prop-detail">Surfers Paradise · TBC</div>
+                </div>
+                <span class="prop-status status-maintenance">Pending</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Recent Activity</span>
+            </div>
+            <div class="card-body" id="activity-feed">
+              <div class="activity-item">
+                <div class="activity-icon" style="background:#dcfce7">🧹</div>
+                <div class="activity-content">
+                  <div class="activity-text">Platform launched — Vaun Holidays PMS is live</div>
+                  <div class="activity-time">Just now</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-icon" style="background:#dbeafe">🏢</div>
+                <div class="activity-content">
+                  <div class="activity-text">2534/9 Ferny Avenue added to portfolio</div>
+                  <div class="activity-time">Today</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDAR -->
+      <div class="view" id="view-calendar">
+        <div class="calendar-controls">
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+            <span class="cal-month-label" id="cal-month-label"></span>
+            <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+          </div>
+          <div class="filter-pills">
+            <div class="filter-pill active" data-filter="all" onclick="setFilter('all',this)">All</div>
+            <div class="filter-pill" data-filter="cleaning" onclick="setFilter('cleaning',this)">🧹 Cleaning</div>
+            <div class="filter-pill" data-filter="maintenance" onclick="setFilter('maintenance',this)">🔧 Maintenance</div>
+            <div class="filter-pill" data-filter="inspections" onclick="setFilter('inspections',this)">🔍 Inspections</div>
+            <div class="filter-pill" data-filter="operations" onclick="setFilter('operations',this)">📋 Operations</div>
+          </div>
+        </div>
+        <div class="prop-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--p1)"></div>Ferny Ave</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--p2)"></div>Property 2</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--p3)"></div>Property 3</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--p4)"></div>Property 4</div>
+        </div>
+        <div class="calendar-grid">
+          <div class="cal-header-row">
+            <div class="cal-header-cell">Mon</div>
+            <div class="cal-header-cell">Tue</div>
+            <div class="cal-header-cell">Wed</div>
+            <div class="cal-header-cell">Thu</div>
+            <div class="cal-header-cell">Fri</div>
+            <div class="cal-header-cell">Sat</div>
+            <div class="cal-header-cell">Sun</div>
+          </div>
+          <div class="cal-body" id="cal-body"></div>
+        </div>
+      </div>
+
+      <!-- CLEANING -->
+      <div class="view" id="view-cleaning">
+        <div class="dept-header">
+          <div class="dept-icon" style="background:#dcfce7">🧹</div>
+          <div>
+            <div class="dept-title">Cleaning</div>
+            <div class="dept-sub">Turnover jobs, checklists, and completion reports</div>
+          </div>
+        </div>
+        <div class="jobs-table">
+          <div class="table-header grid-cleaning">
+            <span>Property</span><span>Assigned to</span><span>Date</span><span>Window</span><span>Status</span>
+          </div>
+          <div id="cleaning-jobs">
+            <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
+              No cleaning jobs yet. Click "+ New Job" to create one.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAINTENANCE -->
+      <div class="view" id="view-maintenance">
+        <div class="dept-header">
+          <div class="dept-icon" style="background:#fee2e2">🔧</div>
+          <div>
+            <div class="dept-title">Maintenance</div>
+            <div class="dept-sub">Issues, repairs, and property condition tracking</div>
+          </div>
+        </div>
+        <div class="jobs-table">
+          <div class="table-header grid-maintenance">
+            <span>Issue</span><span>Property</span><span>Reported</span><span>Assigned</span><span>Status</span>
+          </div>
+          <div id="maintenance-jobs">
+            <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
+              No maintenance issues. Issues reported by cleaners will appear here.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSPECTIONS -->
+      <div class="view" id="view-inspections">
+        <div class="dept-header">
+          <div class="dept-icon" style="background:#dbeafe">🔍</div>
+          <div>
+            <div class="dept-title">Inspections</div>
+            <div class="dept-sub">Pre and post-stay property condition reports</div>
+          </div>
+        </div>
+        <div class="jobs-table">
+          <div class="table-header grid-inspections">
+            <span>Property</span><span>Inspector</span><span>Date</span><span>Type</span><span>Status</span>
+          </div>
+          <div id="inspection-jobs">
+            <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
+              No inspections scheduled. Click "+ New Job" to schedule one.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPERATIONS -->
+      <div class="view" id="view-operations">
+        <div class="dept-header">
+          <div class="dept-icon" style="background:#fef9c3">📋</div>
+          <div>
+            <div class="dept-title">Operations</div>
+            <div class="dept-sub">General tasks, consumables, and property admin</div>
+          </div>
+        </div>
+        <div class="jobs-table">
+          <div class="table-header grid-operations">
+            <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span>
+          </div>
+          <div id="operations-jobs">
+            <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
+              No operations tasks. Click "+ New Job" to add one.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROPERTIES -->
+      <div class="view" id="view-properties">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+          <div class="card">
+            <div style="height:6px;background:var(--p1)"></div>
+            <div class="card-body">
+              <div style="font-size:16px;font-weight:600;margin-bottom:4px;">2534/9 Ferny Avenue</div>
+              <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Surfers Paradise QLD 4217</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;">
+                  <div style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;">4</div>
+                  <div style="font-size:11px;color:var(--text3);">Bedrooms</div>
+                </div>
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;">
+                  <div style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;">2.5</div>
+                  <div style="font-size:11px;color:var(--text3);">Bathrooms</div>
+                </div>
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;">
+                  <div style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;">2</div>
+                  <div style="font-size:11px;color:var(--text3);">Car Parks</div>
+                </div>
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;">
+                  <div style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;">25</div>
+                  <div style="font-size:11px;color:var(--text3);">Floor</div>
+                </div>
+              </div>
+              <div style="font-size:12px;color:var(--text2);">🛁 Master ensuite + main bathroom + separate toilet</div>
+            </div>
+          </div>
+          <div class="card" style="opacity:0.5;">
+            <div style="height:6px;background:var(--p2)"></div>
+            <div class="card-body">
+              <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Property 2</div>
+              <div style="font-size:12px;color:var(--text3);">Details TBC — onboarding 1 July 2026</div>
+            </div>
+          </div>
+          <div class="card" style="opacity:0.5;">
+            <div style="height:6px;background:var(--p3)"></div>
+            <div class="card-body">
+              <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Property 3</div>
+              <div style="font-size:12px;color:var(--text3);">Details TBC — onboarding 1 July 2026</div>
+            </div>
+          </div>
+          <div class="card" style="opacity:0.5;">
+            <div style="height:6px;background:var(--p4)"></div>
+            <div class="card-body">
+              <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Property 4</div>
+              <div style="font-size:12px;color:var(--text3);">Details TBC — onboarding 1 July 2026</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
+
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
 </div>
 
-<!-- Submit Job -->
-<div class="submit-section">
-  <div class="progress-bar">
-    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+<!-- NEW JOB MODAL -->
+<div class="modal-overlay" id="new-job-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">New Job</h3>
+      <button class="modal-close" onclick="closeNewJobModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Department</label>
+        <select class="form-select" id="job-dept" onchange="updateJobForm()">
+          <option value="cleaning">🧹 Cleaning</option>
+          <option value="maintenance">🔧 Maintenance</option>
+          <option value="inspections">🔍 Inspections</option>
+          <option value="operations">📋 Operations</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Property</label>
+        <select class="form-select" id="job-property">
+          <option value="ferny">2534/9 Ferny Avenue</option>
+          <option value="p2">Property 2</option>
+          <option value="p3">Property 3</option>
+          <option value="p4">Property 4</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-input" id="job-date">
+        </div>
+        <div class="form-group" id="job-time-group">
+          <label class="form-label">Time window</label>
+          <select class="form-select" id="job-time">
+            <option>10:00am — 12:00pm</option>
+            <option>10:00am — 2:00pm</option>
+            <option>11:00am — 3:00pm</option>
+            <option>12:00pm — 4:00pm</option>
+            <option>Custom</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" id="job-assign-label">Assigned to</label>
+        <input type="text" class="form-input" id="job-assign" placeholder="Cleaner name or staff member">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="job-notes" placeholder="Any special instructions or context..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeNewJobModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveJob()">Create job</button>
+    </div>
   </div>
-  <div class="progress-label" id="progress-label">0 of 6 rooms completed</div>
-  <button class="submit-btn" id="submit-btn" disabled onclick="submitJob()">
-    Complete & submit job
-  </button>
-</div>
-
-<!-- Success overlay -->
-<div class="success-overlay" id="success-overlay">
-  <div class="success-icon">✅</div>
-  <div class="success-title">Job complete!</div>
-  <div class="success-sub">Your checklist and photos have been submitted.<br>The property manager has been notified.</div>
-  <div class="success-time" id="success-time"></div>
 </div>
 
 <script>
-const rooms = [
-  { name: 'Bedroom 1', tasks: ['Strip and replace all bed linen', 'Fluff and stage pillows', 'Vacuum floor and under bed', 'Wipe all surfaces and bedside tables', 'Check wardrobe — hangers straight, no guest items left'] },
-  { name: 'Bedroom 2', tasks: ['Strip and replace all bed linen', 'Fluff and stage pillows', 'Vacuum floor', 'Wipe surfaces and check wardrobe'] },
-  { name: 'Bathroom', tasks: ['Scrub toilet, sink, and shower/bath', 'Replace towels and toiletries', 'Clean mirror', 'Mop floor', 'Check and restock toilet paper'] },
-  { name: 'Kitchen', tasks: ['Clean all benchtops and splashback', 'Wipe stovetop and oven exterior', 'Check inside microwave', 'Wash and dry any remaining dishes', 'Restock tea, coffee, sugar', 'Empty and reline bin'] },
-  { name: 'Living Area', tasks: ['Vacuum sofa and rugs', 'Wipe TV remote, light switches, door handles', 'Straighten cushions and throws', 'Vacuum / mop floor'] },
-  { name: 'Entry & Outdoor', tasks: ['Sweep or mop entry floor', 'Wipe front door handle and intercom', 'Check balcony — sweep and stage furniture'] }
-];
+const SUPABASE_URL = 'https://xgdvmanykllnaxtbygny.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhnZHZtYW55a2xsbmF4dGJ5Z255Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwNTM1MDAsImV4cCI6MjA5NDYyOTUwMH0.5GvnW1YZIH4lTXBu_ynndSkyjJWAYX-UvpxSF1rcjIA';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const state = {
-  tasks: rooms.map(r => new Array(r.tasks.length).fill(false)),
-  photos: rooms.map(() => []),
-  roomDone: new Array(rooms.length).fill(false)
-};
+// State
+let currentUser = null;
+let jobs = [];
+let calYear, calMonth, activeFilter = 'all';
 
-// Init task lists
-rooms.forEach((room, ri) => {
-  const container = document.getElementById('tasks-' + ri);
-  room.tasks.forEach((task, ti) => {
-    const row = document.createElement('div');
-    row.className = 'task-row';
-    row.innerHTML = `
-      <div class="task-cb" id="cb-${ri}-${ti}"></div>
-      <div class="task-label" id="tl-${ri}-${ti}">${task}</div>
-    `;
-    row.onclick = () => toggleTask(ri, ti);
-    container.appendChild(row);
-  });
+const propColors = { ferny: '#4f8ef7', p2: '#f7714f', p3: '#9b6ff7', p4: '#f7c44f' };
+const propNames = { ferny: 'Ferny Ave', p2: 'Property 2', p3: 'Property 3', p4: 'Property 4' };
 
-  // Add photo input
-  const grid = document.getElementById('photos-' + ri);
-  const addBtn = document.createElement('label');
-  addBtn.className = 'photo-add';
-  addBtn.innerHTML = `<input type="file" accept="image/*" capture="environment" multiple><div class="photo-add-icon">+</div>`;
-  addBtn.querySelector('input').addEventListener('change', (e) => addPhotos(ri, e));
-  grid.appendChild(addBtn);
+// ===== AUTH =====
+async function handleLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-submit');
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+  btn.textContent = 'Signing in...'; btn.classList.add('loading');
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.textContent = 'Sign in'; btn.classList.remove('loading');
+  if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
+  loadApp(data.user);
+}
+
+async function handleSignup() {
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pass = document.getElementById('signup-password').value;
+  const role = document.getElementById('signup-role').value;
+  const err = document.getElementById('signup-error');
+  err.style.display = 'none';
+  if (!name || !email || !pass) { err.textContent = 'Please fill in all fields.'; err.style.display = 'block'; return; }
+  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name, role } } });
+  if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
+  closeSignup();
+  document.getElementById('login-email').value = email;
+  alert('Account created! Please check your email to confirm, then sign in.');
+}
+
+async function handleLogout() {
+  await sb.auth.signOut();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-page').style.display = 'flex';
+  currentUser = null;
+}
+
+function loadApp(user) {
+  currentUser = user;
+  const meta = user.user_metadata || {};
+  const name = meta.full_name || user.email.split('@')[0];
+  const role = meta.role || 'admin';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-role').textContent = role;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  initCalendar();
+  loadJobs();
+}
+
+// Check session on load
+sb.auth.getSession().then(({ data }) => {
+  if (data.session) loadApp(data.session.user);
 });
 
-function toggleTask(ri, ti) {
-  state.tasks[ri][ti] = !state.tasks[ri][ti];
-  const cb = document.getElementById('cb-' + ri + '-' + ti);
-  const lbl = document.getElementById('tl-' + ri + '-' + ti);
-  cb.classList.toggle('ticked', state.tasks[ri][ti]);
-  lbl.classList.toggle('done', state.tasks[ri][ti]);
-  updateRoomSub(ri);
+// Keyboard enter on login
+document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+
+// ===== VIEWS =====
+function showView(name, el) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  el.classList.add('active');
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', properties: 'Properties' };
+  document.getElementById('topbar-title').textContent = titles[name] || name;
+  if (name === 'calendar') renderCalendar();
+  if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
 }
 
-function addPhotos(ri, e) {
-  const files = Array.from(e.target.files);
-  files.forEach(file => {
-    const url = URL.createObjectURL(file);
-    state.photos[ri].push(url);
-    const grid = document.getElementById('photos-' + ri);
-    const img = document.createElement('img');
-    img.className = 'photo-thumb';
-    img.src = url;
-    grid.insertBefore(img, grid.lastElementChild);
-  });
-  updateRoomSub(ri);
-  const countEl = document.getElementById('photo-count-' + ri);
-  const n = state.photos[ri].length;
-  countEl.textContent = n === 1 ? '1 photo added' : n + ' photos added';
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
 }
 
-function updateRoomSub(ri) {
-  const done = state.tasks[ri].filter(Boolean).length;
-  const total = state.tasks[ri].length;
-  const photos = state.photos[ri].length;
-  document.getElementById('room-' + ri + '-sub').textContent =
-    `${done} of ${total} tasks · ${photos} photo${photos !== 1 ? 's' : ''}`;
+// ===== SIGNUP MODAL =====
+function showSignup() { document.getElementById('signup-modal').classList.add('open'); }
+function closeSignup() { document.getElementById('signup-modal').classList.remove('open'); }
+function selectRole(el, role) {
+  document.querySelectorAll('.role-option').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('signup-role').value = role;
 }
 
-function toggleRoom(ri) {
-  const body = document.getElementById('room-' + ri + '-body');
-  body.classList.toggle('open');
-}
-
-function markRoomDone(ri) {
-  state.roomDone[ri] = true;
-  state.tasks[ri] = state.tasks[ri].map(() => true);
-  document.getElementById('room-' + ri).classList.add('completed');
-  const btn = document.getElementById('done-' + ri);
-  btn.textContent = '✓ Done';
-  btn.classList.add('marked');
-  // tick all tasks
-  rooms[ri].tasks.forEach((_, ti) => {
-    const cb = document.getElementById('cb-' + ri + '-' + ti);
-    const lbl = document.getElementById('tl-' + ri + '-' + ti);
-    if (cb) { cb.classList.add('ticked'); lbl.classList.add('done'); }
-  });
-  updateRoomSub(ri);
-  document.getElementById('room-' + ri + '-body').classList.remove('open');
-  updateProgress();
-}
-
-function updateProgress() {
-  const done = state.roomDone.filter(Boolean).length;
-  const total = rooms.length;
-  const pct = Math.round((done / total) * 100);
-  document.getElementById('progress-fill').style.width = pct + '%';
-  document.getElementById('progress-label').textContent = `${done} of ${total} rooms completed`;
-  const btn = document.getElementById('submit-btn');
-  if (done === total) {
-    btn.disabled = false;
-    btn.classList.add('ready');
-    btn.textContent = '✅ Submit completed job';
+// ===== JOBS =====
+async function loadJobs() {
+  const { data, error } = await sb.from('jobs').select('*').order('date', { ascending: true });
+  if (!error && data) {
+    jobs = data;
+    renderAllDepts();
+    updateStats();
   }
 }
 
-function maintPhotoAdded(input) {
-  if (input.files[0]) {
-    const label = document.getElementById('maint-photo-label');
-    label.textContent = '📎 ' + input.files[0].name;
-    label.style.display = 'block';
+async function saveJob() {
+  const job = {
+    department: document.getElementById('job-dept').value,
+    property: document.getElementById('job-property').value,
+    date: document.getElementById('job-date').value,
+    time_window: document.getElementById('job-time').value,
+    assigned_to: document.getElementById('job-assign').value,
+    notes: document.getElementById('job-notes').value,
+    status: 'pending',
+    created_by: currentUser?.id
+  };
+  if (!job.date) { alert('Please select a date.'); return; }
+
+  const { data, error } = await sb.from('jobs').insert([job]).select();
+  if (error) {
+    // If table doesn't exist yet, store locally
+    job.id = Date.now();
+    jobs.push(job);
+  } else if (data) {
+    jobs.push(data[0]);
   }
+  closeNewJobModal();
+  renderAllDepts();
+  updateStats();
+  if (document.getElementById('view-calendar').classList.contains('active')) renderCalendar();
+  addActivity(`New ${job.department} job created for ${propNames[job.property]}`, job.department);
 }
 
-function submitMaintenance() {
-  const text = document.getElementById('maint-text').value.trim();
-  if (!text) { alert('Please describe the issue before submitting.'); return; }
-  alert('✅ Maintenance issue reported. The property manager has been notified.');
-  document.getElementById('maint-text').value = '';
-  document.getElementById('maint-photo-label').style.display = 'none';
+function renderAllDepts() {
+  renderDept('cleaning', 'cleaning-jobs', ['Property','Assigned to','Date','Window','Status'], j => `
+    <div class="table-row grid-cleaning" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;">${formatDate(j.date)}</span>
+      <span style="font-size:12px;color:var(--text2)">${j.time_window || '—'}</span>
+      <span>${statusBadge(j.status)}</span>
+    </div>`);
+
+  renderDept('maintenance', 'maintenance-jobs', ['Issue','Property','Reported','Assigned','Status'], j => `
+    <div class="table-row grid-maintenance">
+      <span style="font-size:13px;font-weight:500">${j.notes || 'Maintenance issue'}</span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span style="font-size:13px;">${formatDate(j.date)}</span>
+      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span>${statusBadge(j.status)}</span>
+    </div>`);
+
+  renderDept('inspections', 'inspection-jobs', ['Property','Inspector','Date','Type','Status'], j => `
+    <div class="table-row grid-inspections">
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;">${formatDate(j.date)}</span>
+      <span style="font-size:12px;color:var(--text2)">${j.notes || 'General'}</span>
+      <span>${statusBadge(j.status)}</span>
+    </div>`);
+
+  renderDept('operations', 'operations-jobs', ['Task','Property','Due','Assigned','Status'], j => `
+    <div class="table-row grid-operations">
+      <span style="font-size:13px;font-weight:500">${j.notes || 'Operations task'}</span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span style="font-size:13px;">${formatDate(j.date)}</span>
+      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span>${statusBadge(j.status)}</span>
+    </div>`);
+
+  // Update maintenance badge
+  const openMaint = jobs.filter(j => j.department === 'maintenance' && j.status === 'pending').length;
+  document.getElementById('maint-badge').textContent = openMaint;
+  document.getElementById('maint-badge').style.display = openMaint > 0 ? 'inline' : 'none';
 }
 
-function submitJob() {
+function renderDept(dept, containerId, headers, rowFn) {
+  const deptJobs = jobs.filter(j => j.department === dept);
+  const container = document.getElementById(containerId);
+  if (deptJobs.length === 0) {
+    container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">No ${dept} jobs yet. Click "+ New Job" to create one.</div>`;
+    return;
+  }
+  container.innerHTML = deptJobs.map(rowFn).join('');
+}
+
+function statusBadge(status) {
+  const map = { pending: 'badge-pending', inprogress: 'badge-inprogress', complete: 'badge-complete', open: 'badge-open', resolved: 'badge-resolved', scheduled: 'badge-scheduled' };
+  const labels = { pending: 'Pending', inprogress: 'In Progress', complete: 'Complete', open: 'Open', resolved: 'Resolved', scheduled: 'Scheduled' };
+  return `<span class="badge ${map[status] || 'badge-pending'}">${labels[status] || status}</span>`;
+}
+
+function updateStats() {
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-  const dateStr = now.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-  document.getElementById('success-time').textContent = 'Submitted ' + dateStr + ' at ' + timeStr;
-  document.getElementById('success-overlay').classList.add('show');
-  document.getElementById('status-badge').textContent = 'Completed';
-  document.getElementById('status-badge').className = 'status-value status-complete';
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
+  const weekJobs = jobs.filter(j => { const d = new Date(j.date); return d >= weekStart && d <= weekEnd; });
+  document.getElementById('stat-jobs').textContent = weekJobs.length;
+  const openMaint = jobs.filter(j => j.department === 'maintenance' && j.status !== 'resolved').length;
+  document.getElementById('stat-maint').textContent = openMaint;
+  const upcoming = jobs.filter(j => j.department === 'cleaning' && new Date(j.date) >= now).sort((a,b) => new Date(a.date)-new Date(b.date));
+  if (upcoming.length > 0) {
+    const next = upcoming[0];
+    document.getElementById('stat-next').textContent = formatDate(next.date);
+    document.getElementById('stat-next-prop').textContent = propNames[next.property];
+  }
 }
+
+// ===== CALENDAR =====
+function initCalendar() {
+  const now = new Date();
+  calYear = now.getFullYear(); calMonth = now.getMonth();
+}
+
+function calNav(dir) { calMonth += dir; if (calMonth > 11) { calMonth = 0; calYear++; } if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); }
+
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-month-label').textContent = `${months[calMonth]} ${calYear}`;
+  const body = document.getElementById('cal-body');
+  body.innerHTML = '';
+  const firstDay = new Date(calYear, calMonth, 1);
+  let startDow = firstDay.getDay(); // 0=Sun
+  startDow = startDow === 0 ? 6 : startDow - 1; // Convert to Mon=0
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const daysInPrev = new Date(calYear, calMonth, 0).getDate();
+  const today = new Date();
+  const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    let day, month, year, isOther = false;
+    if (i < startDow) { day = daysInPrev - startDow + i + 1; month = calMonth - 1; year = calYear; isOther = true; }
+    else if (i >= startDow + daysInMonth) { day = i - startDow - daysInMonth + 1; month = calMonth + 1; year = calYear; isOther = true; }
+    else { day = i - startDow + 1; month = calMonth; year = calYear; }
+    const adjMonth = month < 0 ? 11 : month > 11 ? 0 : month;
+    const adjYear = month < 0 ? year - 1 : month > 11 ? year + 1 : year;
+    const dateStr = `${adjYear}-${String(adjMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const isToday = !isOther && day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+    const dayJobs = jobs.filter(j => j.date === dateStr && (activeFilter === 'all' || j.department === activeFilter));
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell' + (isOther ? ' other-month' : '') + (isToday ? ' today' : '') + (dayJobs.length ? ' has-events' : '');
+    let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${propNames[j.property]} — ${j.department}">${propNames[j.property]}</div>`).join('');
+    if (dayJobs.length > 3) eventsHtml += `<div class="cal-event" style="color:var(--text3)">+${dayJobs.length-3} more</div>`;
+    cell.innerHTML = `<div class="cal-date">${day}</div>${eventsHtml}`;
+    body.appendChild(cell);
+  }
+}
+
+// ===== MODAL =====
+function openNewJobModal() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('job-date').value = today;
+  document.getElementById('new-job-modal').classList.add('open');
+}
+function closeNewJobModal() { document.getElementById('new-job-modal').classList.remove('open'); }
+
+function viewJob(job) {
+  alert(`Job: ${job.department.toUpperCase()}\nProperty: ${propNames[job.property]}\nDate: ${formatDate(job.date)}\nAssigned: ${job.assigned_to || 'Unassigned'}\nStatus: ${job.status}\nNotes: ${job.notes || 'None'}`);
+}
+
+// ===== HELPERS =====
+function formatDate(d) {
+  if (!d) return '—';
+  const date = new Date(d + 'T00:00:00');
+  return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function addActivity(text, dept) {
+  const icons = { cleaning: ['🧹','#dcfce7'], maintenance: ['🔧','#fee2e2'], inspections: ['🔍','#dbeafe'], operations: ['📋','#fef9c3'] };
+  const [icon, bg] = icons[dept] || ['📋','#f5f5f3'];
+  const feed = document.getElementById('activity-feed');
+  const item = document.createElement('div');
+  item.className = 'activity-item';
+  item.innerHTML = `<div class="activity-icon" style="background:${bg}">${icon}</div><div class="activity-content"><div class="activity-text">${text}</div><div class="activity-time">Just now</div></div>`;
+  feed.insertBefore(item, feed.firstChild);
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
 </script>
 </body>
 </html>
