@@ -1368,7 +1368,16 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 
       <!-- PROPERTIES -->
       <div class="view" id="view-properties">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">All Properties</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:2px;">Manage your portfolio of holiday assets</div>
+          </div>
+          <button class="btn btn-primary" onclick="openAddPropertyModal()">+ Add Property</button>
+        </div>
+        <div id="properties-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
+        <!-- Original hardcoded cards kept below as fallback (hidden) -->
+        <div style="display:none;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
           <div class="card">
             <div style="height:6px;background:var(--p1)"></div>
             <div class="card-body">
@@ -1436,6 +1445,59 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   </div>
 
   <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+</div>
+
+<!-- ADD PROPERTY MODAL -->
+<div class="modal-overlay" id="add-property-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Add Property</h3>
+      <button class="modal-close" onclick="closeAddPropertyModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Property name</label>
+        <input type="text" class="form-input" id="prop-name" placeholder="e.g. Ocean View Apartment">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <input type="text" class="form-input" id="prop-address" placeholder="123 Beach Road, Surfers Paradise QLD 4217">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Bedrooms</label>
+          <input type="number" class="form-input" id="prop-bedrooms" min="0" step="1" placeholder="3">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bathrooms</label>
+          <input type="number" class="form-input" id="prop-bathrooms" min="0" step="0.5" placeholder="2">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Car parks</label>
+          <input type="number" class="form-input" id="prop-carparks" min="0" step="1" placeholder="1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Capacity (guests)</label>
+          <input type="number" class="form-input" id="prop-capacity" min="0" step="1" placeholder="6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <input type="color" class="form-input" id="prop-color" value="#4f8ef7" style="height:42px;padding:4px;">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" id="prop-notes" placeholder="Anything else to remember about this property..."></textarea>
+      </div>
+      <div class="login-error" id="prop-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddPropertyModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProperty()">Add property</button>
+    </div>
+  </div>
 </div>
 
 <!-- NEW JOB MODAL -->
@@ -1512,10 +1574,10 @@ let assetActiveTab = 'calendar';
 // Default properties — used as fallback if Supabase properties table is unavailable.
 // Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
 let properties = [
-  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, capacity: 8, status: 'active', notes: 'Live & onboarded' },
-  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, capacity: null, status: 'onboarding', notes: 'Onboarding pending' },
-  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, capacity: null, status: 'onboarding', notes: 'Onboarding pending' },
-  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, capacity: null, status: 'onboarding', notes: 'Onboarding 1 July 2026' }
+  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, car_parks: 2, capacity: 8, status: 'active', notes: 'Live & onboarded' },
+  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, status: 'onboarding', notes: 'Onboarding 1 July 2026' }
 ];
 
 let propColors = {};
@@ -1595,6 +1657,8 @@ async function loadApp(user) {
   await loadBookings();
   renderPropertySwitcher();
   renderSidebarProperties();
+  renderPropertiesGrid();
+  populateJobPropertyDropdown();
   loadJobs();
 }
 
@@ -1617,6 +1681,7 @@ function showView(name, el) {
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
   if (name === 'asset') renderAssetView();
+  if (name === 'properties') renderPropertiesGrid();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
   // Re-render dept tables so filter scoping picks up
   if (['cleaning','maintenance','inspections','operations'].includes(name)) renderAllDepts();
@@ -1846,6 +1911,7 @@ async function loadProperties() {
         address: p.address || '',
         bedrooms: p.bedrooms ?? null,
         bathrooms: p.bathrooms ?? null,
+        car_parks: p.car_parks ?? null,
         capacity: p.capacity ?? null,
         status: p.status || 'active',
         notes: p.notes || ''
@@ -2120,6 +2186,144 @@ function renderAssetBookings() {
   return rows;
 }
 
+// ===== ADD PROPERTY =====
+function openAddPropertyModal() {
+  // Reset form
+  document.getElementById('prop-name').value = '';
+  document.getElementById('prop-address').value = '';
+  document.getElementById('prop-bedrooms').value = '';
+  document.getElementById('prop-bathrooms').value = '';
+  document.getElementById('prop-carparks').value = '';
+  document.getElementById('prop-capacity').value = '';
+  document.getElementById('prop-color').value = randomPropColor();
+  document.getElementById('prop-notes').value = '';
+  document.getElementById('prop-error').style.display = 'none';
+  document.getElementById('add-property-modal').classList.add('open');
+}
+function closeAddPropertyModal() {
+  document.getElementById('add-property-modal').classList.remove('open');
+}
+
+function randomPropColor() {
+  const palette = ['#4f8ef7','#f7714f','#9b6ff7','#f7c44f','#2ecc71','#e74c3c','#3498db','#f39c12','#1abc9c','#e67e22'];
+  return palette[Math.floor(Math.random() * palette.length)];
+}
+
+function slugify(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || ('prop-' + Date.now().toString(36));
+}
+
+function uniquePropertyId(base) {
+  let id = base;
+  let n = 2;
+  const existing = new Set(properties.map(p => p.id));
+  while (existing.has(id)) {
+    id = `${base}-${n++}`;
+  }
+  return id;
+}
+
+async function saveProperty() {
+  const name = document.getElementById('prop-name').value.trim();
+  const address = document.getElementById('prop-address').value.trim();
+  const bedrooms = document.getElementById('prop-bedrooms').value;
+  const bathrooms = document.getElementById('prop-bathrooms').value;
+  const car_parks = document.getElementById('prop-carparks').value;
+  const capacity = document.getElementById('prop-capacity').value;
+  const color = document.getElementById('prop-color').value;
+  const notes = document.getElementById('prop-notes').value.trim();
+  const errEl = document.getElementById('prop-error');
+  errEl.style.display = 'none';
+
+  if (!name && !address) {
+    errEl.textContent = 'Please enter a property name or address.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const displayName = name || (address.split(',')[0] || 'New property');
+  const id = uniquePropertyId(slugify(name || address));
+
+  const row = {
+    id,
+    name: displayName,
+    color,
+    address: address || null,
+    bedrooms: bedrooms === '' ? null : Number(bedrooms),
+    bathrooms: bathrooms === '' ? null : Number(bathrooms),
+    car_parks: car_parks === '' ? null : Number(car_parks),
+    capacity: capacity === '' ? null : Number(capacity),
+    status: 'active',
+    notes: notes || null
+  };
+
+  // Save to Supabase if reachable; otherwise just store locally
+  try {
+    const { data, error } = await sb.from('properties').insert([row]).select();
+    if (error) throw error;
+  } catch (e) {
+    console.warn('Could not persist to Supabase, storing locally only:', e?.message || e);
+  }
+
+  // Update local state and re-render everything that references properties
+  properties.push(row);
+  rebuildPropMaps();
+  renderPropertySwitcher();
+  renderSidebarProperties();
+  renderPropertiesGrid();
+  populateJobPropertyDropdown();
+  closeAddPropertyModal();
+  addActivity(`New property added: ${displayName}`, 'operations');
+}
+
+function renderPropertiesGrid() {
+  const grid = document.getElementById('properties-grid');
+  if (!grid) return;
+  if (properties.length === 0) {
+    grid.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text3);grid-column:1/-1;">No properties yet. Click "+ Add Property" to add one.</div>`;
+    return;
+  }
+  grid.innerHTML = properties.map(p => `
+    <div class="card" style="cursor:pointer;" onclick="selectProperty('${p.id}')">
+      <div style="height:6px;background:${p.color}"></div>
+      <div class="card-body">
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.name)}</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">${escapeHtml(p.address || '—')}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+          <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:18px;font-weight:700;font-family:'Syne',sans-serif;">${p.bedrooms ?? '—'}</div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Bed</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:18px;font-weight:700;font-family:'Syne',sans-serif;">${p.bathrooms ?? '—'}</div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Bath</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:18px;font-weight:700;font-family:'Syne',sans-serif;">${p.car_parks ?? '—'}</div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Car</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+          <span style="color:var(--text2);">${p.capacity ? p.capacity + ' guests' : ''}</span>
+          <span class="prop-status ${p.status === 'active' ? 'status-available' : ''}" style="font-size:11px;padding:3px 8px;border-radius:999px;background:${p.status === 'active' ? '#dcfce7' : '#fef3c7'};color:${p.status === 'active' ? '#15803d' : '#92400e'};">${escapeHtml(p.status || 'active')}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function populateJobPropertyDropdown() {
+  const sel = document.getElementById('job-property');
+  if (!sel) return;
+  sel.innerHTML = properties.map(p =>
+    `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.address ? ' — ' + escapeHtml(p.address) : ''}</option>`
+  ).join('');
+}
+
 function renderAssetDetails() {
   const prop = properties.find(p => p.id === selectedPropertyId);
   if (!prop) return '';
@@ -2136,6 +2340,7 @@ function renderAssetDetails() {
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;">Configuration</div>
         <div class="asset-detail-row"><span class="asset-detail-label">Bedrooms</span><span class="asset-detail-value">${prop.bedrooms ?? '—'}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Bathrooms</span><span class="asset-detail-value">${prop.bathrooms ?? '—'}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Car parks</span><span class="asset-detail-value">${prop.car_parks ?? '—'}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Capacity</span><span class="asset-detail-value">${prop.capacity ? prop.capacity + ' guests' : '—'}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Color</span><span class="asset-detail-value"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${prop.color};vertical-align:middle;margin-right:6px;"></span>${escapeHtml(prop.color)}</span></div>
       </div>
