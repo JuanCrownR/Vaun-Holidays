@@ -676,6 +676,336 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   .table-row > *:nth-child(3),
   .table-row > *:nth-child(4) { display: none; }
 }
+
+/* ===== PROPERTY SWITCHER ===== */
+.prop-switcher {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px 0 24px;
+  flex-wrap: wrap;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+  background: var(--surface);
+}
+.prop-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  margin-bottom: 16px;
+  white-space: nowrap;
+}
+.prop-pill:hover { background: var(--surface3); color: var(--text); }
+.prop-pill.active {
+  background: var(--brand);
+  color: var(--accent);
+  border-color: var(--brand);
+}
+.prop-pill .pill-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ===== SIDEBAR PROPERTY ITEMS ===== */
+.sidebar-prop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px;
+}
+.sidebar-prop-item:hover { background: var(--surface2); color: var(--text); }
+.sidebar-prop-item.active {
+  background: var(--surface2);
+  color: var(--text);
+  font-weight: 500;
+}
+.sidebar-prop-item .sp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ===== ASSET VIEW ===== */
+.asset-header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.asset-header-band {
+  position: absolute;
+  top: 0; left: 0;
+  width: 6px;
+  height: 100%;
+}
+.asset-header-main { flex: 1; padding-left: 8px; }
+.asset-header-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.asset-header-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.asset-header-sub {
+  font-size: 14px;
+  color: var(--text2);
+}
+.asset-header-status {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.asset-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.asset-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.asset-stat-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.asset-stat-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+}
+.asset-stat-sub {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 4px;
+}
+
+.asset-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px;
+  margin-bottom: 20px;
+  width: fit-content;
+}
+.asset-tab {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.asset-tab:hover { color: var(--text); }
+.asset-tab.active {
+  background: var(--brand);
+  color: var(--accent);
+}
+
+.asset-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+/* Asset calendar grid */
+.asset-cal-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+.asset-cal-day {
+  position: relative;
+  min-height: 90px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.asset-cal-day.today { border-color: var(--brand); border-width: 2px; }
+.asset-cal-day.sellable {
+  background: rgba(200, 245, 90, 0.25);
+  border-color: var(--accent2);
+}
+.asset-cal-day.sellable::after {
+  content: 'Sellable';
+  position: absolute;
+  bottom: 4px; right: 6px;
+  font-size: 9px;
+  font-family: 'DM Mono', monospace;
+  color: #5a7a1a;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.asset-cal-date {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+}
+.asset-cal-dow {
+  font-size: 10px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.asset-cal-booking {
+  background: rgba(0,0,0,0.04);
+  color: var(--text);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  border-left: 3px solid;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-cal-task {
+  font-size: 10px;
+  color: var(--text2);
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.03);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Asset tasks list */
+.asset-task-group { margin-bottom: 20px; }
+.asset-task-group-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.asset-task-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 100px 100px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: var(--surface);
+}
+.asset-task-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+/* Asset bookings list */
+.asset-booking-row {
+  display: grid;
+  grid-template-columns: 6px 1fr 110px 110px 80px 100px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: var(--surface);
+}
+.asset-booking-band {
+  width: 6px;
+  height: 36px;
+  border-radius: 3px;
+}
+.asset-booking-guest {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+.asset-booking-meta {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+/* Asset details */
+.asset-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+.asset-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.asset-detail-row:last-child { border-bottom: none; }
+.asset-detail-label { color: var(--text2); }
+.asset-detail-value { color: var(--text); font-weight: 500; }
+
+@media (max-width: 768px) {
+  .asset-stats { grid-template-columns: repeat(2, 1fr); }
+  .asset-cal-strip { grid-template-columns: repeat(2, 1fr); }
+  .asset-details-grid { grid-template-columns: 1fr; }
+  .asset-booking-row { grid-template-columns: 6px 1fr 80px; }
+  .asset-booking-row > *:nth-child(4),
+  .asset-booking-row > *:nth-child(5),
+  .asset-booking-row > *:nth-child(6) { display: none; }
+}
 </style>
 </head>
 <body>
@@ -799,9 +1129,10 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       </div>
 
       <div class="nav-section-label">Properties</div>
-      <div class="nav-item" onclick="showView('properties',this)">
+      <div class="nav-item" onclick="selectProperty(null,this)">
         <span class="nav-icon">🏢</span> All Properties
       </div>
+      <div id="sidebar-prop-list"></div>
     </div>
     <div class="sidebar-user">
       <div class="user-avatar" id="user-avatar">J</div>
@@ -821,6 +1152,8 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <button class="btn btn-primary" onclick="openNewJobModal()">+ New Job</button>
       </div>
     </div>
+    <!-- Property switcher pill row -->
+    <div class="prop-switcher" id="prop-switcher"></div>
     <div class="content">
 
       <!-- OVERVIEW -->
@@ -1086,6 +1419,19 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
       </div>
 
+      <!-- ASSET VIEW (per-property) -->
+      <div class="view" id="view-asset">
+        <div class="asset-header" id="asset-header"></div>
+        <div class="asset-stats" id="asset-stats"></div>
+        <div class="asset-tabs">
+          <button class="asset-tab active" data-tab="calendar" onclick="switchAssetTab('calendar')">Calendar</button>
+          <button class="asset-tab" data-tab="tasks" onclick="switchAssetTab('tasks')">Tasks</button>
+          <button class="asset-tab" data-tab="bookings" onclick="switchAssetTab('bookings')">Bookings</button>
+          <button class="asset-tab" data-tab="details" onclick="switchAssetTab('details')">Details</button>
+        </div>
+        <div class="asset-panel" id="asset-panel"></div>
+      </div>
+
     </div>
   </div>
 
@@ -1159,9 +1505,44 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 let jobs = [];
 let calYear, calMonth, activeFilter = 'all';
+let selectedPropertyId = null;   // null = "All Properties"
+let bookings = [];
+let assetActiveTab = 'calendar';
 
-const propColors = { ferny: '#4f8ef7', p2: '#f7714f', p3: '#9b6ff7', p4: '#f7c44f' };
-const propNames = { ferny: 'Ferny Ave', p2: 'Property 2', p3: 'Property 3', p4: 'Property 4' };
+// Default properties — used as fallback if Supabase properties table is unavailable.
+// Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
+let properties = [
+  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, capacity: 8, status: 'active', notes: 'Live & onboarded' },
+  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, capacity: null, status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, capacity: null, status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, capacity: null, status: 'onboarding', notes: 'Onboarding 1 July 2026' }
+];
+
+let propColors = {};
+let propNames = {};
+
+function rebuildPropMaps() {
+  propColors = {};
+  propNames = {};
+  properties.forEach(p => { propColors[p.id] = p.color; propNames[p.id] = p.name; });
+}
+rebuildPropMaps();
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function deptIcon(dept) {
+  const icons = { cleaning: '🧹', maintenance: '🔧', inspections: '🔍', operations: '📋' };
+  const bgs = { cleaning: '#dcfce7', maintenance: '#fee2e2', inspections: '#dbeafe', operations: '#fef9c3' };
+  return { icon: icons[dept] || '📋', bg: bgs[dept] || '#f5f5f3' };
+}
 
 // ===== AUTH =====
 async function handleLogin() {
@@ -1199,7 +1580,7 @@ async function handleLogout() {
   currentUser = null;
 }
 
-function loadApp(user) {
+async function loadApp(user) {
   currentUser = user;
   const meta = user.user_metadata || {};
   const name = meta.full_name || user.email.split('@')[0];
@@ -1210,6 +1591,10 @@ function loadApp(user) {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   initCalendar();
+  await loadProperties();
+  await loadBookings();
+  renderPropertySwitcher();
+  renderSidebarProperties();
   loadJobs();
 }
 
@@ -1225,12 +1610,16 @@ document.getElementById('login-password').addEventListener('keydown', e => { if 
 function showView(name, el) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
-  el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', properties: 'Properties' };
+  if (el) el.classList.add('active');
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', properties: 'Properties', asset: 'Property' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
+  if (name === 'asset') renderAssetView();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+  // Re-render dept tables so filter scoping picks up
+  if (['cleaning','maintenance','inspections','operations'].includes(name)) renderAllDepts();
 }
 
 function toggleSidebar() {
@@ -1328,10 +1717,12 @@ function renderAllDepts() {
 }
 
 function renderDept(dept, containerId, headers, rowFn) {
-  const deptJobs = jobs.filter(j => j.department === dept);
+  let deptJobs = jobs.filter(j => j.department === dept);
+  if (selectedPropertyId) deptJobs = deptJobs.filter(j => j.property === selectedPropertyId);
   const container = document.getElementById(containerId);
   if (deptJobs.length === 0) {
-    container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">No ${dept} jobs yet. Click "+ New Job" to create one.</div>`;
+    const scope = selectedPropertyId ? ` for ${propNames[selectedPropertyId] || 'this property'}` : '';
+    container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">No ${dept} jobs${scope} yet. Click "+ New Job" to create one.</div>`;
     return;
   }
   container.innerHTML = deptJobs.map(rowFn).join('');
@@ -1396,7 +1787,9 @@ function renderCalendar() {
     const adjYear = month < 0 ? year - 1 : month > 11 ? year + 1 : year;
     const dateStr = `${adjYear}-${String(adjMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const isToday = !isOther && day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
-    const dayJobs = jobs.filter(j => j.date === dateStr && (activeFilter === 'all' || j.department === activeFilter));
+    const dayJobs = jobs.filter(j => j.date === dateStr
+      && (activeFilter === 'all' || j.department === activeFilter)
+      && (!selectedPropertyId || j.property === selectedPropertyId));
     const cell = document.createElement('div');
     cell.className = 'cal-cell' + (isOther ? ' other-month' : '') + (isToday ? ' today' : '') + (dayJobs.length ? ' has-events' : '');
     let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${propNames[j.property]} — ${j.department}">${propNames[j.property]}</div>`).join('');
@@ -1439,6 +1832,317 @@ function addActivity(text, dept) {
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
 });
+
+// ===== PROPERTIES (Supabase loaders + switching) =====
+async function loadProperties() {
+  try {
+    const { data, error } = await sb.from('properties').select('*').order('id');
+    if (!error && Array.isArray(data) && data.length > 0) {
+      // Normalise — accept rows that may not have every field
+      properties = data.map(p => ({
+        id: p.id,
+        name: p.name || p.id,
+        color: p.color || '#888',
+        address: p.address || '',
+        bedrooms: p.bedrooms ?? null,
+        bathrooms: p.bathrooms ?? null,
+        capacity: p.capacity ?? null,
+        status: p.status || 'active',
+        notes: p.notes || ''
+      }));
+      rebuildPropMaps();
+    }
+  } catch (e) {
+    // Fallback list already in place
+  }
+}
+
+async function loadBookings() {
+  try {
+    const { data, error } = await sb.from('bookings').select('*').order('check_in', { ascending: true });
+    if (!error && Array.isArray(data)) {
+      bookings = data;
+    } else {
+      bookings = [];
+    }
+  } catch (e) {
+    bookings = [];
+  }
+}
+
+function renderPropertySwitcher() {
+  const el = document.getElementById('prop-switcher');
+  if (!el) return;
+  const pills = [];
+  pills.push(`<button class="prop-pill ${selectedPropertyId === null ? 'active' : ''}" onclick="selectProperty(null)">All Properties</button>`);
+  properties.forEach(p => {
+    pills.push(`<button class="prop-pill ${selectedPropertyId === p.id ? 'active' : ''}" onclick="selectProperty('${p.id}')">
+      <span class="pill-dot" style="background:${p.color}"></span>${escapeHtml(p.name)}
+    </button>`);
+  });
+  el.innerHTML = pills.join('');
+}
+
+function renderSidebarProperties() {
+  const el = document.getElementById('sidebar-prop-list');
+  if (!el) return;
+  el.innerHTML = properties.map(p => `
+    <div class="sidebar-prop-item ${selectedPropertyId === p.id ? 'active' : ''}" onclick="selectProperty('${p.id}')">
+      <span class="sp-dot" style="background:${p.color}"></span>${escapeHtml(p.name)}
+    </div>
+  `).join('');
+}
+
+function selectProperty(id) {
+  selectedPropertyId = id;
+  // Reset asset tab when changing property
+  assetActiveTab = 'calendar';
+  renderPropertySwitcher();
+  renderSidebarProperties();
+  if (id === null) {
+    // Back to global dashboard
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('view-overview').classList.add('active');
+    const overviewNav = document.querySelector('.nav-item[onclick*="showView(\'overview\'"]');
+    if (overviewNav) overviewNav.classList.add('active');
+    document.getElementById('topbar-title').textContent = 'Dashboard';
+  } else {
+    // Show asset view
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('view-asset').classList.add('active');
+    const prop = properties.find(p => p.id === id);
+    document.getElementById('topbar-title').textContent = prop ? prop.name : 'Property';
+    renderAssetView();
+  }
+  // Re-render dept tables and calendar so filtering reflects new scope
+  renderAllDepts();
+  if (document.getElementById('view-calendar').classList.contains('active')) renderCalendar();
+  if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+}
+
+function switchAssetTab(tab) {
+  assetActiveTab = tab;
+  document.querySelectorAll('.asset-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  renderAssetPanel();
+}
+
+function renderAssetView() {
+  const prop = properties.find(p => p.id === selectedPropertyId);
+  if (!prop) return;
+
+  // Header
+  const headerEl = document.getElementById('asset-header');
+  headerEl.innerHTML = `
+    <div class="asset-header-band" style="background:${prop.color}"></div>
+    <div class="asset-header-main">
+      <div class="asset-header-label">Property · ${escapeHtml(prop.status || 'active')}</div>
+      <div class="asset-header-name">${escapeHtml(prop.name)}</div>
+      <div class="asset-header-sub">${escapeHtml(prop.address || '—')}</div>
+    </div>
+    <div class="asset-header-status">${escapeHtml((prop.status || 'active').charAt(0).toUpperCase() + (prop.status || 'active').slice(1))}</div>
+  `;
+
+  // Stats
+  const today = new Date();
+  const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7);
+  const myJobs = jobs.filter(j => j.property === selectedPropertyId);
+  const openIssues = myJobs.filter(j => j.department === 'maintenance' && j.status !== 'resolved' && j.status !== 'complete').length;
+  const tasksThisWeek = myJobs.filter(j => {
+    const d = new Date(j.date);
+    return d >= today && d <= weekEnd;
+  }).length;
+  const myBookings = bookings.filter(b => b.property === selectedPropertyId);
+  // Occupancy = % of next 30 days booked
+  const horizon = 30;
+  const horizonEnd = new Date(today); horizonEnd.setDate(today.getDate() + horizon);
+  let bookedDays = 0;
+  for (let i = 0; i < horizon; i++) {
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    const ds = d.toISOString().split('T')[0];
+    if (myBookings.some(b => ds >= b.check_in && ds < b.check_out)) bookedDays++;
+  }
+  const occ = Math.round((bookedDays / horizon) * 100);
+  const upcoming = myBookings
+    .filter(b => b.check_in >= today.toISOString().split('T')[0])
+    .sort((a, b) => a.check_in.localeCompare(b.check_in));
+  const nextBooking = upcoming[0];
+
+  const statsEl = document.getElementById('asset-stats');
+  statsEl.innerHTML = `
+    <div class="asset-stat">
+      <div class="asset-stat-label">Open Issues</div>
+      <div class="asset-stat-value" style="color:${openIssues > 0 ? 'var(--maintenance)' : 'var(--text)'}">${openIssues}</div>
+      <div class="asset-stat-sub">maintenance items</div>
+    </div>
+    <div class="asset-stat">
+      <div class="asset-stat-label">Tasks This Week</div>
+      <div class="asset-stat-value">${tasksThisWeek}</div>
+      <div class="asset-stat-sub">across all departments</div>
+    </div>
+    <div class="asset-stat">
+      <div class="asset-stat-label">Occupancy (30d)</div>
+      <div class="asset-stat-value">${occ}%</div>
+      <div class="asset-stat-sub">${bookedDays}/${horizon} nights booked</div>
+    </div>
+    <div class="asset-stat">
+      <div class="asset-stat-label">Next Booking</div>
+      <div class="asset-stat-value" style="font-size:18px;">${nextBooking ? formatDate(nextBooking.check_in) : '—'}</div>
+      <div class="asset-stat-sub">${nextBooking ? escapeHtml(nextBooking.guest_name || 'Guest') : 'No bookings'}</div>
+    </div>
+  `;
+
+  // Reset tab to calendar when entering and render panel
+  document.querySelectorAll('.asset-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === assetActiveTab);
+  });
+  renderAssetPanel();
+}
+
+function renderAssetPanel() {
+  const panel = document.getElementById('asset-panel');
+  if (!panel) return;
+  switch (assetActiveTab) {
+    case 'calendar': panel.innerHTML = renderAssetCalendar(); break;
+    case 'tasks':    panel.innerHTML = renderAssetTasks(); break;
+    case 'bookings': panel.innerHTML = renderAssetBookings(); break;
+    case 'details':  panel.innerHTML = renderAssetDetails(); break;
+  }
+}
+
+function renderAssetCalendar() {
+  const prop = properties.find(p => p.id === selectedPropertyId);
+  if (!prop) return '';
+  const today = new Date();
+  const horizon = 28; // 4 weeks
+  const cells = [];
+  const dows = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const myBookings = bookings.filter(b => b.property === selectedPropertyId);
+  const myJobs = jobs.filter(j => j.property === selectedPropertyId);
+
+  for (let i = 0; i < horizon; i++) {
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    const ds = d.toISOString().split('T')[0];
+    const isToday = i === 0;
+    const dayBookings = myBookings.filter(b => ds >= b.check_in && ds < b.check_out);
+    const dayJobs = myJobs.filter(j => j.date === ds);
+    const sellable = dayBookings.length === 0;
+    const classes = ['asset-cal-day'];
+    if (isToday) classes.push('today');
+    if (sellable) classes.push('sellable');
+    const bookingHtml = dayBookings.map(b =>
+      `<div class="asset-cal-booking" style="border-left-color:${prop.color}">${escapeHtml(b.guest_name || 'Booked')}</div>`
+    ).join('');
+    const taskHtml = dayJobs.slice(0, 2).map(j => {
+      const di = deptIcon(j.department);
+      return `<div class="asset-cal-task">${di.icon} ${escapeHtml(j.department)}</div>`;
+    }).join('');
+    cells.push(`
+      <div class="${classes.join(' ')}">
+        <div class="asset-cal-dow">${dows[d.getDay()]}</div>
+        <div class="asset-cal-date">${d.getDate()}</div>
+        ${bookingHtml}
+        ${taskHtml}
+      </div>
+    `);
+  }
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:600;">Next 4 weeks</div>
+      <div style="font-size:12px;color:var(--text2);">
+        <span style="display:inline-block;width:10px;height:10px;background:rgba(200,245,90,0.55);border:1px solid var(--accent2);border-radius:3px;vertical-align:middle;margin-right:4px;"></span>
+        Sellable nights
+      </div>
+    </div>
+    <div class="asset-cal-strip">${cells.join('')}</div>
+  `;
+}
+
+function renderAssetTasks() {
+  let myJobs = jobs.filter(j => j.property === selectedPropertyId);
+  if (myJobs.length === 0) {
+    return `<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No tasks for this property yet. Use "+ New Job" to add one.</div>`;
+  }
+  const depts = ['cleaning', 'maintenance', 'inspections', 'operations'];
+  const groups = depts.map(d => {
+    const list = myJobs.filter(j => j.department === d)
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    if (list.length === 0) return '';
+    const di = deptIcon(d);
+    const rows = list.map(j => `
+      <div class="asset-task-row">
+        <div class="asset-task-icon" style="background:${di.bg}">${di.icon}</div>
+        <div>
+          <div style="font-size:13px;font-weight:500;">${escapeHtml(j.notes || (d.charAt(0).toUpperCase() + d.slice(1)) + ' task')}</div>
+          <div style="font-size:11px;color:var(--text3);">${escapeHtml(j.assigned_to || 'Unassigned')}</div>
+        </div>
+        <div style="font-size:12px;color:var(--text2);">${formatDate(j.date)}</div>
+        <div>${statusBadge(j.status)}</div>
+      </div>
+    `).join('');
+    return `
+      <div class="asset-task-group">
+        <div class="asset-task-group-title">${di.icon} ${d}</div>
+        ${rows}
+      </div>
+    `;
+  }).filter(Boolean).join('');
+  return groups || `<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No tasks yet.</div>`;
+}
+
+function renderAssetBookings() {
+  const prop = properties.find(p => p.id === selectedPropertyId);
+  if (!prop) return '';
+  const myBookings = bookings.filter(b => b.property === selectedPropertyId)
+    .sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
+  if (myBookings.length === 0) {
+    return `<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No bookings for ${escapeHtml(prop.name)} yet.</div>`;
+  }
+  const rows = myBookings.map(b => {
+    const nights = Math.max(1, Math.round((new Date(b.check_out) - new Date(b.check_in)) / 86400000));
+    return `
+      <div class="asset-booking-row">
+        <div class="asset-booking-band" style="background:${prop.color}"></div>
+        <div>
+          <div class="asset-booking-guest">${escapeHtml(b.guest_name || 'Guest')}</div>
+          <div class="asset-booking-meta">${escapeHtml(b.guests ? b.guests + ' guests' : '')}${b.notes ? ' · ' + escapeHtml(b.notes) : ''}</div>
+        </div>
+        <div class="asset-booking-meta">In: ${formatDate(b.check_in)}</div>
+        <div class="asset-booking-meta">Out: ${formatDate(b.check_out)}</div>
+        <div class="asset-booking-meta">${nights}n</div>
+        <div>${statusBadge(b.status || 'confirmed')}</div>
+      </div>
+    `;
+  }).join('');
+  return rows;
+}
+
+function renderAssetDetails() {
+  const prop = properties.find(p => p.id === selectedPropertyId);
+  if (!prop) return '';
+  return `
+    <div class="asset-details-grid">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;">Overview</div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Property ID</span><span class="asset-detail-value">${escapeHtml(prop.id)}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Name</span><span class="asset-detail-value">${escapeHtml(prop.name)}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Address</span><span class="asset-detail-value">${escapeHtml(prop.address || '—')}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Status</span><span class="asset-detail-value">${escapeHtml(prop.status || 'active')}</span></div>
+      </div>
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;">Configuration</div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Bedrooms</span><span class="asset-detail-value">${prop.bedrooms ?? '—'}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Bathrooms</span><span class="asset-detail-value">${prop.bathrooms ?? '—'}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Capacity</span><span class="asset-detail-value">${prop.capacity ? prop.capacity + ' guests' : '—'}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Color</span><span class="asset-detail-value"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${prop.color};vertical-align:middle;margin-right:6px;"></span>${escapeHtml(prop.color)}</span></div>
+      </div>
+      ${prop.notes ? `<div style="grid-column:1/-1;background:var(--surface2);padding:14px;border-radius:10px;font-size:13px;color:var(--text2);"><strong style="color:var(--text);">Notes:</strong> ${escapeHtml(prop.notes)}</div>` : ''}
+    </div>
+  `;
+}
 </script>
 </body>
 </html>
