@@ -677,6 +677,69 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   .table-row > *:nth-child(4) { display: none; }
 }
 
+/* ===== PROPERTY CARD DELETE ===== */
+.prop-card-delete {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.55;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+  z-index: 2;
+}
+.prop-card-delete:hover {
+  opacity: 1;
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+/* ===== CONFIRM DIALOG ===== */
+.confirm-modal .modal {
+  max-width: 420px;
+}
+.confirm-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fee2e2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin: 0 auto 16px auto;
+}
+.confirm-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.confirm-msg {
+  font-size: 14px;
+  color: var(--text2);
+  text-align: center;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.btn-danger {
+  background: #dc2626;
+  color: white;
+  border: none;
+}
+.btn-danger:hover { background: #b91c1c; }
+
 /* ===== PROPERTY SWITCHER ===== */
 .prop-switcher {
   display: flex;
@@ -1500,6 +1563,21 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   </div>
 </div>
 
+<!-- CONFIRM DELETE PROPERTY MODAL -->
+<div class="modal-overlay confirm-modal" id="confirm-delete-property-modal">
+  <div class="modal">
+    <div class="modal-body" style="padding-top:32px;padding-bottom:8px;">
+      <div class="confirm-icon">⚠️</div>
+      <div class="confirm-title">Remove property?</div>
+      <div class="confirm-msg" id="confirm-delete-msg">Are you sure you want to remove this property? This cannot be undone.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeletePropertyModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="deleteProperty()">Yes, remove</button>
+    </div>
+  </div>
+</div>
+
 <!-- NEW JOB MODAL -->
 <div class="modal-overlay" id="new-job-modal">
   <div class="modal">
@@ -2289,6 +2367,47 @@ async function saveProperty() {
   addActivity(`New property added: ${displayName}`, 'operations');
 }
 
+// ===== DELETE PROPERTY =====
+let pendingDeleteId = null;
+
+function confirmDeleteProperty(id) {
+  const prop = properties.find(p => p.id === id);
+  if (!prop) return;
+  pendingDeleteId = id;
+  document.getElementById('confirm-delete-msg').textContent =
+    `Are you sure you want to remove ${prop.name}? This cannot be undone, and any bookings attached to this property will also be removed.`;
+  document.getElementById('confirm-delete-property-modal').classList.add('open');
+}
+
+function closeDeletePropertyModal() {
+  pendingDeleteId = null;
+  document.getElementById('confirm-delete-property-modal').classList.remove('open');
+}
+
+async function deleteProperty() {
+  const id = pendingDeleteId;
+  if (!id) { closeDeletePropertyModal(); return; }
+  const prop = properties.find(p => p.id === id);
+  // Attempt to delete from Supabase
+  try {
+    const { error } = await sb.from('properties').delete().eq('id', id);
+    if (error) console.warn('Supabase delete failed:', error.message);
+  } catch (e) {
+    console.warn('Could not delete from Supabase:', e?.message || e);
+  }
+  // Update local state regardless
+  properties = properties.filter(p => p.id !== id);
+  bookings = bookings.filter(b => b.property !== id);
+  if (selectedPropertyId === id) selectedPropertyId = null;
+  rebuildPropMaps();
+  renderPropertySwitcher();
+  renderSidebarProperties();
+  renderPropertiesGrid();
+  populateJobPropertyDropdown();
+  closeDeletePropertyModal();
+  addActivity(`Property removed: ${prop ? prop.name : id}`, 'operations');
+}
+
 function renderPropertiesGrid() {
   const grid = document.getElementById('properties-grid');
   if (!grid) return;
@@ -2297,7 +2416,8 @@ function renderPropertiesGrid() {
     return;
   }
   grid.innerHTML = properties.map(p => `
-    <div class="card" style="cursor:pointer;" onclick="selectProperty('${p.id}')">
+    <div class="card" style="cursor:pointer;position:relative;" onclick="selectProperty('${p.id}')">
+      <button class="prop-card-delete" title="Remove property" onclick="event.stopPropagation(); confirmDeleteProperty('${p.id}')">🗑</button>
       <div style="height:6px;background:${p.color}"></div>
       <div class="card-body">
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.name)}</div>
