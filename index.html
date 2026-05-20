@@ -2037,6 +2037,12 @@ function renderCalendar() {
 function openNewJobModal() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('job-date').value = today;
+  // Pre-select the currently scoped property (if any) so jobs from inside an
+  // Asset View default to that property — user can still change via dropdown.
+  const propSelect = document.getElementById('job-property');
+  if (selectedPropertyId && propSelect && Array.from(propSelect.options).some(o => o.value === selectedPropertyId)) {
+    propSelect.value = selectedPropertyId;
+  }
   document.getElementById('new-job-modal').classList.add('open');
 }
 function closeNewJobModal() { document.getElementById('new-job-modal').classList.remove('open'); }
