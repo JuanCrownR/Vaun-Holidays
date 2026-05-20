@@ -164,6 +164,16 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   transition: border-color 0.15s, background 0.15s;
 }
 .form-input:focus { border-color: var(--accent2); background: white; }
+.form-input::placeholder,
+.form-textarea::placeholder,
+.form-select::placeholder {
+  color: #c5c5c0;
+  opacity: 1;
+  font-style: italic;
+  font-weight: 400;
+}
+.form-input:focus::placeholder,
+.form-textarea:focus::placeholder { color: #d8d8d3; }
 .login-btn {
   width: 100%;
   padding: 14px;
