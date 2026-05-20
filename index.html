@@ -2799,9 +2799,8 @@ function renderChecklistSections() {
     if (isKeysSection && currentChecklistJob) {
       const prop = properties.find(p => p.id === currentChecklistJob.property);
       const guestKeys = prop && prop.keys_guest != null ? prop.keys_guest : null;
-      const totalKeys = prop && prop.keys_total != null ? prop.keys_total : null;
       const keysLine = guestKeys != null
-        ? `Number of keys allocated to guests for this property: <strong>${guestKeys}</strong>${totalKeys != null ? ` <span style="color:var(--text3);font-weight:400;">(${totalKeys} total at property)</span>` : ''}`
+        ? `Number of keys allocated to guests for this property: <strong>${guestKeys}</strong>`
         : `<span style="color:var(--text3);">Key counts haven't been set yet for this property. Update them in Property settings.</span>`;
       infoBanner = `
         <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
