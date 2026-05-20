@@ -1561,6 +1561,9 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       <div class="nav-item" onclick="showView('calendar',this)">
         <span class="nav-icon">📅</span> Calendar
       </div>
+      <div class="nav-item" onclick="showView('templates',this)">
+        <span class="nav-icon">📑</span> Templates
+      </div>
 
       <div class="nav-section-label">Departments</div>
       <div class="nav-item" onclick="showView('cleaning',this)">
@@ -1845,6 +1848,20 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- TEMPLATES -->
+      <div class="view" id="view-templates">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Templates</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:2px;">Reusable task templates for cleaning, inspections, and maintenance workflows.</div>
+          </div>
+          <button class="btn btn-secondary" onclick="alert('Custom template creation coming soon. For now, the Changeover Clean template is bundled with the app.')">+ New template</button>
+        </div>
+        <div id="templates-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
+
+        <div id="template-preview" style="display:none;margin-top:24px;"></div>
       </div>
 
       <!-- CLEANING CHECKLIST (Changeover Clean template) -->
@@ -2236,11 +2253,12 @@ function showView(name, el) {
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', properties: 'Properties', asset: 'Property' };
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', properties: 'Properties', asset: 'Property' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
   if (name === 'asset') renderAssetView();
   if (name === 'properties') renderPropertiesGrid();
+  if (name === 'templates') renderTemplatesGrid();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
   // Re-render dept tables so filter scoping picks up
   if (['cleaning','maintenance','inspections','operations','compliance'].includes(name)) renderAllDepts();
@@ -2897,6 +2915,107 @@ function removeChecklistIssue(idx) {
   state.issues.splice(idx, 1);
   renderChecklistIssues();
   updateChecklistProgress();
+}
+
+// ===== TEMPLATES VIEW =====
+// All currently-available task templates. Today we only ship Changeover Clean,
+// but this list is the seed for future inspection/maintenance templates.
+const TASK_TEMPLATES = [CHANGEOVER_CLEAN_TEMPLATE];
+
+function templateStats(t) {
+  const items = t.sections.flatMap(s => s.items);
+  const photoItems = items.filter(i => i.type === 'photo');
+  const minPhotos = photoItems.reduce((n, i) => n + (i.minPhotos || 1), 0);
+  return {
+    sectionCount: t.sections.length,
+    itemCount: items.length,
+    photoItemCount: photoItems.length,
+    minPhotos
+  };
+}
+
+function renderTemplatesGrid() {
+  const grid = document.getElementById('templates-grid');
+  if (!grid) return;
+  document.getElementById('template-preview').style.display = 'none';
+  grid.innerHTML = TASK_TEMPLATES.map(t => {
+    const s = templateStats(t);
+    return `
+      <div class="card" style="cursor:pointer;" onclick="openTemplatePreview('${t.key}')">
+        <div style="height:6px;background:var(--cleaning)"></div>
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <div style="width:34px;height:34px;border-radius:8px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:16px;">🧹</div>
+            <div style="font-size:16px;font-weight:600;">${escapeHtml(t.name)}</div>
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5;">${escapeHtml(t.description)}</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+            <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center;">
+              <div style="font-size:18px;font-weight:700;font-family:'Syne',sans-serif;">${s.sectionCount}</div>
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Sections</div>
+            </div>
+            <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center;">
+              <div style="font-size:18px;font-weight:700;font-family:'Syne',sans-serif;">${s.itemCount}</div>
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Items</div>
+            </div>
+            <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center;">
+              <div style="font-size:18px;font-weight:700;font-family:'Syne',sans-serif;">${s.minPhotos}</div>
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Photos</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openTemplatePreview(key) {
+  const t = TASK_TEMPLATES.find(x => x.key === key);
+  if (!t) return;
+  const s = templateStats(t);
+  const sectionsHtml = t.sections.map(section => {
+    const itemsHtml = section.items.map(it => `
+      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border);">
+        <div style="flex-shrink:0;width:22px;color:${it.type === 'photo' ? 'var(--inspections)' : 'var(--cleaning)'};font-weight:600;">${it.type === 'photo' ? '📷' : '✓'}</div>
+        <div style="flex:1;font-size:13px;line-height:1.5;">
+          ${escapeHtml(it.label)}
+          ${it.type === 'photo' && it.minPhotos > 1 ? `<span style="display:inline-block;margin-left:6px;padding:1px 8px;background:#dbeafe;color:#1e40af;border-radius:999px;font-size:11px;">min ${it.minPhotos} photos</span>` : ''}
+        </div>
+      </div>
+    `).join('');
+    return `
+      <div class="card" style="margin-bottom:12px;">
+        <div class="card-body">
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px;">
+            ${section.parent ? `<span style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text3);">${escapeHtml(section.parent)} /</span>` : ''}
+            <span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">${escapeHtml(section.title)}</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">${section.items.length} item${section.items.length > 1 ? 's' : ''}</span>
+          </div>
+          ${itemsHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+  const preview = document.getElementById('template-preview');
+  preview.style.display = 'block';
+  preview.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;">${escapeHtml(t.name)} · preview</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px;">${s.sectionCount} sections · ${s.itemCount} items · ${s.minPhotos} required photos</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" onclick="closeTemplatePreview()">Close preview</button>
+        <button class="btn btn-secondary" onclick="alert('Template editor coming soon. For now, tell me which items to add, remove, or reword and I will update the bundled template.')">Edit template</button>
+      </div>
+    </div>
+    ${sectionsHtml}
+  `;
+  preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeTemplatePreview() {
+  document.getElementById('template-preview').style.display = 'none';
 }
 
 function completeChecklist() {
