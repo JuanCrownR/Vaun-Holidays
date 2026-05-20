@@ -2050,6 +2050,14 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
       </div>
       <div class="form-group">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+          <label class="form-label" style="margin-bottom:0;">Fobs / Swipe Cards</label>
+          <span style="font-size:11px;color:var(--text3);">Fobs are active for 365 days from activation. The app auto-creates a reminder task one day before expiry (shifted to Friday if it falls on a weekend).</span>
+        </div>
+        <div id="prop-fobs-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <button type="button" class="btn btn-secondary" onclick="addFobRow()" style="margin-top:8px;font-size:12px;padding:6px 12px;">+ Add fob / card</button>
+      </div>
+      <div class="form-group">
         <label class="form-label">Notes (optional)</label>
         <textarea class="form-textarea" id="prop-notes" placeholder="Anything else to remember about this property..."></textarea>
       </div>
@@ -2202,10 +2210,10 @@ let assetActiveTab = 'calendar';
 // Default properties — used as fallback if Supabase properties table is unavailable.
 // Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
 let properties = [
-  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, car_parks: 2, capacity: 8, keys_total: 3, keys_guest: 1, status: 'active', notes: 'Live & onboarded' },
-  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, status: 'onboarding', notes: 'Onboarding pending' },
-  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, status: 'onboarding', notes: 'Onboarding pending' },
-  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, status: 'onboarding', notes: 'Onboarding 1 July 2026' }
+  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, car_parks: 2, capacity: 8, keys_total: 3, keys_guest: 1, fobs: [], status: 'active', notes: 'Live & onboarded' },
+  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], status: 'onboarding', notes: 'Onboarding 1 July 2026' }
 ];
 
 let propColors = {};
@@ -2336,6 +2344,8 @@ async function loadJobs() {
     jobs = data;
     renderAllDepts();
     updateStats();
+    // After jobs are loaded, make sure every fob has its reminder task.
+    syncFobExpiryTasks();
   }
 }
 
@@ -3346,6 +3356,7 @@ async function loadProperties() {
         capacity: p.capacity ?? null,
         keys_total: p.keys_total ?? null,
         keys_guest: p.keys_guest ?? null,
+        fobs: Array.isArray(p.fobs) ? p.fobs : [],
         status: p.status || 'active',
         notes: p.notes || ''
       }));
@@ -3643,6 +3654,133 @@ function showAllPropertiesView(el) {
   showView('properties', el);
 }
 
+// ===== FOBS (per-property swipe cards) =====
+// Fobs are kept on a property as: {id, number, activated_at, notes}.
+// Expiry is computed at view time as activated_at + 365 days. We
+// maintain a draft copy while the property modal is open so the user can
+// cancel without persisting changes.
+let editingFobs = [];
+
+function fobExpiryDate(activatedAt) {
+  if (!activatedAt) return null;
+  const d = new Date(activatedAt + 'T00:00:00');
+  if (isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + 365);
+  return d;
+}
+
+function formatYMD(d) {
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Returns the reminder-task date one day before expiry, shifted back to
+// Friday if the day-before lands on a Saturday or Sunday.
+function fobReminderDate(activatedAt) {
+  const exp = fobExpiryDate(activatedAt);
+  if (!exp) return null;
+  const r = new Date(exp);
+  r.setDate(r.getDate() - 1);
+  const dow = r.getDay(); // 0 = Sun, 6 = Sat
+  if (dow === 6) r.setDate(r.getDate() - 1);      // Sat -> Fri
+  else if (dow === 0) r.setDate(r.getDate() - 2); // Sun -> Fri
+  return r;
+}
+
+function renderFobsList() {
+  const container = document.getElementById('prop-fobs-list');
+  if (!container) return;
+  if (!editingFobs.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px;background:var(--surface2);border-radius:8px;text-align:center;">No fobs yet. Click "+ Add fob / card" to add one.</div>';
+    return;
+  }
+  container.innerHTML = editingFobs.map((f, idx) => {
+    const exp = fobExpiryDate(f.activated_at);
+    const expLabel = exp ? formatDate(formatYMD(exp)) : '—';
+    const today = new Date();
+    const isExpired = exp && exp < today;
+    return `
+      <div style="display:grid;grid-template-columns:1fr 160px 160px 36px;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;">
+        <input type="text" value="${escapeHtml(f.number || '')}" placeholder="Card / Fob number" oninput="updateFobField(${idx}, 'number', this.value)" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;">
+        <input type="date" value="${escapeHtml(f.activated_at || '')}" oninput="updateFobField(${idx}, 'activated_at', this.value)" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;" title="Activation date">
+        <div style="font-size:12px;color:${isExpired ? 'var(--maintenance)' : 'var(--text2)'};text-align:center;font-family:'DM Mono',monospace;">Expires ${expLabel}${isExpired ? ' (EXPIRED)' : ''}</div>
+        <button type="button" onclick="removeFobRow(${idx})" title="Remove fob" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:6px;cursor:pointer;color:var(--text3);">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function addFobRow() {
+  editingFobs.push({
+    id: 'fob_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    number: '',
+    activated_at: '',
+    notes: ''
+  });
+  renderFobsList();
+}
+
+function removeFobRow(idx) {
+  editingFobs.splice(idx, 1);
+  renderFobsList();
+}
+
+function updateFobField(idx, field, value) {
+  if (!editingFobs[idx]) return;
+  editingFobs[idx][field] = value;
+}
+
+// Build the expected reminder-task notes string for a given fob+expiry.
+// The [fid:...] tag lets us match on a stable identifier so renaming the card
+// number doesn't break dedupe.
+function fobReminderNotes(fob, expiryDate) {
+  const expLabel = formatDate(formatYMD(expiryDate));
+  const num = (fob.number || '').trim() || 'unlabelled';
+  return `Fob / Swipe Card Expiry (${expLabel}) — Card ${num} [fid:${fob.id}]`;
+}
+
+// Ensure a Keys Management reminder task exists for every fob across every
+// property. Skips fobs without an activation date and avoids duplicates by
+// looking up an existing job with the matching [fid:...] tag.
+async function syncFobExpiryTasks() {
+  if (!Array.isArray(properties) || !Array.isArray(jobs)) return;
+  for (const prop of properties) {
+    if (!Array.isArray(prop.fobs)) continue;
+    for (const fob of prop.fobs) {
+      if (!fob || !fob.id || !fob.activated_at) continue;
+      const expiry = fobExpiryDate(fob.activated_at);
+      const reminder = fobReminderDate(fob.activated_at);
+      if (!expiry || !reminder) continue;
+      const tag = `[fid:${fob.id}]`;
+      const exists = jobs.some(j => j.department === 'keys' && j.property === prop.id && j.notes && j.notes.includes(tag));
+      if (exists) continue;
+      const notes = fobReminderNotes(fob, expiry);
+      const row = {
+        department: 'keys',
+        property: prop.id,
+        date: formatYMD(reminder),
+        notes,
+        assigned_to: '',
+        status: 'pending',
+        created_by: currentUser?.id
+      };
+      try {
+        const { data, error } = await sb.from('jobs').insert([row]).select();
+        if (!error && data && data[0]) jobs.push(data[0]);
+        else { row.id = Date.now() + Math.floor(Math.random()*1000); jobs.push(row); }
+      } catch (e) {
+        row.id = Date.now() + Math.floor(Math.random()*1000);
+        jobs.push(row);
+      }
+    }
+  }
+  renderAllDepts();
+  updateStats();
+}
+
 // ===== ADD / EDIT PROPERTY =====
 let editingPropertyId = null;
 
@@ -3661,6 +3799,8 @@ function openAddPropertyModal() {
   document.getElementById('prop-color').value = randomPropColor();
   document.getElementById('prop-notes').value = '';
   document.getElementById('prop-error').style.display = 'none';
+  editingFobs = [];
+  renderFobsList();
   document.getElementById('add-property-modal').classList.add('open');
 }
 
@@ -3680,6 +3820,9 @@ function openEditPropertyModal(id) {
   document.getElementById('prop-keys-guest').value = prop.keys_guest ?? '';
   document.getElementById('prop-color').value = prop.color || '#4f8ef7';
   document.getElementById('prop-notes').value = prop.notes || '';
+  // Clone so edits don't mutate the live property until Save
+  editingFobs = Array.isArray(prop.fobs) ? JSON.parse(JSON.stringify(prop.fobs)) : [];
+  renderFobsList();
   document.getElementById('prop-error').style.display = 'none';
   document.getElementById('add-property-modal').classList.add('open');
 }
@@ -3746,6 +3889,7 @@ async function saveProperty() {
     capacity: capacity === '' ? null : Number(capacity),
     keys_total: keys_total === '' ? null : Number(keys_total),
     keys_guest: keys_guest === '' ? null : Number(keys_guest),
+    fobs: (editingFobs || []).filter(f => (f.number && f.number.trim()) || f.activated_at),
     notes: notes || null
   };
 
@@ -3768,6 +3912,7 @@ async function saveProperty() {
     if (selectedPropertyId === editingPropertyId) renderAssetView();
     closeAddPropertyModal();
     addActivity(`Property updated: ${displayName}`, 'operations');
+    syncFobExpiryTasks();
     return;
   }
 
@@ -3788,6 +3933,7 @@ async function saveProperty() {
   populateJobPropertyDropdown();
   closeAddPropertyModal();
   addActivity(`New property added: ${displayName}`, 'operations');
+  syncFobExpiryTasks();
 }
 
 // ===== DELETE PROPERTY =====
@@ -3899,10 +4045,35 @@ function renderAssetDetails() {
         <div class="asset-detail-row"><span class="asset-detail-label">Capacity</span><span class="asset-detail-value">${prop.capacity ? prop.capacity + ' guests' : '—'}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Total key sets</span><span class="asset-detail-value">${prop.keys_total ?? '—'}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Key sets for guests</span><span class="asset-detail-value">${prop.keys_guest ?? '—'}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Fobs / Cards</span><span class="asset-detail-value">${(prop.fobs && prop.fobs.length) || 0}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Color</span><span class="asset-detail-value"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${prop.color};vertical-align:middle;margin-right:6px;"></span>${escapeHtml(prop.color)}</span></div>
       </div>
       ${prop.notes ? `<div style="grid-column:1/-1;background:var(--surface2);padding:14px;border-radius:10px;font-size:13px;color:var(--text2);"><strong style="color:var(--text);">Notes:</strong> ${escapeHtml(prop.notes)}</div>` : ''}
     </div>
+    ${(prop.fobs && prop.fobs.length) ? `
+      <div style="margin-top:24px;">
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;">Fobs / Swipe Cards</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${prop.fobs.map(f => {
+            const exp = fobExpiryDate(f.activated_at);
+            const today = new Date();
+            const isExpired = exp && exp < today;
+            const isSoon = exp && !isExpired && (exp - today) < 14 * 86400000;
+            const badge = isExpired ? '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;">EXPIRED</span>'
+                          : isSoon ? '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;">EXPIRES SOON</span>'
+                          : '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#15803d;">ACTIVE</span>';
+            return `
+              <div style="display:grid;grid-template-columns:1fr 160px 160px 120px;gap:12px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;">
+                <div><strong>${escapeHtml(f.number || 'unlabelled')}</strong></div>
+                <div style="color:var(--text2);">Activated ${f.activated_at ? formatDate(f.activated_at) : '—'}</div>
+                <div style="color:var(--text2);">Expires ${exp ? formatDate(formatYMD(exp)) : '—'}</div>
+                <div style="text-align:right;">${badge}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : ''}
   `;
 }
 </script>
