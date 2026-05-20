@@ -2159,6 +2159,17 @@ function openNewJobModal() {
   if (selectedPropertyId && propSelect && Array.from(propSelect.options).some(o => o.value === selectedPropertyId)) {
     propSelect.value = selectedPropertyId;
   }
+  // If currently inside a department view, pre-select that department —
+  // user can still change via the Department dropdown.
+  const deptIds = ['cleaning','maintenance','inspections','operations','compliance'];
+  const activeView = document.querySelector('.view.active');
+  if (activeView && activeView.id && activeView.id.startsWith('view-')) {
+    const viewName = activeView.id.replace('view-', '');
+    if (deptIds.includes(viewName)) {
+      const deptSelect = document.getElementById('job-dept');
+      if (deptSelect) deptSelect.value = viewName;
+    }
+  }
   document.getElementById('new-job-modal').classList.add('open');
 }
 function closeNewJobModal() { document.getElementById('new-job-modal').classList.remove('open'); }
