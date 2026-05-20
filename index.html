@@ -377,6 +377,58 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .stat-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
 .stat-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
 
+/* Open tasks by department */
+.dept-open-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.dept-open-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.dept-open-card:hover { border-color: var(--border2); background: var(--surface2); }
+.dept-open-card:active { transform: scale(0.98); }
+.dept-open-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.dept-open-head .dept-chip {
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+.dept-open-count {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+}
+.dept-open-sub {
+  font-size: 11px;
+  color: var(--text3);
+}
+.dept-open-card.zero .dept-open-count { color: var(--text3); }
+@media (max-width: 768px) {
+  .dept-open-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .card {
   background: white;
@@ -1303,6 +1355,9 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
           </div>
         </div>
 
+        <!-- Open tasks by department -->
+        <div class="dept-open-grid" id="dept-open-grid"></div>
+
         <div class="two-col">
           <div class="card">
             <div class="card-header">
@@ -1982,6 +2037,41 @@ function updateStats() {
     document.getElementById('stat-next').textContent = formatDate(next.date);
     document.getElementById('stat-next-prop').textContent = propNames[next.property];
   }
+  renderDeptOpenCounts();
+}
+
+// Renders the dashboard "open tasks per department" row.
+// "Open" = any job whose status is NOT 'complete' and NOT 'resolved'.
+function renderDeptOpenCounts() {
+  const grid = document.getElementById('dept-open-grid');
+  if (!grid) return;
+  const depts = [
+    { id: 'cleaning',    label: 'Cleaning' },
+    { id: 'maintenance', label: 'Maintenance' },
+    { id: 'inspections', label: 'Inspections' },
+    { id: 'operations',  label: 'Operations' },
+    { id: 'compliance',  label: 'Compliance' }
+  ];
+  grid.innerHTML = depts.map(d => {
+    const open = jobs.filter(j => j.department === d.id && j.status !== 'complete' && j.status !== 'resolved').length;
+    const di = deptIcon(d.id);
+    return `
+      <div class="dept-open-card ${open === 0 ? 'zero' : ''}" onclick="goToDept('${d.id}')" title="View ${d.label}">
+        <div class="dept-open-head">
+          <span class="dept-chip" style="background:${di.bg}">${di.icon}</span>
+          ${d.label}
+        </div>
+        <div class="dept-open-count">${open}</div>
+        <div class="dept-open-sub">${open === 1 ? '1 open task' : open + ' open tasks'}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function goToDept(deptId) {
+  const navItem = Array.from(document.querySelectorAll('.nav-item'))
+    .find(n => (n.getAttribute('onclick') || '').includes(`showView('${deptId}'`));
+  showView(deptId, navItem || null);
 }
 
 // ===== CALENDAR =====
