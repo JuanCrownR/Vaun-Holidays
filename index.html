@@ -3006,7 +3006,7 @@ function openTemplatePreview(key) {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-secondary" onclick="closeTemplatePreview()">Close preview</button>
-        <button class="btn btn-secondary" onclick="alert('Template editor coming soon. For now, tell me which items to add, remove, or reword and I will update the bundled template.')">Edit template</button>
+        <button class="btn btn-primary" onclick="editTemplate('${t.key}')">Edit template</button>
       </div>
     </div>
     ${sectionsHtml}
@@ -3017,6 +3017,194 @@ function openTemplatePreview(key) {
 function closeTemplatePreview() {
   document.getElementById('template-preview').style.display = 'none';
 }
+
+// ===== TEMPLATE EDITOR =====
+// Edits work on a deep-cloned `draft` of the template so the live template
+// only changes once the user clicks Save.
+let editingTemplate = null;
+
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function editTemplate(key) {
+  const t = TASK_TEMPLATES.find(x => x.key === key);
+  if (!t) return;
+  editingTemplate = deepClone(t);
+  renderTemplateEditor();
+}
+
+function cancelTemplateEdits() {
+  if (editingTemplate && confirm('Discard your changes to this template?')) {
+    editingTemplate = null;
+    renderTemplatesGrid();
+  } else if (!editingTemplate) {
+    renderTemplatesGrid();
+  }
+}
+
+function saveTemplateEdits() {
+  if (!editingTemplate) return;
+  // Re-key items that don't have stable keys, just in case
+  editingTemplate.sections.forEach((s, si) => {
+    if (!s.key) s.key = `sec-${si}-${Date.now()}`;
+    s.items.forEach((it, ii) => {
+      if (!it.key) it.key = `${s.key}-item-${ii}-${Date.now()}`;
+    });
+  });
+  // Replace in TASK_TEMPLATES
+  const idx = TASK_TEMPLATES.findIndex(t => t.key === editingTemplate.key);
+  if (idx >= 0) {
+    TASK_TEMPLATES.splice(idx, 1, editingTemplate);
+  } else {
+    TASK_TEMPLATES.push(editingTemplate);
+  }
+  // Mirror onto CHANGEOVER_CLEAN_TEMPLATE so the active checklist uses the edits
+  if (editingTemplate.key === CHANGEOVER_CLEAN_TEMPLATE.key) {
+    CHANGEOVER_CLEAN_TEMPLATE.name = editingTemplate.name;
+    CHANGEOVER_CLEAN_TEMPLATE.description = editingTemplate.description;
+    CHANGEOVER_CLEAN_TEMPLATE.sections = editingTemplate.sections;
+  }
+  saveTemplatesToStorage();
+  editingTemplate = null;
+  renderTemplatesGrid();
+  addActivity('Cleaning template updated', 'cleaning');
+  alert('Template saved.');
+}
+
+function saveTemplatesToStorage() {
+  try {
+    localStorage.setItem('vh_task_templates_v1', JSON.stringify(TASK_TEMPLATES));
+  } catch (e) { console.warn('localStorage save failed', e); }
+}
+
+function loadTemplatesFromStorage() {
+  try {
+    const raw = localStorage.getItem('vh_task_templates_v1');
+    if (!raw) return;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return;
+    // Replace in place
+    TASK_TEMPLATES.length = 0;
+    arr.forEach(t => TASK_TEMPLATES.push(t));
+    // Mirror Changeover Clean back onto the constant so the running checklist picks up overrides
+    const co = TASK_TEMPLATES.find(t => t.key === CHANGEOVER_CLEAN_TEMPLATE.key);
+    if (co) {
+      CHANGEOVER_CLEAN_TEMPLATE.name = co.name;
+      CHANGEOVER_CLEAN_TEMPLATE.description = co.description;
+      CHANGEOVER_CLEAN_TEMPLATE.sections = co.sections;
+    }
+  } catch (e) { console.warn('localStorage load failed', e); }
+}
+loadTemplatesFromStorage();
+
+function renderTemplateEditor() {
+  const t = editingTemplate;
+  const preview = document.getElementById('template-preview');
+  preview.style.display = 'block';
+  const sectionsHtml = t.sections.map((section, si) => {
+    const itemsHtml = section.items.map((item, ii) => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;">
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <select onchange="editorUpdateItem(${si}, ${ii}, 'type', this.value)" style="flex-shrink:0;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:white;">
+            <option value="check" ${item.type === 'check' ? 'selected' : ''}>✓ Checklist</option>
+            <option value="photo" ${item.type === 'photo' ? 'selected' : ''}>📷 Photo</option>
+          </select>
+          <textarea oninput="editorUpdateItem(${si}, ${ii}, 'label', this.value)" placeholder="Item description…" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;resize:vertical;min-height:36px;">${escapeHtml(item.label || '')}</textarea>
+          ${item.type === 'photo' ? `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;">
+              <input type="number" min="1" step="1" value="${item.minPhotos || 1}" onchange="editorUpdateItem(${si}, ${ii}, 'minPhotos', parseInt(this.value)||1)" style="width:56px;text-align:center;border:1px solid var(--border);border-radius:6px;padding:6px;font-size:13px;">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">min photos</div>
+            </div>
+          ` : ''}
+          <button onclick="editorDeleteItem(${si}, ${ii})" title="Delete item" style="flex-shrink:0;background:transparent;border:1px solid var(--border);border-radius:6px;padding:6px 8px;cursor:pointer;color:var(--text3);">✕</button>
+        </div>
+      </div>
+    `).join('');
+    return `
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            <input type="text" value="${escapeHtml(section.parent || '')}" placeholder="Parent (optional)" onchange="editorUpdateSection(${si}, 'parent', this.value)" style="width:160px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;color:var(--text3);">
+            <span style="color:var(--text3);">/</span>
+            <input type="text" value="${escapeHtml(section.title || '')}" placeholder="Section title" onchange="editorUpdateSection(${si}, 'title', this.value)" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:15px;font-family:'Syne',sans-serif;font-weight:700;">
+            <button onclick="editorMoveSection(${si}, -1)" title="Move up" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;">↑</button>
+            <button onclick="editorMoveSection(${si}, 1)" title="Move down" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;">↓</button>
+            <button onclick="editorDeleteSection(${si})" title="Delete section" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;cursor:pointer;color:#b91c1c;font-size:12px;">Delete section</button>
+          </div>
+          ${itemsHtml}
+          <button onclick="editorAddItem(${si})" style="margin-top:4px;background:transparent;border:1px dashed var(--border2);border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;color:var(--text2);width:100%;">+ Add item to section</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  preview.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:16px;">
+      <div style="flex:1;">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Editing template</div>
+        <input type="text" value="${escapeHtml(t.name)}" oninput="editingTemplate.name = this.value" style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:6px 10px;width:100%;max-width:480px;">
+        <textarea oninput="editingTemplate.description = this.value" placeholder="Description (visible to cleaners and managers)" style="margin-top:8px;width:100%;max-width:640px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13px;resize:vertical;min-height:50px;">${escapeHtml(t.description || '')}</textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+        <button class="btn btn-secondary" onclick="cancelTemplateEdits()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveTemplateEdits()">Save changes</button>
+      </div>
+    </div>
+    ${sectionsHtml}
+    <button onclick="editorAddSection()" style="margin-top:8px;width:100%;background:transparent;border:2px dashed var(--border2);border-radius:12px;padding:14px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);">+ Add section</button>
+  `;
+  preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function editorUpdateSection(si, field, value) {
+  editingTemplate.sections[si][field] = value;
+}
+
+function editorMoveSection(si, dir) {
+  const arr = editingTemplate.sections;
+  const ni = si + dir;
+  if (ni < 0 || ni >= arr.length) return;
+  [arr[si], arr[ni]] = [arr[ni], arr[si]];
+  renderTemplateEditor();
+}
+
+function editorDeleteSection(si) {
+  if (!confirm(`Remove section "${editingTemplate.sections[si].title}" and all its items?`)) return;
+  editingTemplate.sections.splice(si, 1);
+  renderTemplateEditor();
+}
+
+function editorAddSection() {
+  editingTemplate.sections.push({
+    key: `sec-${Date.now()}`,
+    title: 'New section',
+    items: [{ key: `item-${Date.now()}`, type: 'check', label: '' }]
+  });
+  renderTemplateEditor();
+}
+
+function editorUpdateItem(si, ii, field, value) {
+  const item = editingTemplate.sections[si].items[ii];
+  item[field] = value;
+  // If toggling to photo type, ensure minPhotos default
+  if (field === 'type' && value === 'photo' && !item.minPhotos) item.minPhotos = 1;
+  // Re-render only if type changed (to show/hide the minPhotos field)
+  if (field === 'type') renderTemplateEditor();
+}
+
+function editorDeleteItem(si, ii) {
+  editingTemplate.sections[si].items.splice(ii, 1);
+  renderTemplateEditor();
+}
+
+function editorAddItem(si) {
+  editingTemplate.sections[si].items.push({
+    key: `item-${Date.now()}-${si}`,
+    type: 'check',
+    label: ''
+  });
+  renderTemplateEditor();
+}
+
+
 
 function completeChecklist() {
   const state = ensureChecklistState(currentChecklistJob.id);
