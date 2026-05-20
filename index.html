@@ -2790,6 +2790,30 @@ function renderChecklistSections() {
       const s = state.items[it.key] || {};
       return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
     }).length;
+
+    // Property-driven info banners. If the section is the Keys section we
+    // surface how many guest key sets the property actually has, so the
+    // cleaner knows how many they should be returning to the pickup location.
+    let infoBanner = '';
+    const isKeysSection = section.key === 'before-leave-keys' || (section.title || '').toLowerCase() === 'keys';
+    if (isKeysSection && currentChecklistJob) {
+      const prop = properties.find(p => p.id === currentChecklistJob.property);
+      const guestKeys = prop && prop.keys_guest != null ? prop.keys_guest : null;
+      const totalKeys = prop && prop.keys_total != null ? prop.keys_total : null;
+      const keysLine = guestKeys != null
+        ? `Number of keys allocated to guests for this property: <strong>${guestKeys}</strong>${totalKeys != null ? ` <span style="color:var(--text3);font-weight:400;">(${totalKeys} total at property)</span>` : ''}`
+        : `<span style="color:var(--text3);">Key counts haven't been set yet for this property. Update them in Property settings.</span>`;
+      infoBanner = `
+        <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px;">🔑 Keys for this property</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.5;">${keysLine}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:10px;line-height:1.5;">
+            Report any missing keys as <strong>"Missing Key"</strong> Inspection issue. If using Keynest, only photograph the key at the Keynest counter.
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="checklist-section-card">
         <div class="checklist-section-head">
@@ -2797,6 +2821,7 @@ function renderChecklistSections() {
           <span class="checklist-section-title">${escapeHtml(section.title)}</span>
           <span class="checklist-section-count">${doneInSection}/${section.items.length}</span>
         </div>
+        ${infoBanner}
         ${itemsHtml}
       </div>
     `;
