@@ -832,6 +832,271 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 }
 .btn-danger:hover { background: #b91c1c; }
 
+/* ===== CLEANING CHECKLIST ===== */
+.checklist-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
+  margin-bottom: 16px;
+}
+.checklist-back {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+.checklist-back:hover { background: var(--surface2); }
+.checklist-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; flex: 1; }
+.checklist-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.checklist-progress {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text2);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+.checklist-progress strong { color: var(--text); font-family: 'Syne', sans-serif; font-size: 14px; }
+.checklist-progress-bar {
+  width: 140px;
+  height: 6px;
+  background: var(--surface3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.checklist-progress-fill {
+  height: 100%;
+  background: var(--cleaning);
+  transition: width 0.25s;
+}
+
+.checklist-issues-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--maintenance);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.checklist-issues-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+}
+.checklist-issue-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.checklist-issue-row:last-child { border-bottom: none; }
+.severity-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+  text-align: center;
+}
+.severity-low { background: #dcfce7; color: #15803d; }
+.severity-medium { background: #fef3c7; color: #92400e; }
+.severity-high { background: #fee2e2; color: #991b1b; }
+
+.checklist-section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 26px;
+  margin-bottom: 14px;
+}
+.checklist-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.checklist-section-parent {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.checklist-section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+.checklist-section-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+}
+
+.checklist-item { padding: 12px 0; border-bottom: 1px dashed var(--border); }
+.checklist-item:last-child { border-bottom: none; }
+.checklist-item-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+.checklist-checkbox {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  border: 2px solid var(--border2);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  margin-top: 1px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.checklist-checkbox.done {
+  background: var(--cleaning);
+  border-color: var(--cleaning);
+  color: white;
+}
+.checklist-checkbox::before {
+  content: '';
+  width: 11px;
+  height: 7px;
+  border-left: 2px solid white;
+  border-bottom: 2px solid white;
+  transform: rotate(-45deg) translateY(-1px);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.checklist-checkbox.done::before { opacity: 1; }
+.checklist-item-label {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.checklist-item.done .checklist-item-label { color: var(--text3); }
+.checklist-bullets {
+  margin-left: 34px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checklist-bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+.checklist-bullet::before {
+  content: '○';
+  color: var(--text3);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.checklist-photo-area {
+  margin-left: 34px;
+  margin-top: 10px;
+}
+.checklist-photo-required {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+.checklist-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+}
+.checklist-photo {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+}
+.checklist-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.checklist-photo-remove {
+  position: absolute;
+  top: 4px; right: 4px;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px; height: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.checklist-photo-add {
+  aspect-ratio: 1;
+  border: 2px dashed var(--border2);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
+  font-size: 11px;
+  cursor: pointer;
+  background: var(--surface2);
+  transition: border-color 0.15s, background 0.15s;
+}
+.checklist-photo-add:hover { border-color: var(--cleaning); background: #ecfdf5; color: var(--cleaning); }
+.checklist-photo-add-icon { font-size: 22px; line-height: 1; margin-bottom: 2px; }
+
+.checklist-notes {
+  margin-left: 34px;
+  margin-top: 10px;
+  width: calc(100% - 34px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 36px;
+  background: var(--surface2);
+}
+.checklist-notes:focus { background: white; border-color: var(--accent2); outline: none; }
+
+.checklist-footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
 /* ===== PROPERTY SWITCHER ===== */
 .prop-switcher {
   display: flex;
@@ -1582,6 +1847,30 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
       </div>
 
+      <!-- CLEANING CHECKLIST (Changeover Clean template) -->
+      <div class="view" id="view-cleaning-checklist">
+        <div class="checklist-topbar">
+          <button class="checklist-back" onclick="closeChecklist()">← Back</button>
+          <div style="flex:1;">
+            <div class="checklist-title" id="checklist-job-title">Changeover Clean</div>
+            <div class="checklist-sub" id="checklist-job-sub">—</div>
+          </div>
+          <div class="checklist-progress">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span><strong id="checklist-done-count">0</strong> / <span id="checklist-total-count">0</span></span>
+              <div class="checklist-progress-bar"><div class="checklist-progress-fill" id="checklist-progress-fill" style="width:0"></div></div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="background:var(--maintenance);" onclick="openReportIssue()">+ Report issue</button>
+        </div>
+        <div id="checklist-issues-container"></div>
+        <div id="checklist-sections-container"></div>
+        <div class="checklist-footer">
+          <div style="font-size:13px;color:var(--text2);"><span id="checklist-photos-count">0</span> photos · <span id="checklist-issues-count">0</span> issues reported</div>
+          <button class="btn btn-primary" onclick="completeChecklist()">Mark cleaning complete</button>
+        </div>
+      </div>
+
       <!-- PROPERTIES -->
       <div class="view" id="view-properties">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -1712,6 +2001,44 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeAddPropertyModal()">Cancel</button>
       <button class="btn btn-primary" id="property-save-btn" onclick="saveProperty()">Add property</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT ISSUE MODAL -->
+<div class="modal-overlay" id="report-issue-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Report an issue</h3>
+      <button class="modal-close" onclick="closeReportIssue()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Issue title</label>
+        <input type="text" class="form-input" id="issue-title" placeholder="Stained bedsheet, broken kettle, missing remote…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="issue-desc" placeholder="Describe what you found, where, and any context the manager needs."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Severity</label>
+        <select class="form-select" id="issue-severity">
+          <option value="low">Low — informational</option>
+          <option value="medium" selected>Medium — needs attention</option>
+          <option value="high">High — blocks check-in</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Photo (optional)</label>
+        <input type="file" accept="image/*" id="issue-photo">
+        <div id="issue-photo-preview" style="margin-top:8px;"></div>
+      </div>
+      <div class="login-error" id="issue-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeReportIssue()">Cancel</button>
+      <button class="btn btn-primary" style="background:var(--maintenance);" onclick="submitReportIssue()">Submit issue</button>
     </div>
   </div>
 </div>
@@ -2175,6 +2502,10 @@ function openNewJobModal() {
 function closeNewJobModal() { document.getElementById('new-job-modal').classList.remove('open'); }
 
 function viewJob(job) {
+  if (job.department === 'cleaning') {
+    openChecklist(job);
+    return;
+  }
   alert(`Job: ${job.department.toUpperCase()}\nProperty: ${propNames[job.property]}\nDate: ${formatDate(job.date)}\nAssigned: ${job.assigned_to || 'Unassigned'}\nStatus: ${job.status}\nNotes: ${job.notes || 'None'}`);
 }
 
@@ -2199,6 +2530,399 @@ function addActivity(text, dept) {
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
 });
+
+// ===== CLEANING CHECKLIST TEMPLATE =====
+// Modelled after the Breezeway "Changeover Clean" template observed in the
+// uploaded video. Each section is { parent?, title, items[] }. Items are
+// either a checklist (`bullets`) or a photo upload (`photo`). Bullets become
+// individual ticks. Photo items have minPhotos to enforce a minimum.
+const CHANGEOVER_CLEAN_TEMPLATE = {
+  key: 'changeover-clean',
+  name: 'Changeover Clean',
+  description: 'Standard between-guest cleaning workflow. Tick each requirement, upload the required photos, and report any issues you find.',
+  sections: [
+    { key: 'general', title: 'General', items: [
+      { key: 'g-report',      type: 'check', label: 'Report damages, excessive mess, or missing items and add a PHOTO of the issue' },
+      { key: 'g-stains',      type: 'check', label: 'Clean stains, under furniture, and ensure furniture is tidy' },
+      { key: 'g-rubbish',     type: 'check', label: 'Remove rubbish, change bin liners, and clean internal windows and sills' },
+      { key: 'g-cobwebs',     type: 'check', label: 'Avoid chemicals on screens and remove reachable cobwebs' },
+      { key: 'g-plug',        type: 'check', label: 'Plug in any unplugged items' },
+      { key: 'g-equipment',   type: 'photo', label: 'Take a photo of cleaning products and equipment', minPhotos: 1 }
+    ]},
+    { key: 'g-floors',  parent: 'General', title: 'Floors', items: [
+      { key: 'floors-photo', type: 'photo', label: 'Vacuum/Mop floor for all property rooms, including under & behind furniture. Please take a minimum of 3 photos of clean floors.', minPhotos: 3 }
+    ]},
+    { key: 'g-vacuum', parent: 'General', title: 'Vacuum Cleaner', items: [
+      { key: 'vacuum-photo', type: 'photo', label: 'Empty the vacuum, clean the filter, and take a photo of the empty canister/filter.', minPhotos: 1 }
+    ]},
+    { key: 'g-wifi', parent: 'General', title: 'Wireless (WiFi) Router', items: [
+      { key: 'wifi-photo', type: 'photo', label: 'Test the WiFi — upload a screenshot of a speedtest at https://www.speedtest.net (do NOT photograph the modem)', minPhotos: 1 }
+    ]},
+
+    { key: 'bedrooms', parent: 'Bedrooms', title: 'Bedroom', items: [
+      { key: 'br-disinfect', type: 'check', label: 'Dust all surfaces and furniture. Disinfect all high-touch areas (door/cabinet handles, light switches, power points, remote controls, A/C panels)' },
+      { key: 'br-towels',    type: 'check', label: 'Bath towels (2 per king/queen/double, 1 per single)' },
+      { key: 'br-pillows',   type: 'check', label: 'No decorative pillows or coloured blankets' },
+      { key: 'br-photo',     type: 'photo', label: 'Add photos of each bedroom after clean', minPhotos: 1 }
+    ]},
+    { key: 'br-bed', parent: 'Bedrooms', title: 'Bed', items: [
+      { key: 'bed-spotcheck', type: 'check', label: 'Spot-check and clean UNDER the bed' },
+      { key: 'bed-photo',     type: 'photo', label: 'Take photo of all beds made up after clean', minPhotos: 1 },
+      { key: 'bed-mattress',  type: 'check', label: 'If the bed is missing a Mattress Protector or Doona — or requires replacement — report an Inspection issue (every bed should have one). Include if it was caused by the guest or wear and tear, and the size needed.' }
+    ]},
+    { key: 'br-closet', parent: 'Bedrooms', title: 'Closet', items: [
+      { key: 'closet-arrange', type: 'check', label: 'Clean wardrobe/cabinet doors and mirrors. Arrange cupboards neatly with matching hangers. Remove unwanted items (bags, empty boxes, personal items)' },
+      { key: 'closet-photo',   type: 'photo', label: 'Take photos of all closets/wardrobes after clean', minPhotos: 1 }
+    ]},
+
+    { key: 'bathrooms', parent: 'Bathrooms', title: 'Bathroom', items: [
+      { key: 'bath-linen',  type: 'check', label: 'Remove dirty linen and rubbish first (towels, bins, mats, toilet paper, toilet brush, shampoo bottles, etc.)' },
+      { key: 'bath-disinfect', type: 'check', label: 'Disinfect all high-touch areas (door handles, light switches, power points, flushers, taps)' },
+      { key: 'bath-photo',  type: 'photo', label: 'Add photo of all bathrooms after clean', minPhotos: 1 }
+    ]},
+    { key: 'bath-vanity', parent: 'Bathrooms', title: 'Vanity', items: [
+      { key: 'vanity-polish', type: 'check', label: 'Clean & polish the vanity, faucet taps and surrounding surfaces. Clean all mirrors.' },
+      { key: 'vanity-photo',  type: 'photo', label: 'Photo of clean vanity & mirrors', minPhotos: 1 }
+    ]},
+    { key: 'bath-amenities', parent: 'Bathrooms', title: 'Amenities', items: [
+      { key: 'amen-restock', type: 'check', label: 'Restock bathroom amenities based on bedroom layout (toilet paper, soap, conditioner, shampoo)' },
+      { key: 'amen-photo',   type: 'photo', label: 'Take photo of amenities being provided', minPhotos: 1 }
+    ]},
+    { key: 'bath-shower', parent: 'Bathrooms', title: 'Shower', items: [
+      { key: 'shower-clean', type: 'check', label: 'Clean & polish shower screens, frames and shower head. Clean and empty the shower drain.' },
+      { key: 'shower-photo', type: 'photo', label: 'Take photo of clean shower', minPhotos: 1 }
+    ]},
+
+    { key: 'kitchen', parent: 'Kitchen', title: 'Kitchen', items: [
+      { key: 'kit-bench', type: 'check', label: 'Clean and polish benchtops, surfaces, and appliances (including underneath). Disinfect all high-touch areas (handles, light switches, power points, taps). Dispose of opened/unused food.' },
+      { key: 'kit-photo', type: 'photo', label: 'Add photo of the kitchen after clean', minPhotos: 1 },
+      { key: 'kit-amenities-photo', type: 'photo', label: 'Take photo of kitchen amenities (coffee pods, tea, milk, salt, pepper, sugar, sponge etc.)', minPhotos: 1 }
+    ]},
+    { key: 'kit-pantry', parent: 'Kitchen', title: 'Pantry', items: [
+      { key: 'pantry-check', type: 'check', label: 'Check and remove any used/open food from the pantry and cupboards, ensuring they are clean and well-presented' },
+      { key: 'pantry-photo', type: 'photo', label: 'Take photo of pantry after clean', minPhotos: 1 }
+    ]},
+    { key: 'kit-drawers', parent: 'Kitchen', title: 'Drawers', items: [
+      { key: 'drawers-arrange', type: 'check', label: 'Ensure items in drawers are clean and well presented. Ensure all cutlery is clean and well presented in the cutlery tray. Wipe down the outside of all drawers.' },
+      { key: 'drawers-photo', type: 'photo', label: 'Take photos of open drawers after clean', minPhotos: 1 }
+    ]},
+    { key: 'kit-fridge', parent: 'Kitchen', title: 'Refrigerator', items: [
+      { key: 'fridge-clean', type: 'check', label: 'Wipe down the outside of the fridge and freezer. Spot clean the inside. Remove and dispose of leftover food and ice.' },
+      { key: 'fridge-photo', type: 'photo', label: 'Take a photo of the open fridge and freezer after cleaning', minPhotos: 1 }
+    ]},
+    { key: 'kit-microwave', parent: 'Kitchen', title: 'Microwave', items: [
+      { key: 'micro-clean', type: 'check', label: 'Clean inside and outside of the microwave' },
+      { key: 'micro-photo', type: 'photo', label: 'Photo of clean microwave', minPhotos: 1 }
+    ]},
+    { key: 'kit-toaster', parent: 'Kitchen', title: 'Toaster', items: [
+      { key: 'toaster-tray', type: 'check', label: 'Wipe externally and empty/clean the crumb tray' },
+      { key: 'toaster-photo', type: 'photo', label: 'Take photo of empty crumb tray', minPhotos: 1 }
+    ]},
+    { key: 'kit-kettle', parent: 'Kitchen', title: 'Kettle', items: [
+      { key: 'kettle-clean', type: 'check', label: 'Wipe externally and empty kettle (no water). If the kettle is rusting inside, report as an Inspection issue for replacement.' },
+      { key: 'kettle-photo', type: 'photo', label: 'Photo of empty/clean kettle', minPhotos: 1 }
+    ]},
+    { key: 'kit-rangehood', parent: 'Kitchen', title: 'Range Hood', items: [
+      { key: 'rh-clean', type: 'check', label: 'Clean rangehood externally' },
+      { key: 'rh-photo', type: 'photo', label: 'Take photo of clean rangehood', minPhotos: 1 }
+    ]},
+
+    { key: 'living', parent: 'Living Room', title: 'Living Room', items: [
+      { key: 'living-cushions', type: 'check', label: 'Dust and arrange couch cushions with square shape. Disinfect all high-touch areas (door handles, light switches, power points, taps). Check behind and under all furniture.' },
+      { key: 'living-photo',    type: 'photo', label: 'Take photo of living room after clean', minPhotos: 1 },
+      { key: 'living-tv-photo', type: 'photo', label: 'Take a photo of the TV working', minPhotos: 1 }
+    ]},
+
+    { key: 'laundry', parent: 'Laundry', title: 'Laundry Room', items: [
+      { key: 'laundry-clean', type: 'check', label: 'Clean all external surfaces (cabinets, dryer, washing machine). Clean and polish sink and taps (including mould). Disinfect all high-touch areas.' },
+      { key: 'laundry-photo', type: 'photo', label: 'Add photo of laundry area after clean', minPhotos: 1 }
+    ]},
+    { key: 'laundry-washer', parent: 'Laundry / Laundry Room', title: 'Washer', items: [
+      { key: 'washer-clean', type: 'check', label: 'Clean outside the washing machine. Clean washing machine drawer/tray. Ensure washing machine is empty.' }
+    ]},
+    { key: 'laundry-dryer', parent: 'Laundry / Laundry Room', title: 'Dryer', items: [
+      { key: 'dryer-clean', type: 'check', label: 'Wipe down the dryer. Remove dust and lint from dryer filter.' },
+      { key: 'dryer-photo', type: 'photo', label: 'Take photo of clean filter', minPhotos: 1 }
+    ]},
+
+    { key: 'outdoor', title: 'Outdoor Area', items: [
+      { key: 'outdoor-clean', type: 'check', label: 'Dust railings and frames. Wipe and tidy external furniture. Sweep floors to remove visible rubbish and leaves. Store any clothing rack neatly if there is no space in the laundry room.' },
+      { key: 'outdoor-photo', type: 'photo', label: 'Take a post-cleaning photo of the patio, balcony, or garden', minPhotos: 1 }
+    ]},
+
+    { key: 'before-leave', title: 'Before you leave', items: [
+      { key: 'bl-lights',  type: 'check', label: 'Turn off lights and appliances including fans, air-conditioners, heaters, TV etc.' },
+      { key: 'bl-locks',   type: 'check', label: 'Check all doors and windows are locked' },
+      { key: 'bl-report',  type: 'check', label: 'Report any damage or maintenance issues through the app' },
+      { key: 'bl-bins',    type: 'check', label: 'Throw away any junk; make sure bins are empty' },
+      { key: 'bl-final-photo', type: 'photo', label: 'Final walk-through photo of the property', minPhotos: 1 }
+    ]},
+    { key: 'before-leave-keys', parent: 'Before you leave', title: 'Keys', items: [
+      { key: 'key-hk-photo', type: 'photo', label: 'Take a photo of the Housekeeping Key with the MadeComfy code visible', minPhotos: 1 },
+      { key: 'key-return',   type: 'check', label: 'Put guest keys back into key pick-up location (lockbox / Keycafe / Convenience Store). Report any missing keys as "Missing Key" Inspection issue. If using Keynest, only photograph the key at the Keynest counter.' },
+      { key: 'key-return-photo', type: 'photo', label: 'Photo of key returned to pickup location with code visible', minPhotos: 1 }
+    ]}
+  ]
+};
+
+// In-memory state per job: { items: {key: {done, photos: [dataURL], notes}}, issues: [{title,desc,severity,photo}] }
+const checklistState = {};
+let currentChecklistJob = null;
+
+function ensureChecklistState(jobId) {
+  if (!checklistState[jobId]) {
+    checklistState[jobId] = { items: {}, issues: [] };
+  }
+  return checklistState[jobId];
+}
+
+function openChecklist(job) {
+  currentChecklistJob = job;
+  ensureChecklistState(job.id);
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-cleaning-checklist').classList.add('active');
+  document.getElementById('topbar-title').textContent = 'Cleaning checklist';
+  document.getElementById('checklist-job-title').textContent = 'Changeover Clean';
+  const propName = propNames[job.property] || job.property;
+  document.getElementById('checklist-job-sub').textContent =
+    `${propName} · Due ${formatDate(job.date)}${job.assigned_to ? ' · ' + job.assigned_to : ''}`;
+  renderChecklistSections();
+  renderChecklistIssues();
+  updateChecklistProgress();
+}
+
+function closeChecklist() {
+  currentChecklistJob = null;
+  showView('cleaning', document.querySelector('.nav-item[onclick*="showView(\'cleaning\'"]'));
+}
+
+function renderChecklistSections() {
+  const container = document.getElementById('checklist-sections-container');
+  const state = ensureChecklistState(currentChecklistJob.id);
+  container.innerHTML = CHANGEOVER_CLEAN_TEMPLATE.sections.map(section => {
+    const itemsHtml = section.items.map(item => {
+      const itemState = state.items[item.key] || { done: false, photos: [], notes: '' };
+      const done = item.type === 'check' ? itemState.done
+        : (item.minPhotos ? (itemState.photos || []).length >= item.minPhotos : false);
+      let inner = '';
+      if (item.type === 'check') {
+        inner = `
+          <div class="checklist-item-head" onclick="toggleChecklistItem('${item.key}')">
+            <div class="checklist-checkbox ${done ? 'done' : ''}"></div>
+            <div class="checklist-item-label">${escapeHtml(item.label)}</div>
+          </div>
+          <textarea class="checklist-notes" placeholder="Notes (optional)…" oninput="updateChecklistNotes('${item.key}', this.value)">${escapeHtml(itemState.notes || '')}</textarea>
+        `;
+      } else {
+        const photos = itemState.photos || [];
+        const need = item.minPhotos || 1;
+        inner = `
+          <div class="checklist-item-head">
+            <div class="checklist-checkbox ${done ? 'done' : ''}"></div>
+            <div class="checklist-item-label">${escapeHtml(item.label)}</div>
+          </div>
+          <div class="checklist-photo-area">
+            <div class="checklist-photo-required">${photos.length} of ${need} photo${need > 1 ? 's' : ''} uploaded${photos.length >= need ? ' ✓' : ''}</div>
+            <div class="checklist-photo-grid">
+              ${photos.map((p, i) => `
+                <div class="checklist-photo">
+                  <img src="${p}" alt="">
+                  <button class="checklist-photo-remove" onclick="removeChecklistPhoto('${item.key}', ${i})">✕</button>
+                </div>
+              `).join('')}
+              <label class="checklist-photo-add">
+                <span class="checklist-photo-add-icon">+</span>
+                Add photo
+                <input type="file" accept="image/*" multiple style="display:none" onchange="addChecklistPhotos('${item.key}', this)">
+              </label>
+            </div>
+          </div>
+          <textarea class="checklist-notes" placeholder="Notes (optional)…" oninput="updateChecklistNotes('${item.key}', this.value)">${escapeHtml(itemState.notes || '')}</textarea>
+        `;
+      }
+      return `<div class="checklist-item ${done ? 'done' : ''}">${inner}</div>`;
+    }).join('');
+    const doneInSection = section.items.filter(it => {
+      const s = state.items[it.key] || {};
+      return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
+    }).length;
+    return `
+      <div class="checklist-section-card">
+        <div class="checklist-section-head">
+          ${section.parent ? `<span class="checklist-section-parent">${escapeHtml(section.parent)} /</span>` : ''}
+          <span class="checklist-section-title">${escapeHtml(section.title)}</span>
+          <span class="checklist-section-count">${doneInSection}/${section.items.length}</span>
+        </div>
+        ${itemsHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleChecklistItem(itemKey) {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  const cur = state.items[itemKey] || { done: false, photos: [], notes: '' };
+  cur.done = !cur.done;
+  state.items[itemKey] = cur;
+  renderChecklistSections();
+  updateChecklistProgress();
+}
+
+function updateChecklistNotes(itemKey, value) {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  const cur = state.items[itemKey] || { done: false, photos: [], notes: '' };
+  cur.notes = value;
+  state.items[itemKey] = cur;
+}
+
+function addChecklistPhotos(itemKey, input) {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  const cur = state.items[itemKey] || { done: false, photos: [], notes: '' };
+  cur.photos = cur.photos || [];
+  const files = Array.from(input.files || []);
+  Promise.all(files.map(f => new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.readAsDataURL(f);
+  }))).then(dataUrls => {
+    cur.photos = cur.photos.concat(dataUrls);
+    state.items[itemKey] = cur;
+    renderChecklistSections();
+    updateChecklistProgress();
+  });
+}
+
+function removeChecklistPhoto(itemKey, index) {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  const cur = state.items[itemKey] || { photos: [] };
+  cur.photos.splice(index, 1);
+  state.items[itemKey] = cur;
+  renderChecklistSections();
+  updateChecklistProgress();
+}
+
+function updateChecklistProgress() {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  const allItems = CHANGEOVER_CLEAN_TEMPLATE.sections.flatMap(s => s.items);
+  const doneCount = allItems.filter(it => {
+    const s = state.items[it.key] || {};
+    return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
+  }).length;
+  const total = allItems.length;
+  document.getElementById('checklist-done-count').textContent = doneCount;
+  document.getElementById('checklist-total-count').textContent = total;
+  document.getElementById('checklist-progress-fill').style.width = (total ? (doneCount / total * 100) : 0) + '%';
+  const photoCount = Object.values(state.items).reduce((n, it) => n + ((it.photos || []).length), 0);
+  document.getElementById('checklist-photos-count').textContent = photoCount;
+  document.getElementById('checklist-issues-count').textContent = state.issues.length;
+}
+
+function renderChecklistIssues() {
+  const container = document.getElementById('checklist-issues-container');
+  const state = ensureChecklistState(currentChecklistJob.id);
+  if (!state.issues.length) { container.innerHTML = ''; return; }
+  container.innerHTML = `
+    <div class="checklist-issues-card">
+      <div class="checklist-issues-head">⚠️ Reported issues (${state.issues.length})</div>
+      ${state.issues.map((i, idx) => `
+        <div class="checklist-issue-row">
+          <div>
+            <div style="font-weight:600;">${escapeHtml(i.title)}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;">${escapeHtml(i.desc || '')}</div>
+            ${i.photo ? `<img src="${i.photo}" style="margin-top:6px;width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);">` : ''}
+          </div>
+          <span class="severity-pill severity-${i.severity || 'medium'}">${(i.severity||'medium').toUpperCase()}</span>
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="removeChecklistIssue(${idx})">Remove</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function openReportIssue() {
+  document.getElementById('issue-title').value = '';
+  document.getElementById('issue-desc').value = '';
+  document.getElementById('issue-severity').value = 'medium';
+  document.getElementById('issue-photo').value = '';
+  document.getElementById('issue-photo-preview').innerHTML = '';
+  document.getElementById('issue-error').style.display = 'none';
+  document.getElementById('report-issue-modal').classList.add('open');
+}
+function closeReportIssue() {
+  document.getElementById('report-issue-modal').classList.remove('open');
+}
+document.getElementById('issue-photo').addEventListener('change', function() {
+  const f = this.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    document.getElementById('issue-photo-preview').innerHTML =
+      `<img src="${r.result}" style="max-width:140px;border-radius:8px;border:1px solid var(--border);">`;
+    document.getElementById('issue-photo').dataset.url = r.result;
+  };
+  r.readAsDataURL(f);
+});
+function submitReportIssue() {
+  const title = document.getElementById('issue-title').value.trim();
+  const desc = document.getElementById('issue-desc').value.trim();
+  const severity = document.getElementById('issue-severity').value;
+  const photo = document.getElementById('issue-photo').dataset.url || null;
+  const err = document.getElementById('issue-error');
+  if (!title) { err.textContent = 'Please give the issue a short title.'; err.style.display = 'block'; return; }
+  const state = ensureChecklistState(currentChecklistJob.id);
+  state.issues.push({ title, desc, severity, photo, ts: Date.now() });
+  closeReportIssue();
+  renderChecklistIssues();
+  updateChecklistProgress();
+  // Create a maintenance job mirroring the reported issue (so it shows up in the global Maintenance tab too)
+  const linkedJob = {
+    department: 'maintenance',
+    property: currentChecklistJob.property,
+    date: new Date().toISOString().split('T')[0],
+    notes: `[Cleaning issue] ${title}${desc ? ' — ' + desc : ''}`,
+    assigned_to: '',
+    status: 'pending',
+    created_by: currentUser?.id
+  };
+  sb.from('jobs').insert([linkedJob]).select().then(({ data, error }) => {
+    if (!error && data) jobs.push(data[0]);
+    else { linkedJob.id = Date.now(); jobs.push(linkedJob); }
+    renderAllDepts();
+    updateStats();
+  }).catch(() => {});
+}
+
+function removeChecklistIssue(idx) {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  state.issues.splice(idx, 1);
+  renderChecklistIssues();
+  updateChecklistProgress();
+}
+
+function completeChecklist() {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  const allItems = CHANGEOVER_CLEAN_TEMPLATE.sections.flatMap(s => s.items);
+  const doneCount = allItems.filter(it => {
+    const s = state.items[it.key] || {};
+    return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
+  }).length;
+  const total = allItems.length;
+  if (doneCount < total) {
+    if (!confirm(`Only ${doneCount} of ${total} items are complete. Mark cleaning complete anyway?`)) return;
+  }
+  // Update the linked job's status
+  currentChecklistJob.status = 'complete';
+  sb.from('jobs').update({ status: 'complete' }).eq('id', currentChecklistJob.id).then(() => {
+    renderAllDepts();
+    updateStats();
+  }).catch(() => {
+    renderAllDepts();
+    updateStats();
+  });
+  addActivity(`Cleaning complete: ${propNames[currentChecklistJob.property] || currentChecklistJob.property}`, 'cleaning');
+  alert('Cleaning marked complete!');
+  closeChecklist();
+}
 
 // ===== PROPERTIES (Supabase loaders + switching) =====
 async function loadProperties() {
