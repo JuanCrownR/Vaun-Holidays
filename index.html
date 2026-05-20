@@ -2009,6 +2009,16 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
           <input type="color" class="form-input" id="prop-color" value="#4f8ef7" style="height:42px;padding:4px;">
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Total key sets at property</label>
+          <input type="number" class="form-input" id="prop-keys-total" min="0" step="1" placeholder="3">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Key sets given to guests</label>
+          <input type="number" class="form-input" id="prop-keys-guest" min="0" step="1" placeholder="1">
+        </div>
+      </div>
       <div class="form-group">
         <label class="form-label">Notes (optional)</label>
         <textarea class="form-textarea" id="prop-notes" placeholder="Anything else to remember about this property..."></textarea>
@@ -2161,10 +2171,10 @@ let assetActiveTab = 'calendar';
 // Default properties — used as fallback if Supabase properties table is unavailable.
 // Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
 let properties = [
-  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, car_parks: 2, capacity: 8, status: 'active', notes: 'Live & onboarded' },
-  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, status: 'onboarding', notes: 'Onboarding pending' },
-  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, status: 'onboarding', notes: 'Onboarding pending' },
-  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, status: 'onboarding', notes: 'Onboarding 1 July 2026' }
+  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, car_parks: 2, capacity: 8, keys_total: 3, keys_guest: 1, status: 'active', notes: 'Live & onboarded' },
+  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, status: 'onboarding', notes: 'Onboarding 1 July 2026' }
 ];
 
 let propColors = {};
@@ -3269,6 +3279,8 @@ async function loadProperties() {
         bathrooms: p.bathrooms ?? null,
         car_parks: p.car_parks ?? null,
         capacity: p.capacity ?? null,
+        keys_total: p.keys_total ?? null,
+        keys_guest: p.keys_guest ?? null,
         status: p.status || 'active',
         notes: p.notes || ''
       }));
@@ -3362,6 +3374,10 @@ function renderAssetView() {
   if (prop.bathrooms != null) configPills.push(`<span class="config-pill"><strong>${prop.bathrooms}</strong><span class="config-pill-label">Bath</span></span>`);
   if (prop.car_parks != null) configPills.push(`<span class="config-pill"><strong>${prop.car_parks}</strong><span class="config-pill-label">Car</span></span>`);
   if (prop.capacity != null) configPills.push(`<span class="config-pill"><strong>${prop.capacity}</strong><span class="config-pill-label">Guests</span></span>`);
+  if (prop.keys_total != null) {
+    const guestPart = prop.keys_guest != null ? ` <span style="color:var(--text3);font-weight:400;">(${prop.keys_guest} guest)</span>` : '';
+    configPills.push(`<span class="config-pill"><strong>${prop.keys_total}</strong><span class="config-pill-label">Keys</span>${guestPart}</span>`);
+  }
   const configRow = configPills.length
     ? `<div class="asset-header-config">${configPills.join('')}</div>`
     : '';
@@ -3575,6 +3591,8 @@ function openAddPropertyModal() {
   document.getElementById('prop-bathrooms').value = '';
   document.getElementById('prop-carparks').value = '';
   document.getElementById('prop-capacity').value = '';
+  document.getElementById('prop-keys-total').value = '';
+  document.getElementById('prop-keys-guest').value = '';
   document.getElementById('prop-color').value = randomPropColor();
   document.getElementById('prop-notes').value = '';
   document.getElementById('prop-error').style.display = 'none';
@@ -3593,6 +3611,8 @@ function openEditPropertyModal(id) {
   document.getElementById('prop-bathrooms').value = prop.bathrooms ?? '';
   document.getElementById('prop-carparks').value = prop.car_parks ?? '';
   document.getElementById('prop-capacity').value = prop.capacity ?? '';
+  document.getElementById('prop-keys-total').value = prop.keys_total ?? '';
+  document.getElementById('prop-keys-guest').value = prop.keys_guest ?? '';
   document.getElementById('prop-color').value = prop.color || '#4f8ef7';
   document.getElementById('prop-notes').value = prop.notes || '';
   document.getElementById('prop-error').style.display = 'none';
@@ -3634,6 +3654,8 @@ async function saveProperty() {
   const bathrooms = document.getElementById('prop-bathrooms').value;
   const car_parks = document.getElementById('prop-carparks').value;
   const capacity = document.getElementById('prop-capacity').value;
+  const keys_total = document.getElementById('prop-keys-total').value;
+  const keys_guest = document.getElementById('prop-keys-guest').value;
   const color = document.getElementById('prop-color').value;
   const notes = document.getElementById('prop-notes').value.trim();
   const errEl = document.getElementById('prop-error');
@@ -3657,6 +3679,8 @@ async function saveProperty() {
     bathrooms: bathrooms === '' ? null : Number(bathrooms),
     car_parks: car_parks === '' ? null : Number(car_parks),
     capacity: capacity === '' ? null : Number(capacity),
+    keys_total: keys_total === '' ? null : Number(keys_total),
+    keys_guest: keys_guest === '' ? null : Number(keys_guest),
     notes: notes || null
   };
 
@@ -3808,6 +3832,8 @@ function renderAssetDetails() {
         <div class="asset-detail-row"><span class="asset-detail-label">Bathrooms</span><span class="asset-detail-value">${prop.bathrooms ?? '—'}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Car parks</span><span class="asset-detail-value">${prop.car_parks ?? '—'}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Capacity</span><span class="asset-detail-value">${prop.capacity ? prop.capacity + ' guests' : '—'}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Total key sets</span><span class="asset-detail-value">${prop.keys_total ?? '—'}</span></div>
+        <div class="asset-detail-row"><span class="asset-detail-label">Key sets for guests</span><span class="asset-detail-value">${prop.keys_guest ?? '—'}</span></div>
         <div class="asset-detail-row"><span class="asset-detail-label">Color</span><span class="asset-detail-value"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${prop.color};vertical-align:middle;margin-right:6px;"></span>${escapeHtml(prop.color)}</span></div>
       </div>
       ${prop.notes ? `<div style="grid-column:1/-1;background:var(--surface2);padding:14px;border-radius:10px;font-size:13px;color:var(--text2);"><strong style="color:var(--text);">Notes:</strong> ${escapeHtml(prop.notes)}</div>` : ''}
