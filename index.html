@@ -34,6 +34,7 @@
   --maintenance: #e74c3c;
   --inspections: #3498db;
   --operations: #f39c12;
+  --compliance: #8b5cf6;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -455,6 +456,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .filter-pill[data-filter="maintenance"].active { background: var(--maintenance); }
 .filter-pill[data-filter="inspections"].active { background: var(--inspections); }
 .filter-pill[data-filter="operations"].active { background: var(--operations); }
+.filter-pill[data-filter="compliance"].active { background: var(--compliance); }
 
 .calendar-grid {
   background: white;
@@ -517,6 +519,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .cal-event.maintenance { background: rgba(231,76,60,0.12); color: #991b1b; }
 .cal-event.inspections { background: rgba(52,152,219,0.15); color: #1e40af; }
 .cal-event.operations { background: rgba(243,156,18,0.15); color: #854d0e; }
+.cal-event.compliance { background: rgba(139,92,246,0.15); color: #5b21b6; }
 
 /* Property legend */
 .prop-legend {
@@ -572,6 +575,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .grid-maintenance { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
 .grid-inspections { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
 .grid-operations { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
+.grid-compliance { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
 
 .badge {
   display: inline-flex; align-items: center; gap: 4px;
@@ -1242,6 +1246,9 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       <div class="nav-item" onclick="showView('operations',this)">
         <span class="nav-icon">📋</span> Operations
       </div>
+      <div class="nav-item" onclick="showView('compliance',this)">
+        <span class="nav-icon">🛡</span> Compliance
+      </div>
 
       <div class="nav-section-label">Properties</div>
       <div class="nav-item" onclick="showAllPropertiesView(this)">
@@ -1375,6 +1382,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="filter-pill" data-filter="maintenance" onclick="setFilter('maintenance',this)">🔧 Maintenance</div>
             <div class="filter-pill" data-filter="inspections" onclick="setFilter('inspections',this)">🔍 Inspections</div>
             <div class="filter-pill" data-filter="operations" onclick="setFilter('operations',this)">📋 Operations</div>
+            <div class="filter-pill" data-filter="compliance" onclick="setFilter('compliance',this)">🛡 Compliance</div>
           </div>
         </div>
         <div class="prop-legend">
@@ -1476,6 +1484,27 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
           <div id="operations-jobs">
             <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
               No operations tasks. Click "+ New Job" to add one.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPLIANCE -->
+      <div class="view" id="view-compliance">
+        <div class="dept-header">
+          <div class="dept-icon" style="background:#ede9fe">🛡</div>
+          <div>
+            <div class="dept-title">Compliance</div>
+            <div class="dept-sub">Certifications, regulatory checks, insurance, and council approvals</div>
+          </div>
+        </div>
+        <div class="jobs-table">
+          <div class="table-header grid-compliance">
+            <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span>
+          </div>
+          <div id="compliance-jobs">
+            <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
+              No compliance tasks. Click "+ New Job" to add one.
             </div>
           </div>
         </div>
@@ -1645,6 +1674,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
           <option value="maintenance">🔧 Maintenance</option>
           <option value="inspections">🔍 Inspections</option>
           <option value="operations">📋 Operations</option>
+          <option value="compliance">🛡 Compliance</option>
         </select>
       </div>
       <div class="form-group">
@@ -1731,8 +1761,8 @@ function escapeHtml(s) {
 }
 
 function deptIcon(dept) {
-  const icons = { cleaning: '🧹', maintenance: '🔧', inspections: '🔍', operations: '📋' };
-  const bgs = { cleaning: '#dcfce7', maintenance: '#fee2e2', inspections: '#dbeafe', operations: '#fef9c3' };
+  const icons = { cleaning: '🧹', maintenance: '🔧', inspections: '🔍', operations: '📋', compliance: '🛡' };
+  const bgs = { cleaning: '#dcfce7', maintenance: '#fee2e2', inspections: '#dbeafe', operations: '#fef9c3', compliance: '#ede9fe' };
   return { icon: icons[dept] || '📋', bg: bgs[dept] || '#f5f5f3' };
 }
 
@@ -1807,14 +1837,14 @@ function showView(name, el) {
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', properties: 'Properties', asset: 'Property' };
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', properties: 'Properties', asset: 'Property' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
   if (name === 'asset') renderAssetView();
   if (name === 'properties') renderPropertiesGrid();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
   // Re-render dept tables so filter scoping picks up
-  if (['cleaning','maintenance','inspections','operations'].includes(name)) renderAllDepts();
+  if (['cleaning','maintenance','inspections','operations','compliance'].includes(name)) renderAllDepts();
 }
 
 function toggleSidebar() {
@@ -1899,6 +1929,15 @@ function renderAllDepts() {
   renderDept('operations', 'operations-jobs', ['Task','Property','Due','Assigned','Status'], j => `
     <div class="table-row grid-operations">
       <span style="font-size:13px;font-weight:500">${j.notes || 'Operations task'}</span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span style="font-size:13px;">${formatDate(j.date)}</span>
+      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span>${statusBadge(j.status)}</span>
+    </div>`);
+
+  renderDept('compliance', 'compliance-jobs', ['Task','Property','Due','Assigned','Status'], j => `
+    <div class="table-row grid-compliance">
+      <span style="font-size:13px;font-weight:500">${j.notes || 'Compliance task'}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
@@ -2014,7 +2053,7 @@ function formatDate(d) {
 }
 
 function addActivity(text, dept) {
-  const icons = { cleaning: ['🧹','#dcfce7'], maintenance: ['🔧','#fee2e2'], inspections: ['🔍','#dbeafe'], operations: ['📋','#fef9c3'] };
+  const icons = { cleaning: ['🧹','#dcfce7'], maintenance: ['🔧','#fee2e2'], inspections: ['🔍','#dbeafe'], operations: ['📋','#fef9c3'], compliance: ['🛡','#ede9fe'] };
   const [icon, bg] = icons[dept] || ['📋','#f5f5f3'];
   const feed = document.getElementById('activity-feed');
   const item = document.createElement('div');
@@ -2273,7 +2312,7 @@ function renderAssetTasks() {
   if (myJobs.length === 0) {
     return `<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No tasks for this property yet. Use "+ New Job" to add one.</div>`;
   }
-  const depts = ['cleaning', 'maintenance', 'inspections', 'operations'];
+  const depts = ['cleaning', 'maintenance', 'inspections', 'operations', 'compliance'];
   const groups = depts.map(d => {
     const list = myJobs.filter(j => j.department === d)
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
