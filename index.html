@@ -853,6 +853,35 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   font-size: 14px;
   color: var(--text2);
 }
+.asset-header-config {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.asset-header-config .config-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.asset-header-config .config-pill strong {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+.asset-header-config .config-pill-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  color: var(--text3);
+}
 .asset-header-status {
   padding: 6px 12px;
   border-radius: 999px;
@@ -2091,6 +2120,16 @@ function renderAssetView() {
   const prop = properties.find(p => p.id === selectedPropertyId);
   if (!prop) return;
 
+  // Build config pills row
+  const configPills = [];
+  if (prop.bedrooms != null) configPills.push(`<span class="config-pill"><strong>${prop.bedrooms}</strong><span class="config-pill-label">Bed</span></span>`);
+  if (prop.bathrooms != null) configPills.push(`<span class="config-pill"><strong>${prop.bathrooms}</strong><span class="config-pill-label">Bath</span></span>`);
+  if (prop.car_parks != null) configPills.push(`<span class="config-pill"><strong>${prop.car_parks}</strong><span class="config-pill-label">Car</span></span>`);
+  if (prop.capacity != null) configPills.push(`<span class="config-pill"><strong>${prop.capacity}</strong><span class="config-pill-label">Guests</span></span>`);
+  const configRow = configPills.length
+    ? `<div class="asset-header-config">${configPills.join('')}</div>`
+    : '';
+
   // Header
   const headerEl = document.getElementById('asset-header');
   headerEl.innerHTML = `
@@ -2099,6 +2138,7 @@ function renderAssetView() {
       <div class="asset-header-label">Property · ${escapeHtml(prop.status || 'active')}</div>
       <div class="asset-header-name">${escapeHtml(prop.name)}</div>
       <div class="asset-header-sub">${escapeHtml(prop.address || '—')}</div>
+      ${configRow}
     </div>
     <div class="asset-header-status">${escapeHtml((prop.status || 'active').charAt(0).toUpperCase() + (prop.status || 'active').slice(1))}</div>
   `;
