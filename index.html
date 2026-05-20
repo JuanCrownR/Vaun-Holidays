@@ -677,15 +677,20 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   .table-row > *:nth-child(4) { display: none; }
 }
 
-/* ===== PROPERTY CARD DELETE ===== */
-.prop-card-delete {
+/* ===== PROPERTY CARD ACTIONS ===== */
+.prop-card-actions {
   position: absolute;
   top: 14px;
   right: 14px;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+.prop-card-btn {
   background: rgba(255,255,255,0.9);
   border: 1px solid var(--border);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   opacity: 0.55;
   width: 28px;
   height: 28px;
@@ -695,14 +700,22 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   align-items: center;
   justify-content: center;
   transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
-  z-index: 2;
 }
-.prop-card-delete:hover {
+.prop-card-btn:hover {
   opacity: 1;
+}
+.prop-card-btn.edit:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+.prop-card-btn.delete:hover {
   background: #fee2e2;
   border-color: #fca5a5;
   color: #b91c1c;
 }
+/* Backwards-compat alias for any external references */
+.prop-card-delete { display: none; }
 
 /* ===== CONFIRM DIALOG ===== */
 .confirm-modal .modal {
@@ -1510,11 +1523,11 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
 </div>
 
-<!-- ADD PROPERTY MODAL -->
+<!-- ADD / EDIT PROPERTY MODAL -->
 <div class="modal-overlay" id="add-property-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title">Add Property</h3>
+      <h3 class="modal-title" id="property-modal-title">Add Property</h3>
       <button class="modal-close" onclick="closeAddPropertyModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -1558,7 +1571,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeAddPropertyModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveProperty()">Add property</button>
+      <button class="btn btn-primary" id="property-save-btn" onclick="saveProperty()">Add property</button>
     </div>
   </div>
 </div>
@@ -2273,9 +2286,13 @@ function showAllPropertiesView(el) {
   showView('properties', el);
 }
 
-// ===== ADD PROPERTY =====
+// ===== ADD / EDIT PROPERTY =====
+let editingPropertyId = null;
+
 function openAddPropertyModal() {
-  // Reset form
+  editingPropertyId = null;
+  document.getElementById('property-modal-title').textContent = 'Add Property';
+  document.getElementById('property-save-btn').textContent = 'Add property';
   document.getElementById('prop-name').value = '';
   document.getElementById('prop-address').value = '';
   document.getElementById('prop-bedrooms').value = '';
@@ -2287,7 +2304,27 @@ function openAddPropertyModal() {
   document.getElementById('prop-error').style.display = 'none';
   document.getElementById('add-property-modal').classList.add('open');
 }
+
+function openEditPropertyModal(id) {
+  const prop = properties.find(p => p.id === id);
+  if (!prop) return;
+  editingPropertyId = id;
+  document.getElementById('property-modal-title').textContent = 'Edit Property';
+  document.getElementById('property-save-btn').textContent = 'Save changes';
+  document.getElementById('prop-name').value = prop.name || '';
+  document.getElementById('prop-address').value = prop.address || '';
+  document.getElementById('prop-bedrooms').value = prop.bedrooms ?? '';
+  document.getElementById('prop-bathrooms').value = prop.bathrooms ?? '';
+  document.getElementById('prop-carparks').value = prop.car_parks ?? '';
+  document.getElementById('prop-capacity').value = prop.capacity ?? '';
+  document.getElementById('prop-color').value = prop.color || '#4f8ef7';
+  document.getElementById('prop-notes').value = prop.notes || '';
+  document.getElementById('prop-error').style.display = 'none';
+  document.getElementById('add-property-modal').classList.add('open');
+}
+
 function closeAddPropertyModal() {
+  editingPropertyId = null;
   document.getElementById('add-property-modal').classList.remove('open');
 }
 
@@ -2332,11 +2369,11 @@ async function saveProperty() {
     return;
   }
 
+  const isEdit = !!editingPropertyId;
+  const existing = isEdit ? properties.find(p => p.id === editingPropertyId) : null;
   const displayName = name || (address.split(',')[0] || 'New property');
-  const id = uniquePropertyId(slugify(name || address));
 
-  const row = {
-    id,
+  const fields = {
     name: displayName,
     color,
     address: address || null,
@@ -2344,19 +2381,40 @@ async function saveProperty() {
     bathrooms: bathrooms === '' ? null : Number(bathrooms),
     car_parks: car_parks === '' ? null : Number(car_parks),
     capacity: capacity === '' ? null : Number(capacity),
-    status: 'active',
     notes: notes || null
   };
 
-  // Save to Supabase if reachable; otherwise just store locally
+  if (isEdit) {
+    // Update path
+    try {
+      const { error } = await sb.from('properties').update(fields).eq('id', editingPropertyId);
+      if (error) throw error;
+    } catch (e) {
+      console.warn('Could not update in Supabase, updating locally only:', e?.message || e);
+    }
+    // Mutate in place
+    Object.assign(existing, fields);
+    rebuildPropMaps();
+    renderPropertySwitcher();
+    renderSidebarProperties();
+    renderPropertiesGrid();
+    populateJobPropertyDropdown();
+    // If currently viewing this property's asset view, refresh it
+    if (selectedPropertyId === editingPropertyId) renderAssetView();
+    closeAddPropertyModal();
+    addActivity(`Property updated: ${displayName}`, 'operations');
+    return;
+  }
+
+  // Insert path
+  const id = uniquePropertyId(slugify(name || address));
+  const row = { id, ...fields, status: 'active' };
   try {
-    const { data, error } = await sb.from('properties').insert([row]).select();
+    const { error } = await sb.from('properties').insert([row]).select();
     if (error) throw error;
   } catch (e) {
     console.warn('Could not persist to Supabase, storing locally only:', e?.message || e);
   }
-
-  // Update local state and re-render everything that references properties
   properties.push(row);
   rebuildPropMaps();
   renderPropertySwitcher();
@@ -2417,7 +2475,10 @@ function renderPropertiesGrid() {
   }
   grid.innerHTML = properties.map(p => `
     <div class="card" style="cursor:pointer;position:relative;" onclick="selectProperty('${p.id}')">
-      <button class="prop-card-delete" title="Remove property" onclick="event.stopPropagation(); confirmDeleteProperty('${p.id}')">🗑</button>
+      <div class="prop-card-actions">
+        <button class="prop-card-btn edit" title="Edit property" onclick="event.stopPropagation(); openEditPropertyModal('${p.id}')">✎</button>
+        <button class="prop-card-btn delete" title="Remove property" onclick="event.stopPropagation(); confirmDeleteProperty('${p.id}')">🗑</button>
+      </div>
       <div style="height:6px;background:${p.color}"></div>
       <div class="card-body">
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.name)}</div>
