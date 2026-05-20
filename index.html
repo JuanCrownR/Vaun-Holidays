@@ -1918,6 +1918,20 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
       </div>
 
+      <!-- KEYS JOB DETAIL -->
+      <div class="view" id="view-keys-job">
+        <div class="checklist-topbar">
+          <button class="checklist-back" onclick="closeKeysJob()">← Back</button>
+          <div style="flex:1;">
+            <div class="checklist-title" id="keys-job-title">Key Job</div>
+            <div class="checklist-sub" id="keys-job-sub">—</div>
+          </div>
+          <div id="keys-job-status-pill" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);">PENDING</div>
+          <button class="btn btn-primary" id="keys-job-close-btn" onclick="completeKeysJob()" style="background:var(--cleaning);">Close task</button>
+        </div>
+        <div id="keys-job-body"></div>
+      </div>
+
       <!-- PROPERTIES -->
       <div class="view" id="view-properties">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -2153,6 +2167,21 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
           <option value="keys">🔑 Keys Management</option>
         </select>
       </div>
+      <div class="form-group" id="job-keys-type-group" style="display:none">
+        <label class="form-label">Key job type</label>
+        <select class="form-select" id="job-keys-type" onchange="updateJobForm()">
+          <option value="order">Key Order</option>
+          <option value="expiry">Key Expiry</option>
+        </select>
+      </div>
+      <div class="form-group" id="job-keys-reason-group" style="display:none">
+        <label class="form-label">Reason for key order</label>
+        <select class="form-select" id="job-keys-reason">
+          <option value="lost">Guest lost</option>
+          <option value="broken">Broken</option>
+          <option value="missing">Missing</option>
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label">Property</label>
         <select class="form-select" id="job-property">
@@ -2342,6 +2371,8 @@ async function loadJobs() {
   const { data, error } = await sb.from('jobs').select('*').order('date', { ascending: true });
   if (!error && data) {
     jobs = data;
+    // Make sure every job has a meta object so we can safely read meta.*
+    jobs.forEach(j => { if (!j.meta || typeof j.meta !== 'object') j.meta = {}; });
     renderAllDepts();
     updateStats();
     // After jobs are loaded, make sure every fob has its reminder task.
@@ -2350,14 +2381,29 @@ async function loadJobs() {
 }
 
 async function saveJob() {
+  const dept = document.getElementById('job-dept').value;
+  const meta = {};
+  if (dept === 'keys') {
+    const keyType = document.getElementById('job-keys-type').value;
+    meta.key_job_type = keyType;
+    if (keyType === 'order') {
+      meta.reason = document.getElementById('job-keys-reason').value;
+      meta.guest_claim_needed = false;
+      meta.key_ordered = false;
+      meta.guest_claim_lodged = false;
+      meta.key_picked_up = false;
+    }
+    meta.attachments = [];
+  }
   const job = {
-    department: document.getElementById('job-dept').value,
+    department: dept,
     property: document.getElementById('job-property').value,
     date: document.getElementById('job-date').value,
     time_window: document.getElementById('job-time').value,
     assigned_to: document.getElementById('job-assign').value,
     notes: document.getElementById('job-notes').value,
     status: 'pending',
+    meta: meta,
     created_by: currentUser?.id
   };
   if (!job.date) { alert('Please select a date.'); return; }
@@ -2424,8 +2470,8 @@ function renderAllDepts() {
     </div>`);
 
   renderDept('keys', 'keys-jobs', ['Task','Property','Due','Assigned','Status'], j => `
-    <div class="table-row grid-keys">
-      <span style="font-size:13px;font-weight:500">${j.notes || 'Keys task'}</span>
+    <div class="table-row grid-keys" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
+      <span style="font-size:13px;font-weight:500">${escapeHtml(j.notes || 'Keys task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
@@ -2587,13 +2633,29 @@ function openNewJobModal() {
       if (deptSelect) deptSelect.value = viewName;
     }
   }
+  updateJobForm();
   document.getElementById('new-job-modal').classList.add('open');
 }
 function closeNewJobModal() { document.getElementById('new-job-modal').classList.remove('open'); }
 
+// Toggle conditional fields in the New Job modal based on the current
+// Department selection (and, for Keys, the Key job type).
+function updateJobForm() {
+  const dept = document.getElementById('job-dept').value;
+  const isKeys = dept === 'keys';
+  document.getElementById('job-keys-type-group').style.display = isKeys ? '' : 'none';
+  const keysType = document.getElementById('job-keys-type').value;
+  const isOrder = isKeys && keysType === 'order';
+  document.getElementById('job-keys-reason-group').style.display = isOrder ? '' : 'none';
+}
+
 function viewJob(job) {
   if (job.department === 'cleaning') {
     openChecklist(job);
+    return;
+  }
+  if (job.department === 'keys') {
+    openKeysJob(job);
     return;
   }
   alert(`Job: ${job.department.toUpperCase()}\nProperty: ${propNames[job.property]}\nDate: ${formatDate(job.date)}\nAssigned: ${job.assigned_to || 'Unassigned'}\nStatus: ${job.status}\nNotes: ${job.notes || 'None'}`);
@@ -2784,6 +2846,232 @@ function openChecklist(job) {
 function closeChecklist() {
   currentChecklistJob = null;
   showView('cleaning', document.querySelector('.nav-item[onclick*="showView(\'cleaning\'"]'));
+}
+
+// ===== KEYS JOB DETAIL VIEW =====
+// Routed from viewJob() when a Keys Management job is clicked. Edits are
+// auto-saved into Supabase the moment a field changes — there's no
+// separate Save button, only Close task to mark complete.
+let currentKeysJob = null;
+
+function openKeysJob(job) {
+  // Find the latest copy of the job from the live list (in case meta updated)
+  const live = jobs.find(j => j.id === job.id) || job;
+  if (!live.meta || typeof live.meta !== 'object') live.meta = {};
+  if (!Array.isArray(live.meta.attachments)) live.meta.attachments = [];
+  if (!live.meta.key_job_type) {
+    // Backwards-compat: treat fob-generated tasks as expiry, others as order
+    live.meta.key_job_type = (live.notes || '').includes('[fid:') ? 'expiry' : 'order';
+  }
+  currentKeysJob = live;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-keys-job').classList.add('active');
+  document.getElementById('topbar-title').textContent = 'Keys task';
+  // Header title + sub + status pill
+  const isOrder = live.meta.key_job_type === 'order';
+  document.getElementById('keys-job-title').textContent = isOrder ? 'Key Order' : 'Key Expiry';
+  const propName = propNames[live.property] || live.property;
+  document.getElementById('keys-job-sub').textContent = `${propName} · Due ${formatDate(live.date)}${live.assigned_to ? ' · ' + live.assigned_to : ''}`;
+  const pill = document.getElementById('keys-job-status-pill');
+  const statusLabel = (live.status || 'pending').toUpperCase();
+  pill.textContent = statusLabel;
+  if (statusLabel === 'COMPLETE' || statusLabel === 'RESOLVED') {
+    pill.style.background = '#dcfce7'; pill.style.color = '#15803d';
+    document.getElementById('keys-job-close-btn').textContent = 'Reopen task';
+    document.getElementById('keys-job-close-btn').style.background = 'var(--text2)';
+  } else {
+    pill.style.background = 'var(--surface2)'; pill.style.color = 'var(--text2)';
+    document.getElementById('keys-job-close-btn').textContent = 'Close task';
+    document.getElementById('keys-job-close-btn').style.background = 'var(--cleaning)';
+  }
+  renderKeysJob();
+}
+
+function closeKeysJob() {
+  currentKeysJob = null;
+  showView('keys', document.querySelector('.nav-item[onclick*="showView(\'keys\'"]'));
+}
+
+const KEYS_REASON_LABELS = { lost: 'Guest lost', broken: 'Broken', missing: 'Missing' };
+
+function renderKeysJob() {
+  const j = currentKeysJob;
+  if (!j) return;
+  const body = document.getElementById('keys-job-body');
+  const m = j.meta;
+  const isOrder = m.key_job_type === 'order';
+  const attachmentsHtml = `
+    <div class="checklist-section-card">
+      <div class="checklist-section-head">
+        <span class="checklist-section-title">Attachments</span>
+        <span class="checklist-section-count">${(m.attachments || []).length} file${(m.attachments || []).length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="checklist-photo-area" style="margin-left:0;">
+        <div class="checklist-photo-grid">
+          ${(m.attachments || []).map((a, i) => `
+            <div class="checklist-photo">
+              ${a.data_url && a.data_url.startsWith('data:image') ? `<img src="${a.data_url}" alt="">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--text2);text-align:center;padding:6px;">${escapeHtml(a.name || 'File')}</div>`}
+              <button class="checklist-photo-remove" onclick="removeKeysJobAttachment(${i})">✕</button>
+            </div>
+          `).join('')}
+          <label class="checklist-photo-add" title="Take a new photo">
+            <span class="checklist-photo-add-icon">📷</span>
+            Take photo
+            <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addKeysJobAttachments(this)">
+          </label>
+          <label class="checklist-photo-add" title="Upload existing files" style="border-style:solid;">
+            <span class="checklist-photo-add-icon">🖼</span>
+            Upload
+            <input type="file" accept="image/*,application/pdf" multiple style="display:none" onchange="addKeysJobAttachments(this)">
+          </label>
+        </div>
+      </div>
+    </div>
+  `;
+  if (isOrder) {
+    body.innerHTML = `
+      <div class="checklist-section-card">
+        <div class="checklist-section-head">
+          <span class="checklist-section-title">Order details</span>
+        </div>
+        <div style="display:grid;grid-template-columns:160px 1fr;gap:12px 16px;align-items:center;font-size:13px;">
+          <div style="color:var(--text2);">Reason for order</div>
+          <div>
+            <select onchange="updateKeysJobField('reason', this.value)" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;font-family:inherit;background:white;">
+              <option value="lost" ${m.reason === 'lost' ? 'selected' : ''}>Guest lost</option>
+              <option value="broken" ${m.reason === 'broken' ? 'selected' : ''}>Broken</option>
+              <option value="missing" ${m.reason === 'missing' ? 'selected' : ''}>Missing</option>
+            </select>
+          </div>
+          <div style="color:var(--text2);">Does a guest claim need to be lodged?</div>
+          <div>${yesNoToggle('guest_claim_needed', m.guest_claim_needed)}</div>
+        </div>
+      </div>
+
+      <div class="checklist-section-card">
+        <div class="checklist-section-head">
+          <span class="checklist-section-title">Workflow</span>
+        </div>
+        ${workflowRow('Replacement key ordered', 'key_ordered', m.key_ordered, false)}
+        ${m.guest_claim_needed === true ? workflowRow('Guest claim lodged', 'guest_claim_lodged', m.guest_claim_lodged, false) : ''}
+        ${workflowRow('Replacement key picked up', 'key_picked_up', m.key_picked_up, !m.key_ordered)}
+      </div>
+
+      <div class="checklist-section-card">
+        <div class="checklist-section-head">
+          <span class="checklist-section-title">Notes</span>
+        </div>
+        <textarea class="checklist-notes" style="margin-left:0;width:100%;min-height:80px;" placeholder="Anything else the team should know…" oninput="updateKeysJobField('notes', this.value)">${escapeHtml(j.notes || '')}</textarea>
+      </div>
+
+      ${attachmentsHtml}
+    `;
+  } else {
+    // Expiry
+    const noteSeed = (m.expiry_notes || j.notes || '').replace(/\s*\[fid:[^\]]+\]\s*$/, '');
+    body.innerHTML = `
+      <div class="checklist-section-card">
+        <div class="checklist-section-head">
+          <span class="checklist-section-title">Description</span>
+        </div>
+        <textarea class="checklist-notes" style="margin-left:0;width:100%;min-height:140px;" placeholder="Describe what is happening or what needs to happen. e.g. 'Keys / fobs expiring, please take all fobs / cards to reception for recoding.'" oninput="updateKeysJobField('expiry_notes', this.value)">${escapeHtml(noteSeed)}</textarea>
+      </div>
+
+      ${attachmentsHtml}
+    `;
+  }
+}
+
+// Small builder for yes/no pill toggle bound to a meta field
+function yesNoToggle(field, current) {
+  const yes = current === true;
+  const no  = current === false;
+  return `
+    <div style="display:inline-flex;gap:6px;">
+      <button type="button" onclick="updateKeysJobField('${field}', true)" style="padding:6px 14px;border-radius:999px;border:1px solid ${yes ? 'var(--cleaning)' : 'var(--border)'};background:${yes ? 'var(--cleaning)' : 'white'};color:${yes ? 'white' : 'var(--text)'};font-weight:${yes ? '600' : '400'};font-size:12px;cursor:pointer;">Yes</button>
+      <button type="button" onclick="updateKeysJobField('${field}', false)" style="padding:6px 14px;border-radius:999px;border:1px solid ${no ? 'var(--text2)' : 'var(--border)'};background:${no ? 'var(--text2)' : 'white'};color:${no ? 'white' : 'var(--text)'};font-weight:${no ? '600' : '400'};font-size:12px;cursor:pointer;">No</button>
+    </div>
+  `;
+}
+
+// Workflow step row with checkbox + label
+function workflowRow(label, field, done, disabled) {
+  return `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px dashed var(--border);opacity:${disabled ? '0.5' : '1'};cursor:${disabled ? 'not-allowed' : 'pointer'};" ${disabled ? '' : `onclick="updateKeysJobField('${field}', ${!done})"`}>
+      <div class="checklist-checkbox ${done ? 'done' : ''}"></div>
+      <div style="font-size:14px;">${escapeHtml(label)}${disabled ? ' <span style="color:var(--text3);font-size:11px;">(complete the previous step first)</span>' : ''}</div>
+    </div>
+  `;
+}
+
+function updateKeysJobField(field, value) {
+  const j = currentKeysJob;
+  if (!j) return;
+  if (field === 'notes') {
+    j.notes = value;
+  } else {
+    j.meta = j.meta || {};
+    j.meta[field] = value;
+    // If guest claim becomes "not needed", clear any lodged flag for cleanliness
+    if (field === 'guest_claim_needed' && value === false) {
+      j.meta.guest_claim_lodged = false;
+    }
+    // If key wasn't ordered, can't be picked up
+    if (field === 'key_ordered' && value === false) {
+      j.meta.key_picked_up = false;
+    }
+  }
+  persistKeysJob();
+  renderKeysJob();
+}
+
+function persistKeysJob() {
+  const j = currentKeysJob;
+  if (!j || !j.id) return;
+  sb.from('jobs').update({ meta: j.meta, notes: j.notes, status: j.status }).eq('id', j.id).then(() => {
+    renderAllDepts();
+    updateStats();
+  }).catch(() => {
+    renderAllDepts();
+    updateStats();
+  });
+}
+
+function addKeysJobAttachments(input) {
+  const j = currentKeysJob;
+  if (!j) return;
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  j.meta = j.meta || {};
+  j.meta.attachments = j.meta.attachments || [];
+  Promise.all(files.map(f => new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => res({ name: f.name, type: f.type, data_url: r.result });
+    r.readAsDataURL(f);
+  }))).then(items => {
+    j.meta.attachments = j.meta.attachments.concat(items);
+    input.value = '';
+    persistKeysJob();
+    renderKeysJob();
+  });
+}
+
+function removeKeysJobAttachment(idx) {
+  const j = currentKeysJob;
+  if (!j || !j.meta || !Array.isArray(j.meta.attachments)) return;
+  j.meta.attachments.splice(idx, 1);
+  persistKeysJob();
+  renderKeysJob();
+}
+
+function completeKeysJob() {
+  const j = currentKeysJob;
+  if (!j) return;
+  const isOpen = j.status !== 'complete' && j.status !== 'resolved';
+  j.status = isOpen ? 'complete' : 'pending';
+  persistKeysJob();
+  addActivity(`${j.meta?.key_job_type === 'order' ? 'Key Order' : 'Key Expiry'} ${isOpen ? 'completed' : 'reopened'}: ${propNames[j.property] || j.property}`, 'operations');
+  openKeysJob(j); // re-render header pill + button label
 }
 
 function renderChecklistSections() {
@@ -3765,6 +4053,12 @@ async function syncFobExpiryTasks() {
         notes,
         assigned_to: '',
         status: 'pending',
+        meta: {
+          key_job_type: 'expiry',
+          fob_id: fob.id,
+          expiry_notes: `Fob/card ${fob.number || ''} expires on ${formatDate(formatYMD(expiry))}. Please take all fobs / cards to reception for recoding.`.trim(),
+          attachments: []
+        },
         created_by: currentUser?.id
       };
       try {
