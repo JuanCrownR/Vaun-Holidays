@@ -2048,8 +2048,19 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       </div>
       <div class="form-group">
         <label class="form-label">Photo (optional)</label>
-        <input type="file" accept="image/*" id="issue-photo">
+        <div style="display:flex;gap:8px;">
+          <label class="btn btn-secondary" style="flex:1;cursor:pointer;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+            📷 Take photo
+            <input type="file" accept="image/*" capture="environment" id="issue-photo-camera" style="display:none">
+          </label>
+          <label class="btn btn-secondary" style="flex:1;cursor:pointer;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+            🖼 Upload
+            <input type="file" accept="image/*" id="issue-photo-upload" style="display:none">
+          </label>
+        </div>
         <div id="issue-photo-preview" style="margin-top:8px;"></div>
+        <!-- Hidden legacy element kept for backwards compatibility with any older handler -->
+        <input type="hidden" id="issue-photo">
       </div>
       <div class="login-error" id="issue-error"></div>
     </div>
@@ -2748,9 +2759,14 @@ function renderChecklistSections() {
                   <button class="checklist-photo-remove" onclick="removeChecklistPhoto('${item.key}', ${i})">✕</button>
                 </div>
               `).join('')}
-              <label class="checklist-photo-add">
-                <span class="checklist-photo-add-icon">+</span>
-                Add photo
+              <label class="checklist-photo-add" title="Take a new photo with your device camera">
+                <span class="checklist-photo-add-icon">📷</span>
+                Take photo
+                <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addChecklistPhotos('${item.key}', this)">
+              </label>
+              <label class="checklist-photo-add" title="Choose existing photos from this device" style="border-style:solid;">
+                <span class="checklist-photo-add-icon">🖼</span>
+                Upload
                 <input type="file" accept="image/*" multiple style="display:none" onchange="addChecklistPhotos('${item.key}', this)">
               </label>
             </div>
@@ -2861,7 +2877,12 @@ function openReportIssue() {
   document.getElementById('issue-title').value = '';
   document.getElementById('issue-desc').value = '';
   document.getElementById('issue-severity').value = 'medium';
-  document.getElementById('issue-photo').value = '';
+  const cam = document.getElementById('issue-photo-camera');
+  const up = document.getElementById('issue-photo-upload');
+  const hidden = document.getElementById('issue-photo');
+  if (cam) cam.value = '';
+  if (up) up.value = '';
+  if (hidden) { hidden.value = ''; delete hidden.dataset.url; }
   document.getElementById('issue-photo-preview').innerHTML = '';
   document.getElementById('issue-error').style.display = 'none';
   document.getElementById('report-issue-modal').classList.add('open');
@@ -2869,8 +2890,8 @@ function openReportIssue() {
 function closeReportIssue() {
   document.getElementById('report-issue-modal').classList.remove('open');
 }
-document.getElementById('issue-photo').addEventListener('change', function() {
-  const f = this.files[0];
+function handleIssuePhotoChange(input) {
+  const f = input.files && input.files[0];
   if (!f) return;
   const r = new FileReader();
   r.onload = () => {
@@ -2879,7 +2900,9 @@ document.getElementById('issue-photo').addEventListener('change', function() {
     document.getElementById('issue-photo').dataset.url = r.result;
   };
   r.readAsDataURL(f);
-});
+}
+document.getElementById('issue-photo-camera').addEventListener('change', function() { handleIssuePhotoChange(this); });
+document.getElementById('issue-photo-upload').addEventListener('change', function() { handleIssuePhotoChange(this); });
 function submitReportIssue() {
   const title = document.getElementById('issue-title').value.trim();
   const desc = document.getElementById('issue-desc').value.trim();
