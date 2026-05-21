@@ -2892,6 +2892,51 @@ function wrapNewPhoto(dataUrl) {
   return { data_url: dataUrl, uploaded_at: new Date().toISOString(), uploaded_by: currentUserLabel() };
 }
 
+// Resize + recompress an image File so it never balloons the saved state.
+// Phone photos are typically 3-5 MB; this drops them to ~200-500 KB while
+// still looking great in a report. Non-image files (PDFs) are returned
+// as raw data URLs.
+function compressImageFile(file, maxDim = 1600, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(file);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        const longest = Math.max(width, height);
+        if (longest > maxDim) {
+          const scale = maxDim / longest;
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) { reject(e); }
+      };
+      img.onerror = () => {
+        // If decoding fails (e.g. HEIC on a browser that can't decode), fall
+        // back to the original data URL rather than blocking the upload.
+        resolve(reader.result);
+      };
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 // ---- Lock helpers ----
 function isJobLocked(job) {
   if (!job) return false;
@@ -3192,21 +3237,20 @@ function addKeysJobAttachments(input) {
   if (!files.length) return;
   j.meta = j.meta || {};
   j.meta.attachments = j.meta.attachments || [];
-  Promise.all(files.map(f => new Promise(res => {
-    const r = new FileReader();
-    r.onload = () => res({
-      name: f.name,
-      type: f.type,
-      data_url: r.result,
-      uploaded_at: new Date().toISOString(),
-      uploaded_by: currentUserLabel()
-    });
-    r.readAsDataURL(f);
-  }))).then(items => {
+  Promise.all(files.map(f => compressImageFile(f).then(dataUrl => ({
+    name: f.name,
+    type: f.type,
+    data_url: dataUrl,
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: currentUserLabel()
+  })))).then(items => {
     j.meta.attachments = j.meta.attachments.concat(items);
     input.value = '';
     persistKeysJob();
     renderKeysJob();
+  }).catch(e => {
+    console.warn('Attachment processing failed', e);
+    alert('An attachment failed to process.');
   });
 }
 
@@ -3357,16 +3401,18 @@ function addChecklistPhotos(itemKey, input) {
   const cur = state.items[itemKey] || { done: false, photos: [], notes: '' };
   cur.photos = cur.photos || [];
   const files = Array.from(input.files || []);
-  Promise.all(files.map(f => new Promise(res => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.readAsDataURL(f);
-  }))).then(dataUrls => {
+  // Each photo is downscaled to <= 1600px + JPEG-recompressed to keep
+  // memory + payload size sane on mobile.
+  Promise.all(files.map(f => compressImageFile(f))).then(dataUrls => {
     cur.photos = cur.photos.concat(dataUrls.map(wrapNewPhoto));
     state.items[itemKey] = cur;
+    input.value = '';
     renderChecklistSections();
     updateChecklistProgress();
     saveChecklistState(currentChecklistJob.id);
+  }).catch(e => {
+    console.warn('Photo processing failed', e);
+    alert('A photo failed to process. Try a different one or take a fresh shot.');
   });
 }
 
@@ -3438,13 +3484,14 @@ function closeReportIssue() {
 function handleIssuePhotoChange(input) {
   const f = input.files && input.files[0];
   if (!f) return;
-  const r = new FileReader();
-  r.onload = () => {
+  compressImageFile(f).then(url => {
     document.getElementById('issue-photo-preview').innerHTML =
-      `<img src="${r.result}" style="max-width:140px;border-radius:8px;border:1px solid var(--border);">`;
-    document.getElementById('issue-photo').dataset.url = r.result;
-  };
-  r.readAsDataURL(f);
+      `<img src="${url}" style="max-width:140px;border-radius:8px;border:1px solid var(--border);">`;
+    document.getElementById('issue-photo').dataset.url = url;
+  }).catch(e => {
+    console.warn('Issue photo failed', e);
+    alert('Could not process that photo.');
+  });
 }
 document.getElementById('issue-photo-camera').addEventListener('change', function() { handleIssuePhotoChange(this); });
 document.getElementById('issue-photo-upload').addEventListener('change', function() { handleIssuePhotoChange(this); });
