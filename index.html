@@ -2825,10 +2825,60 @@ function ensureChecklistState(jobId) {
   if (!checklistState[jobId]) {
     checklistState[jobId] = { items: {}, issues: [] };
   }
+  // Defensive defaults so older saved rows still render cleanly
+  if (!checklistState[jobId].items) checklistState[jobId].items = {};
+  if (!Array.isArray(checklistState[jobId].issues)) checklistState[jobId].issues = [];
   return checklistState[jobId];
 }
 
-function openChecklist(job) {
+// Pull saved checklist state for this job from Supabase, if any.
+// We merge into local memory so any in-flight edits aren't blown away.
+async function loadChecklistState(jobId) {
+  if (!jobId) return;
+  try {
+    const { data, error } = await sb
+      .from('cleaning_completions')
+      .select('state')
+      .eq('job_id', String(jobId))
+      .maybeSingle();
+    if (!error && data && data.state) {
+      checklistState[jobId] = data.state;
+      ensureChecklistState(jobId);
+    }
+  } catch (e) {
+    console.warn('Could not load cleaning state', e?.message || e);
+  }
+}
+
+// Debounced upsert of state. We coalesce rapid changes (typing in notes,
+// adding a burst of photos) into one network call per ~600ms.
+const _checklistSaveTimers = {};
+function saveChecklistState(jobId) {
+  if (!jobId) return;
+  clearTimeout(_checklistSaveTimers[jobId]);
+  _checklistSaveTimers[jobId] = setTimeout(async () => {
+    const state = checklistState[jobId];
+    if (!state) return;
+    const job = jobs.find(j => String(j.id) === String(jobId)) || currentChecklistJob;
+    const row = {
+      job_id: String(jobId),
+      property: job ? job.property : null,
+      template_key: 'changeover-clean',
+      state,
+      updated_at: new Date().toISOString()
+    };
+    try {
+      const { error } = await sb
+        .from('cleaning_completions')
+        .upsert([row], { onConflict: 'job_id' });
+      if (error) console.warn('Save failed', error.message);
+    } catch (e) {
+      console.warn('Could not save cleaning state', e?.message || e);
+    }
+  }, 600);
+}
+
+async function openChecklist(job) {
   currentChecklistJob = job;
   ensureChecklistState(job.id);
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -2838,6 +2888,12 @@ function openChecklist(job) {
   const propName = propNames[job.property] || job.property;
   document.getElementById('checklist-job-sub').textContent =
     `${propName} · Due ${formatDate(job.date)}${job.assigned_to ? ' · ' + job.assigned_to : ''}`;
+  // Render once with whatever's local so the user sees the structure immediately,
+  // then fetch any saved state and re-render with it.
+  renderChecklistSections();
+  renderChecklistIssues();
+  updateChecklistProgress();
+  await loadChecklistState(job.id);
   renderChecklistSections();
   renderChecklistIssues();
   updateChecklistProgress();
@@ -3173,6 +3229,7 @@ function toggleChecklistItem(itemKey) {
   state.items[itemKey] = cur;
   renderChecklistSections();
   updateChecklistProgress();
+  saveChecklistState(currentChecklistJob.id);
 }
 
 function updateChecklistNotes(itemKey, value) {
@@ -3180,6 +3237,7 @@ function updateChecklistNotes(itemKey, value) {
   const cur = state.items[itemKey] || { done: false, photos: [], notes: '' };
   cur.notes = value;
   state.items[itemKey] = cur;
+  saveChecklistState(currentChecklistJob.id);
 }
 
 function addChecklistPhotos(itemKey, input) {
@@ -3196,6 +3254,7 @@ function addChecklistPhotos(itemKey, input) {
     state.items[itemKey] = cur;
     renderChecklistSections();
     updateChecklistProgress();
+    saveChecklistState(currentChecklistJob.id);
   });
 }
 
@@ -3206,6 +3265,7 @@ function removeChecklistPhoto(itemKey, index) {
   state.items[itemKey] = cur;
   renderChecklistSections();
   updateChecklistProgress();
+  saveChecklistState(currentChecklistJob.id);
 }
 
 function updateChecklistProgress() {
@@ -3288,6 +3348,7 @@ function submitReportIssue() {
   closeReportIssue();
   renderChecklistIssues();
   updateChecklistProgress();
+  saveChecklistState(currentChecklistJob.id);
   // Create a maintenance job mirroring the reported issue (so it shows up in the global Maintenance tab too)
   const linkedJob = {
     department: 'maintenance',
@@ -3311,6 +3372,7 @@ function removeChecklistIssue(idx) {
   state.issues.splice(idx, 1);
   renderChecklistIssues();
   updateChecklistProgress();
+  saveChecklistState(currentChecklistJob.id);
 }
 
 // ===== TEMPLATES VIEW =====
@@ -3623,6 +3685,12 @@ function completeChecklist() {
     updateStats();
   });
   addActivity(`Cleaning complete: ${propNames[currentChecklistJob.property] || currentChecklistJob.property}`, 'cleaning');
+  // Make sure the final state — including the latest tick — is flushed
+  // synchronously by clearing any pending debounce timer first.
+  if (_checklistSaveTimers[currentChecklistJob.id]) {
+    clearTimeout(_checklistSaveTimers[currentChecklistJob.id]);
+  }
+  saveChecklistState(currentChecklistJob.id);
   alert('Cleaning marked complete!');
   closeChecklist();
 }
