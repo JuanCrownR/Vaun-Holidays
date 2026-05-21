@@ -6,6 +6,7 @@
 <title>Vaun Holidays — Property Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root {
   --brand: #0d0d0d;
@@ -835,6 +836,55 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   border: none;
 }
 .btn-danger:hover { background: #b91c1c; }
+
+/* ===== LOCKED TASK BANNER ===== */
+.lock-banner {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.lock-banner-text { font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.lock-banner-text strong { font-weight: 600; }
+.lock-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* Locked state: disable all interactive elements visually + via pointer-events */
+.is-locked .checklist-item-head,
+.is-locked .checklist-checkbox,
+.is-locked .checklist-notes,
+.is-locked .checklist-photo-remove,
+.is-locked .checklist-photo-add,
+.is-locked .keys-form-control,
+.is-locked input,
+.is-locked textarea,
+.is-locked select,
+.is-locked button:not(.lock-allowed) {
+  pointer-events: none;
+}
+.is-locked .checklist-checkbox { opacity: 0.7; }
+.is-locked .checklist-notes { background: var(--surface3); color: var(--text2); }
+.is-locked .checklist-photo-remove { display: none; }
+.is-locked .checklist-photo-add { display: none; }
+
+/* ===== PHOTO TIMESTAMP OVERLAY ===== */
+.photo-timestamp {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  font-size: 9px;
+  text-align: center;
+  padding: 2px 4px;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
 
 /* ===== CLEANING CHECKLIST ===== */
 .checklist-topbar {
@@ -2817,9 +2867,37 @@ const CHANGEOVER_CLEAN_TEMPLATE = {
   ]
 };
 
-// In-memory state per job: { items: {key: {done, photos: [dataURL], notes}}, issues: [{title,desc,severity,photo}] }
+// In-memory state per job: { items: {key: {done, photos: [photoObj|dataURL], notes}}, issues: [{title,desc,severity,photo}] }
+// photoObj = { data_url, uploaded_at, uploaded_by }. We still accept plain
+// data-URL strings for backward compatibility with rows saved before the
+// timestamping change.
 const checklistState = {};
 let currentChecklistJob = null;
+
+// ---- Photo helpers (also used by keys jobs) ----
+function photoDataUrl(p) { return typeof p === 'string' ? p : (p && p.data_url) || ''; }
+function photoTimestamp(p) { return typeof p === 'string' ? null : (p && p.uploaded_at) || null; }
+function formatPhotoTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  // e.g. "20 May, 4:35pm"
+  return d.toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }).replace(' ', ' ');
+}
+function currentUserLabel() {
+  if (!currentUser) return null;
+  return currentUser.user_metadata?.full_name || currentUser.email || null;
+}
+function wrapNewPhoto(dataUrl) {
+  return { data_url: dataUrl, uploaded_at: new Date().toISOString(), uploaded_by: currentUserLabel() };
+}
+
+// ---- Lock helpers ----
+function isJobLocked(job) {
+  if (!job) return false;
+  const s = (job.status || '').toLowerCase();
+  return s === 'complete' || s === 'resolved';
+}
 
 function ensureChecklistState(jobId) {
   if (!checklistState[jobId]) {
@@ -2954,8 +3032,17 @@ function renderKeysJob() {
   const j = currentKeysJob;
   if (!j) return;
   const body = document.getElementById('keys-job-body');
+  body.classList.toggle('is-locked', isJobLocked(j));
   const m = j.meta;
   const isOrder = m.key_job_type === 'order';
+  const lockBanner = isJobLocked(j) ? `
+    <div class="lock-banner">
+      <div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes.</span></div>
+      <div class="lock-banner-actions">
+        <button class="btn btn-primary lock-allowed" style="background:var(--keys);" onclick="downloadKeysJobPDF()">Download PDF report</button>
+      </div>
+    </div>
+  ` : '';
   const attachmentsHtml = `
     <div class="checklist-section-card">
       <div class="checklist-section-head">
@@ -2964,12 +3051,15 @@ function renderKeysJob() {
       </div>
       <div class="checklist-photo-area" style="margin-left:0;">
         <div class="checklist-photo-grid">
-          ${(m.attachments || []).map((a, i) => `
+          ${(m.attachments || []).map((a, i) => {
+            const ts = a.uploaded_at;
+            return `
             <div class="checklist-photo">
               ${a.data_url && a.data_url.startsWith('data:image') ? `<img src="${a.data_url}" alt="">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--text2);text-align:center;padding:6px;">${escapeHtml(a.name || 'File')}</div>`}
+              ${ts ? `<div class="photo-timestamp">${escapeHtml(formatPhotoTime(ts))}</div>` : ''}
               <button class="checklist-photo-remove" onclick="removeKeysJobAttachment(${i})">✕</button>
             </div>
-          `).join('')}
+          `;}).join('')}
           <label class="checklist-photo-add" title="Take a new photo">
             <span class="checklist-photo-add-icon">📷</span>
             Take photo
@@ -2986,6 +3076,7 @@ function renderKeysJob() {
   `;
   if (isOrder) {
     body.innerHTML = `
+      ${lockBanner}
       <div class="checklist-section-card">
         <div class="checklist-section-head">
           <span class="checklist-section-title">Order details</span>
@@ -3026,6 +3117,7 @@ function renderKeysJob() {
     // Expiry
     const noteSeed = (m.expiry_notes || j.notes || '').replace(/\s*\[fid:[^\]]+\]\s*$/, '');
     body.innerHTML = `
+      ${lockBanner}
       <div class="checklist-section-card">
         <div class="checklist-section-head">
           <span class="checklist-section-title">Description</span>
@@ -3102,7 +3194,13 @@ function addKeysJobAttachments(input) {
   j.meta.attachments = j.meta.attachments || [];
   Promise.all(files.map(f => new Promise(res => {
     const r = new FileReader();
-    r.onload = () => res({ name: f.name, type: f.type, data_url: r.result });
+    r.onload = () => res({
+      name: f.name,
+      type: f.type,
+      data_url: r.result,
+      uploaded_at: new Date().toISOString(),
+      uploaded_by: currentUserLabel()
+    });
     r.readAsDataURL(f);
   }))).then(items => {
     j.meta.attachments = j.meta.attachments.concat(items);
@@ -3133,7 +3231,18 @@ function completeKeysJob() {
 function renderChecklistSections() {
   const container = document.getElementById('checklist-sections-container');
   const state = ensureChecklistState(currentChecklistJob.id);
-  container.innerHTML = CHANGEOVER_CLEAN_TEMPLATE.sections.map(section => {
+  const locked = isJobLocked(currentChecklistJob);
+  container.classList.toggle('is-locked', locked);
+  const lockBanner = locked ? `
+    <div class="lock-banner">
+      <div class="lock-banner-text">🔒 <span><strong>This cleaning is closed.</strong> Reopen to make changes. Photos and ticks are locked.</span></div>
+      <div class="lock-banner-actions">
+        <button class="btn btn-primary lock-allowed" style="background:var(--cleaning);" onclick="downloadChecklistPDF()">Download PDF report</button>
+        <button class="btn btn-secondary lock-allowed" onclick="reopenChecklist()">Reopen task</button>
+      </div>
+    </div>
+  ` : '';
+  container.innerHTML = lockBanner + CHANGEOVER_CLEAN_TEMPLATE.sections.map(section => {
     const itemsHtml = section.items.map(item => {
       const itemState = state.items[item.key] || { done: false, photos: [], notes: '' };
       const done = item.type === 'check' ? itemState.done
@@ -3158,12 +3267,15 @@ function renderChecklistSections() {
           <div class="checklist-photo-area">
             <div class="checklist-photo-required">${photos.length} of ${need} photo${need > 1 ? 's' : ''} uploaded${photos.length >= need ? ' ✓' : ''}</div>
             <div class="checklist-photo-grid">
-              ${photos.map((p, i) => `
+              ${photos.map((p, i) => {
+                const ts = photoTimestamp(p);
+                return `
                 <div class="checklist-photo">
-                  <img src="${p}" alt="">
+                  <img src="${photoDataUrl(p)}" alt="">
+                  ${ts ? `<div class="photo-timestamp">${escapeHtml(formatPhotoTime(ts))}</div>` : ''}
                   <button class="checklist-photo-remove" onclick="removeChecklistPhoto('${item.key}', ${i})">✕</button>
                 </div>
-              `).join('')}
+              `;}).join('')}
               <label class="checklist-photo-add" title="Take a new photo with your device camera">
                 <span class="checklist-photo-add-icon">📷</span>
                 Take photo
@@ -3250,7 +3362,7 @@ function addChecklistPhotos(itemKey, input) {
     r.onload = () => res(r.result);
     r.readAsDataURL(f);
   }))).then(dataUrls => {
-    cur.photos = cur.photos.concat(dataUrls);
+    cur.photos = cur.photos.concat(dataUrls.map(wrapNewPhoto));
     state.items[itemKey] = cur;
     renderChecklistSections();
     updateChecklistProgress();
@@ -3664,6 +3776,220 @@ function editorAddItem(si) {
 
 
 
+// ===== PDF REPORT GENERATION =====
+// Both downloads use jsPDF (loaded from CDN). We compose mm-based A4 pages
+// with a tiny y-cursor and `ensureSpace()` helper that triggers a new page
+// whenever we'd run off the bottom.
+function _pdfDoc() {
+  if (!window.jspdf) {
+    alert('PDF library failed to load. Try refreshing.');
+    return null;
+  }
+  const { jsPDF } = window.jspdf;
+  return new jsPDF({ unit: 'mm', format: 'a4' });
+}
+
+function _pdfImageBoxes(doc, photos, y, perRow = 4, size = 35, gap = 5, marginX = 14) {
+  // Lays photos out as size x size squares, perRow per line, with timestamps below.
+  // Returns the new y position. Handles page breaks.
+  let cur = y;
+  if (!photos || !photos.length) return cur;
+  let i = 0;
+  while (i < photos.length) {
+    if (cur + size + 6 > 280) { doc.addPage(); cur = 20; }
+    for (let col = 0; col < perRow && i < photos.length; col++, i++) {
+      const p = photos[i];
+      const url = photoDataUrl(p);
+      const ts = photoTimestamp(p);
+      const x = marginX + col * (size + gap);
+      try {
+        doc.addImage(url, 'JPEG', x, cur, size, size, undefined, 'FAST');
+      } catch (e) { /* swallow bad image */ }
+      if (ts) {
+        doc.setFontSize(7);
+        doc.setTextColor(90);
+        doc.text(formatPhotoTime(ts), x + size / 2, cur + size + 3, { align: 'center', maxWidth: size });
+      }
+    }
+    cur += size + 8;
+  }
+  return cur;
+}
+
+function downloadChecklistPDF() {
+  const doc = _pdfDoc();
+  if (!doc) return;
+  const j = currentChecklistJob;
+  const state = ensureChecklistState(j.id);
+  const prop = properties.find(p => p.id === j.property);
+  const propName = prop ? prop.name : (propNames[j.property] || j.property);
+  const propAddress = prop ? (prop.address || '') : '';
+  const marginX = 14;
+  let y = 18;
+  const ensureSpace = (h) => { if (y + h > 280) { doc.addPage(); y = 20; } };
+
+  // Header
+  doc.setFontSize(18);
+  doc.setTextColor(20);
+  doc.text('Changeover Clean Report', marginX, y); y += 7;
+  doc.setFontSize(11);
+  doc.setTextColor(70);
+  doc.text(`${propName}`, marginX, y); y += 5;
+  if (propAddress) { doc.text(propAddress, marginX, y); y += 5; }
+  doc.text(`Cleaning date: ${formatDate(j.date)}`, marginX, y); y += 5;
+  doc.text(`Assigned to: ${j.assigned_to || '—'}`, marginX, y); y += 5;
+  doc.text(`Status: ${(j.status || 'pending').toUpperCase()}`, marginX, y); y += 5;
+  doc.text(`Generated: ${new Date().toLocaleString('en-AU')}`, marginX, y); y += 8;
+
+  // Progress
+  const allItems = CHANGEOVER_CLEAN_TEMPLATE.sections.flatMap(s => s.items);
+  const done = allItems.filter(it => {
+    const s = state.items[it.key] || {};
+    return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
+  }).length;
+  const totalPhotos = Object.values(state.items).reduce((n, it) => n + ((it.photos || []).length), 0);
+  doc.setFontSize(10);
+  doc.setTextColor(40);
+  doc.text(`Progress: ${done} of ${allItems.length} items complete · ${totalPhotos} photos · ${state.issues.length} issues reported`, marginX, y); y += 8;
+
+  // Sections
+  CHANGEOVER_CLEAN_TEMPLATE.sections.forEach(section => {
+    ensureSpace(12);
+    doc.setFontSize(13);
+    doc.setTextColor(20);
+    const header = section.parent ? `${section.parent} / ${section.title}` : section.title;
+    doc.text(header, marginX, y); y += 5;
+    doc.setDrawColor(220); doc.line(marginX, y, 200, y); y += 4;
+    section.items.forEach(item => {
+      const itemState = state.items[item.key] || { done: false, photos: [], notes: '' };
+      const isDone = item.type === 'check'
+        ? itemState.done
+        : (item.minPhotos ? (itemState.photos || []).length >= item.minPhotos : false);
+      ensureSpace(8);
+      doc.setFontSize(9);
+      doc.setTextColor(isDone ? 40 : 120);
+      doc.text(isDone ? '[x]' : '[ ]', marginX, y);
+      const labelLines = doc.splitTextToSize(item.label, 175);
+      doc.text(labelLines, marginX + 8, y);
+      y += labelLines.length * 4;
+      if (itemState.notes && itemState.notes.trim()) {
+        ensureSpace(6);
+        doc.setFontSize(8);
+        doc.setTextColor(110);
+        const noteLines = doc.splitTextToSize(`Notes: ${itemState.notes.trim()}`, 170);
+        doc.text(noteLines, marginX + 8, y);
+        y += noteLines.length * 4;
+      }
+      if (itemState.photos && itemState.photos.length) {
+        y = _pdfImageBoxes(doc, itemState.photos, y + 2);
+      }
+      y += 2;
+    });
+    y += 4;
+  });
+
+  // Issues
+  if (state.issues.length) {
+    ensureSpace(14);
+    doc.setFontSize(13);
+    doc.setTextColor(170, 40, 40);
+    doc.text('Reported issues', marginX, y); y += 5;
+    doc.setDrawColor(220); doc.line(marginX, y, 200, y); y += 4;
+    state.issues.forEach(issue => {
+      ensureSpace(10);
+      doc.setFontSize(10);
+      doc.setTextColor(30);
+      doc.text(`• ${issue.title || 'Issue'}  [${(issue.severity || 'medium').toUpperCase()}]`, marginX, y); y += 5;
+      if (issue.desc) {
+        doc.setFontSize(9);
+        doc.setTextColor(80);
+        const lines = doc.splitTextToSize(issue.desc, 175);
+        doc.text(lines, marginX + 4, y); y += lines.length * 4;
+      }
+      if (issue.photo) {
+        y = _pdfImageBoxes(doc, [issue.photo], y + 2, 1, 50);
+      }
+      y += 2;
+    });
+  }
+
+  doc.save(`changeover-clean_${(propName || 'property').replace(/[^a-z0-9]+/gi, '_')}_${j.date || formatYMD(new Date())}.pdf`);
+}
+
+function downloadKeysJobPDF() {
+  const doc = _pdfDoc();
+  if (!doc) return;
+  const j = currentKeysJob;
+  const m = j.meta || {};
+  const prop = properties.find(p => p.id === j.property);
+  const propName = prop ? prop.name : (propNames[j.property] || j.property);
+  const propAddress = prop ? (prop.address || '') : '';
+  const isOrder = m.key_job_type === 'order';
+  const title = isOrder ? 'Key Order Report' : 'Key Expiry Report';
+  const marginX = 14;
+  let y = 18;
+  const ensureSpace = (h) => { if (y + h > 280) { doc.addPage(); y = 20; } };
+
+  doc.setFontSize(18); doc.setTextColor(20);
+  doc.text(title, marginX, y); y += 7;
+  doc.setFontSize(11); doc.setTextColor(70);
+  doc.text(propName, marginX, y); y += 5;
+  if (propAddress) { doc.text(propAddress, marginX, y); y += 5; }
+  doc.text(`Due: ${formatDate(j.date)}`, marginX, y); y += 5;
+  doc.text(`Assigned to: ${j.assigned_to || '—'}`, marginX, y); y += 5;
+  doc.text(`Status: ${(j.status || 'pending').toUpperCase()}`, marginX, y); y += 5;
+  doc.text(`Generated: ${new Date().toLocaleString('en-AU')}`, marginX, y); y += 8;
+
+  if (isOrder) {
+    ensureSpace(8);
+    doc.setFontSize(12); doc.setTextColor(20);
+    doc.text('Order details', marginX, y); y += 5;
+    doc.setFontSize(10); doc.setTextColor(50);
+    doc.text(`Reason: ${KEYS_REASON_LABELS[m.reason] || m.reason || '—'}`, marginX, y); y += 5;
+    doc.text(`Guest claim needed: ${m.guest_claim_needed === true ? 'Yes' : m.guest_claim_needed === false ? 'No' : '—'}`, marginX, y); y += 7;
+    ensureSpace(8);
+    doc.setFontSize(12); doc.setTextColor(20);
+    doc.text('Workflow', marginX, y); y += 5;
+    doc.setFontSize(10); doc.setTextColor(50);
+    const workflow = [
+      ['Replacement key ordered', m.key_ordered],
+      ...(m.guest_claim_needed === true ? [['Guest claim lodged', m.guest_claim_lodged]] : []),
+      ['Replacement key picked up', m.key_picked_up]
+    ];
+    workflow.forEach(([label, done]) => {
+      doc.text(`${done ? '[x]' : '[ ]'} ${label}`, marginX, y); y += 5;
+    });
+    y += 2;
+  } else {
+    ensureSpace(8);
+    doc.setFontSize(12); doc.setTextColor(20);
+    doc.text('Description', marginX, y); y += 5;
+    doc.setFontSize(10); doc.setTextColor(50);
+    const notesText = (m.expiry_notes || j.notes || '').replace(/\s*\[fid:[^\]]+\]\s*$/, '');
+    const lines = doc.splitTextToSize(notesText || '—', 180);
+    doc.text(lines, marginX, y); y += lines.length * 4.5 + 4;
+  }
+
+  if (j.notes && j.notes.trim() && isOrder) {
+    ensureSpace(8);
+    doc.setFontSize(12); doc.setTextColor(20);
+    doc.text('Notes', marginX, y); y += 5;
+    doc.setFontSize(10); doc.setTextColor(50);
+    const lines = doc.splitTextToSize(j.notes, 180);
+    doc.text(lines, marginX, y); y += lines.length * 4.5 + 4;
+  }
+
+  const atts = (m.attachments || []).filter(a => a && a.data_url && a.data_url.startsWith('data:image'));
+  if (atts.length) {
+    ensureSpace(12);
+    doc.setFontSize(12); doc.setTextColor(20);
+    doc.text('Attachments', marginX, y); y += 5;
+    y = _pdfImageBoxes(doc, atts, y);
+  }
+
+  doc.save(`key-${isOrder ? 'order' : 'expiry'}_${(propName || 'property').replace(/[^a-z0-9]+/gi, '_')}_${j.date || formatYMD(new Date())}.pdf`);
+}
+
 function completeChecklist() {
   const state = ensureChecklistState(currentChecklistJob.id);
   const allItems = CHANGEOVER_CLEAN_TEMPLATE.sections.flatMap(s => s.items);
@@ -3691,8 +4017,27 @@ function completeChecklist() {
     clearTimeout(_checklistSaveTimers[currentChecklistJob.id]);
   }
   saveChecklistState(currentChecklistJob.id);
-  alert('Cleaning marked complete!');
-  closeChecklist();
+  // Keep the user on the view, now in locked state. Re-render so the lock
+  // banner + Download PDF button appear and inputs disable.
+  renderChecklistSections();
+  renderChecklistIssues();
+  updateChecklistProgress();
+}
+
+function reopenChecklist() {
+  const j = currentChecklistJob;
+  if (!j) return;
+  if (!confirm('Reopen this cleaning task so it can be edited again?')) return;
+  j.status = 'pending';
+  sb.from('jobs').update({ status: 'pending' }).eq('id', j.id).then(() => {
+    const live = jobs.find(x => String(x.id) === String(j.id));
+    if (live) live.status = 'pending';
+    renderAllDepts();
+    updateStats();
+  }).catch(() => {});
+  renderChecklistSections();
+  renderChecklistIssues();
+  updateChecklistProgress();
 }
 
 // ===== PROPERTIES (Supabase loaders + switching) =====
