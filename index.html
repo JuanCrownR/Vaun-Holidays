@@ -3041,8 +3041,17 @@ const checklistState = {};
 let currentChecklistJob = null;
 
 // ---- Photo helpers (also used by keys jobs) ----
-function photoDataUrl(p) { return typeof p === 'string' ? p : (p && p.data_url) || ''; }
+// Photos are now stored in Supabase Storage; metadata in JSON is
+// {path, url, name, type, uploaded_at, uploaded_by}. We keep backward
+// compatibility with the old {data_url, ...} and plain-string formats so
+// existing checklists still render and PDF correctly.
+function photoDataUrl(p) {
+  if (typeof p === 'string') return p;
+  if (!p) return '';
+  return p.url || p.data_url || '';
+}
 function photoTimestamp(p) { return typeof p === 'string' ? null : (p && p.uploaded_at) || null; }
+function photoStoragePath(p) { return (p && typeof p === 'object') ? (p.path || null) : null; }
 function formatPhotoTime(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -3101,6 +3110,78 @@ function compressImageFile(file, maxDim = 1600, quality = 0.85) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// ---- Supabase Storage upload helpers ----
+const PHOTO_BUCKET = 'task-photos';
+
+function _safeSeg(s) { return String(s || 'misc').replace(/[^a-z0-9_-]/gi, '_').slice(0, 64); }
+function _stamp() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+function makePhotoPath(prefix, jobId, subKey, file) {
+  const rnd = Math.random().toString(36).slice(2, 8);
+  const ext = (file && file.name && file.name.includes('.')) ? file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') : 'jpg';
+  const safeJob = _safeSeg(jobId);
+  const segs = [prefix, safeJob];
+  if (subKey) segs.push(_safeSeg(subKey));
+  segs.push(`${_stamp()}_${rnd}.${ext || 'jpg'}`);
+  return segs.join('/');
+}
+
+// dataUrl -> Blob (cheaper than re-reading the file, and we've already
+// compressed it)
+async function _dataUrlToBlob(dataUrl) {
+  const res = await fetch(dataUrl);
+  return await res.blob();
+}
+
+async function uploadToStorage(blob, path, contentType) {
+  const { data, error } = await sb.storage.from(PHOTO_BUCKET).upload(path, blob, {
+    contentType: contentType || 'image/jpeg',
+    upsert: false
+  });
+  if (error) throw error;
+  const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(data.path);
+  return { path: data.path, url: pub.publicUrl };
+}
+
+// One-shot: compress a File, upload to Storage, return metadata.
+// `prefix` is one of 'cleaning' | 'issues' | 'keys'.
+async function compressAndUpload(file, prefix, jobId, subKey) {
+  // Non-images go through as-is (PDFs etc.)
+  const isImage = file && file.type && file.type.startsWith('image/');
+  let blob;
+  let contentType;
+  if (isImage) {
+    const dataUrl = await compressImageFile(file);
+    blob = await _dataUrlToBlob(dataUrl);
+    contentType = 'image/jpeg';
+  } else {
+    blob = file;
+    contentType = file.type || 'application/octet-stream';
+  }
+  const path = makePhotoPath(prefix, jobId, subKey, file);
+  const { path: storedPath, url } = await uploadToStorage(blob, path, contentType);
+  return {
+    path: storedPath,
+    url,
+    name: file.name || '',
+    type: isImage ? 'image/jpeg' : contentType,
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: currentUserLabel()
+  };
+}
+
+// Best-effort delete of a Storage object given a metadata record.
+async function deleteStorageObject(photo) {
+  const path = photoStoragePath(photo);
+  if (!path) return; // base64-only or string-only photo, nothing to delete
+  try {
+    await sb.storage.from(PHOTO_BUCKET).remove([path]);
+  } catch (e) { /* don't block the UI if cleanup fails */ }
 }
 
 // ---- Lock helpers ----
@@ -3264,9 +3345,11 @@ function renderKeysJob() {
         <div class="checklist-photo-grid">
           ${(m.attachments || []).map((a, i) => {
             const ts = a.uploaded_at;
+            const url = photoDataUrl(a);
+            const isImage = (a.type && a.type.startsWith('image/')) || (url.startsWith('data:image')) || /\.(jpe?g|png|gif|webp|heic)$/i.test(a.name || '');
             return `
             <div class="checklist-photo">
-              ${a.data_url && a.data_url.startsWith('data:image') ? `<img src="${a.data_url}" alt="">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--text2);text-align:center;padding:6px;">${escapeHtml(a.name || 'File')}</div>`}
+              ${isImage && url ? `<img src="${url}" alt="">` : `<a href="${url || '#'}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--text2);text-align:center;padding:6px;text-decoration:none;">${escapeHtml(a.name || 'File')}</a>`}
               ${ts ? `<div class="photo-timestamp">${escapeHtml(formatPhotoTime(ts))}</div>` : ''}
               <button class="checklist-photo-remove" onclick="removeKeysJobAttachment(${i})">✕</button>
             </div>
@@ -3396,36 +3479,32 @@ function persistKeysJob() {
   });
 }
 
-function addKeysJobAttachments(input) {
+async function addKeysJobAttachments(input) {
   const j = currentKeysJob;
   if (!j) return;
   const files = Array.from(input.files || []);
   if (!files.length) return;
   j.meta = j.meta || {};
   j.meta.attachments = j.meta.attachments || [];
-  Promise.all(files.map(f => compressImageFile(f).then(dataUrl => ({
-    name: f.name,
-    type: f.type,
-    data_url: dataUrl,
-    uploaded_at: new Date().toISOString(),
-    uploaded_by: currentUserLabel()
-  })))).then(items => {
+  try {
+    const items = await Promise.all(files.map(f => compressAndUpload(f, 'keys', j.id, 'att')));
     j.meta.attachments = j.meta.attachments.concat(items);
     input.value = '';
     persistKeysJob();
     renderKeysJob();
-  }).catch(e => {
-    console.warn('Attachment processing failed', e);
-    alert('An attachment failed to process.');
-  });
+  } catch (e) {
+    console.warn('Attachment upload failed', e);
+    alert('An attachment failed to upload: ' + (e.message || e));
+  }
 }
 
 function removeKeysJobAttachment(idx) {
   const j = currentKeysJob;
   if (!j || !j.meta || !Array.isArray(j.meta.attachments)) return;
-  j.meta.attachments.splice(idx, 1);
+  const removed = j.meta.attachments.splice(idx, 1)[0];
   persistKeysJob();
   renderKeysJob();
+  if (removed) deleteStorageObject(removed);
 }
 
 function completeKeysJob() {
@@ -3562,34 +3641,36 @@ function updateChecklistNotes(itemKey, value) {
   saveChecklistState(currentChecklistJob.id);
 }
 
-function addChecklistPhotos(itemKey, input) {
+async function addChecklistPhotos(itemKey, input) {
   const state = ensureChecklistState(currentChecklistJob.id);
   const cur = state.items[itemKey] || { done: false, photos: [], notes: '' };
   cur.photos = cur.photos || [];
   const files = Array.from(input.files || []);
-  // Each photo is downscaled to <= 1600px + JPEG-recompressed to keep
-  // memory + payload size sane on mobile.
-  Promise.all(files.map(f => compressImageFile(f))).then(dataUrls => {
-    cur.photos = cur.photos.concat(dataUrls.map(wrapNewPhoto));
+  if (!files.length) return;
+  try {
+    // Compress + upload each file; metadata returned holds the Storage URL.
+    const items = await Promise.all(files.map(f => compressAndUpload(f, 'cleaning', currentChecklistJob.id, itemKey)));
+    cur.photos = cur.photos.concat(items);
     state.items[itemKey] = cur;
     input.value = '';
     renderChecklistSections();
     updateChecklistProgress();
     saveChecklistState(currentChecklistJob.id);
-  }).catch(e => {
-    console.warn('Photo processing failed', e);
-    alert('A photo failed to process. Try a different one or take a fresh shot.');
-  });
+  } catch (e) {
+    console.warn('Photo upload failed', e);
+    alert('Could not upload a photo: ' + (e.message || e));
+  }
 }
 
 function removeChecklistPhoto(itemKey, index) {
   const state = ensureChecklistState(currentChecklistJob.id);
   const cur = state.items[itemKey] || { photos: [] };
-  cur.photos.splice(index, 1);
+  const removed = cur.photos.splice(index, 1)[0];
   state.items[itemKey] = cur;
   renderChecklistSections();
   updateChecklistProgress();
   saveChecklistState(currentChecklistJob.id);
+  if (removed) deleteStorageObject(removed);
 }
 
 function updateChecklistProgress() {
@@ -3621,7 +3702,7 @@ function renderChecklistIssues() {
           <div>
             <div style="font-weight:600;">${escapeHtml(i.title)}</div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px;">${escapeHtml(i.desc || '')}</div>
-            ${i.photo ? `<img src="${i.photo}" style="margin-top:6px;width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);">` : ''}
+            ${i.photo ? `<img src="${photoDataUrl(i.photo)}" style="margin-top:6px;width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);">` : ''}
           </div>
           <span class="severity-pill severity-${i.severity || 'medium'}">${(i.severity||'medium').toUpperCase()}</span>
           <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="removeChecklistIssue(${idx})">Remove</button>
@@ -3641,34 +3722,51 @@ function openReportIssue() {
   if (cam) cam.value = '';
   if (up) up.value = '';
   if (hidden) { hidden.value = ''; delete hidden.dataset.url; }
+  _pendingIssueFile = null;
   document.getElementById('issue-photo-preview').innerHTML = '';
   document.getElementById('issue-error').style.display = 'none';
   document.getElementById('report-issue-modal').classList.add('open');
 }
 function closeReportIssue() {
+  _pendingIssueFile = null;
   document.getElementById('report-issue-modal').classList.remove('open');
 }
+// Stage the picked file in memory; we only upload to Storage when the
+// issue is actually submitted (so canceled drafts don't litter the bucket).
+let _pendingIssueFile = null;
 function handleIssuePhotoChange(input) {
   const f = input.files && input.files[0];
   if (!f) return;
-  compressImageFile(f).then(url => {
+  _pendingIssueFile = f;
+  // Quick local preview from the file itself (no upload yet)
+  const r = new FileReader();
+  r.onload = () => {
     document.getElementById('issue-photo-preview').innerHTML =
-      `<img src="${url}" style="max-width:140px;border-radius:8px;border:1px solid var(--border);">`;
-    document.getElementById('issue-photo').dataset.url = url;
-  }).catch(e => {
-    console.warn('Issue photo failed', e);
-    alert('Could not process that photo.');
-  });
+      `<img src="${r.result}" style="max-width:140px;border-radius:8px;border:1px solid var(--border);">`;
+  };
+  r.readAsDataURL(f);
 }
 document.getElementById('issue-photo-camera').addEventListener('change', function() { handleIssuePhotoChange(this); });
 document.getElementById('issue-photo-upload').addEventListener('change', function() { handleIssuePhotoChange(this); });
-function submitReportIssue() {
+async function submitReportIssue() {
   const title = document.getElementById('issue-title').value.trim();
   const desc = document.getElementById('issue-desc').value.trim();
   const severity = document.getElementById('issue-severity').value;
-  const photo = document.getElementById('issue-photo').dataset.url || null;
   const err = document.getElementById('issue-error');
   if (!title) { err.textContent = 'Please give the issue a short title.'; err.style.display = 'block'; return; }
+  // Upload the staged photo file (if any) to Storage. Keep `photo` as either
+  // an object {url, path, ...} or null. PDF + render code handles both.
+  let photo = null;
+  if (_pendingIssueFile) {
+    try {
+      photo = await compressAndUpload(_pendingIssueFile, 'issues', currentChecklistJob.id, 'issue');
+    } catch (e) {
+      err.textContent = 'Could not upload the photo: ' + (e.message || e);
+      err.style.display = 'block';
+      return;
+    }
+  }
+  _pendingIssueFile = null;
   const state = ensureChecklistState(currentChecklistJob.id);
   state.issues.push({ title, desc, severity, photo, ts: Date.now() });
   closeReportIssue();
@@ -4003,26 +4101,43 @@ function _pdfDoc() {
   return new jsPDF({ unit: 'mm', format: 'a4' });
 }
 
-function _pdfImageBoxes(doc, photos, y, perRow = 4, size = 35, gap = 5, marginX = 14) {
+// Preload an image URL (data: or http(s)://) into an Image element so jsPDF
+// can synchronously copy it into the PDF.
+function _pdfLoadImage(src) {
+  return new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+async function _pdfImageBoxes(doc, photos, y, perRow = 4, size = 35, gap = 5, marginX = 14) {
   // Lays photos out as size x size squares, perRow per line, with timestamps below.
   // Returns the new y position. Handles page breaks.
   let cur = y;
   if (!photos || !photos.length) return cur;
+  // Pre-load every image (URL or data URL) before drawing so jsPDF can run synchronously.
+  const items = await Promise.all(photos.map(async p => ({
+    img: await _pdfLoadImage(photoDataUrl(p)),
+    ts: photoTimestamp(p)
+  })));
   let i = 0;
-  while (i < photos.length) {
+  while (i < items.length) {
     if (cur + size + 6 > 280) { doc.addPage(); cur = 20; }
-    for (let col = 0; col < perRow && i < photos.length; col++, i++) {
-      const p = photos[i];
-      const url = photoDataUrl(p);
-      const ts = photoTimestamp(p);
+    for (let col = 0; col < perRow && i < items.length; col++, i++) {
+      const it = items[i];
+      if (!it.img) continue;
       const x = marginX + col * (size + gap);
       try {
-        doc.addImage(url, 'JPEG', x, cur, size, size, undefined, 'FAST');
+        doc.addImage(it.img, 'JPEG', x, cur, size, size, undefined, 'FAST');
       } catch (e) { /* swallow bad image */ }
-      if (ts) {
+      if (it.ts) {
         doc.setFontSize(7);
         doc.setTextColor(90);
-        doc.text(formatPhotoTime(ts), x + size / 2, cur + size + 3, { align: 'center', maxWidth: size });
+        doc.text(formatPhotoTime(it.ts), x + size / 2, cur + size + 3, { align: 'center', maxWidth: size });
       }
     }
     cur += size + 8;
@@ -4030,7 +4145,7 @@ function _pdfImageBoxes(doc, photos, y, perRow = 4, size = 35, gap = 5, marginX 
   return cur;
 }
 
-function downloadChecklistPDF() {
+async function downloadChecklistPDF() {
   const doc = _pdfDoc();
   if (!doc) return;
   const j = currentChecklistJob;
@@ -4067,14 +4182,14 @@ function downloadChecklistPDF() {
   doc.text(`Progress: ${done} of ${allItems.length} items complete · ${totalPhotos} photos · ${state.issues.length} issues reported`, marginX, y); y += 8;
 
   // Sections
-  CHANGEOVER_CLEAN_TEMPLATE.sections.forEach(section => {
+  for (const section of CHANGEOVER_CLEAN_TEMPLATE.sections) {
     ensureSpace(12);
     doc.setFontSize(13);
     doc.setTextColor(20);
     const header = section.parent ? `${section.parent} / ${section.title}` : section.title;
     doc.text(header, marginX, y); y += 5;
     doc.setDrawColor(220); doc.line(marginX, y, 200, y); y += 4;
-    section.items.forEach(item => {
+    for (const item of section.items) {
       const itemState = state.items[item.key] || { done: false, photos: [], notes: '' };
       const isDone = item.type === 'check'
         ? itemState.done
@@ -4095,12 +4210,12 @@ function downloadChecklistPDF() {
         y += noteLines.length * 4;
       }
       if (itemState.photos && itemState.photos.length) {
-        y = _pdfImageBoxes(doc, itemState.photos, y + 2);
+        y = await _pdfImageBoxes(doc, itemState.photos, y + 2);
       }
       y += 2;
-    });
+    }
     y += 4;
-  });
+  }
 
   // Issues
   if (state.issues.length) {
@@ -4109,7 +4224,7 @@ function downloadChecklistPDF() {
     doc.setTextColor(170, 40, 40);
     doc.text('Reported issues', marginX, y); y += 5;
     doc.setDrawColor(220); doc.line(marginX, y, 200, y); y += 4;
-    state.issues.forEach(issue => {
+    for (const issue of state.issues) {
       ensureSpace(10);
       doc.setFontSize(10);
       doc.setTextColor(30);
@@ -4121,16 +4236,16 @@ function downloadChecklistPDF() {
         doc.text(lines, marginX + 4, y); y += lines.length * 4;
       }
       if (issue.photo) {
-        y = _pdfImageBoxes(doc, [issue.photo], y + 2, 1, 50);
+        y = await _pdfImageBoxes(doc, [issue.photo], y + 2, 1, 50);
       }
       y += 2;
-    });
+    }
   }
 
   doc.save(`changeover-clean_${(propName || 'property').replace(/[^a-z0-9]+/gi, '_')}_${j.date || formatYMD(new Date())}.pdf`);
 }
 
-function downloadKeysJobPDF() {
+async function downloadKeysJobPDF() {
   const doc = _pdfDoc();
   if (!doc) return;
   const j = currentKeysJob;
@@ -4193,12 +4308,18 @@ function downloadKeysJobPDF() {
     doc.text(lines, marginX, y); y += lines.length * 4.5 + 4;
   }
 
-  const atts = (m.attachments || []).filter(a => a && a.data_url && a.data_url.startsWith('data:image'));
+  const atts = (m.attachments || []).filter(a => {
+    if (!a) return false;
+    if (a.type && a.type.startsWith('image/')) return true;
+    if (a.data_url && a.data_url.startsWith('data:image')) return true;
+    if (a.url && /\.(jpe?g|png|gif|webp)$/i.test(a.url)) return true;
+    return false;
+  });
   if (atts.length) {
     ensureSpace(12);
     doc.setFontSize(12); doc.setTextColor(20);
     doc.text('Attachments', marginX, y); y += 5;
-    y = _pdfImageBoxes(doc, atts, y);
+    y = await _pdfImageBoxes(doc, atts, y);
   }
 
   doc.save(`key-${isOrder ? 'order' : 'expiry'}_${(propName || 'property').replace(/[^a-z0-9]+/gi, '_')}_${j.date || formatYMD(new Date())}.pdf`);
