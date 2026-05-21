@@ -1964,7 +1964,10 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <div id="checklist-sections-container"></div>
         <div class="checklist-footer">
           <div style="font-size:13px;color:var(--text2);"><span id="checklist-photos-count">0</span> photos · <span id="checklist-issues-count">0</span> issues reported</div>
-          <button class="btn btn-primary" onclick="completeChecklist()">Mark cleaning complete</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary lock-allowed" id="checklist-pdf-btn" onclick="downloadChecklistPDF()" style="display:none;">Download PDF report</button>
+            <button class="btn btn-primary lock-allowed" id="checklist-complete-btn" onclick="checklistFooterAction()">Mark cleaning complete</button>
+          </div>
         </div>
       </div>
 
@@ -3440,6 +3443,7 @@ function updateChecklistProgress() {
   const photoCount = Object.values(state.items).reduce((n, it) => n + ((it.photos || []).length), 0);
   document.getElementById('checklist-photos-count').textContent = photoCount;
   document.getElementById('checklist-issues-count').textContent = state.issues.length;
+  refreshChecklistFooter();
 }
 
 function renderChecklistIssues() {
@@ -4069,6 +4073,31 @@ function completeChecklist() {
   renderChecklistSections();
   renderChecklistIssues();
   updateChecklistProgress();
+}
+
+// Footer primary button — context-sensitive: complete when open, reopen when locked.
+function checklistFooterAction() {
+  if (isJobLocked(currentChecklistJob)) {
+    reopenChecklist();
+  } else {
+    completeChecklist();
+  }
+}
+
+// Keep the footer button label + PDF button visibility in sync with lock state.
+function refreshChecklistFooter() {
+  const btn = document.getElementById('checklist-complete-btn');
+  const pdf = document.getElementById('checklist-pdf-btn');
+  if (!btn || !currentChecklistJob) return;
+  if (isJobLocked(currentChecklistJob)) {
+    btn.textContent = 'Reopen task';
+    btn.style.background = 'var(--text2)';
+    if (pdf) pdf.style.display = '';
+  } else {
+    btn.textContent = 'Mark cleaning complete';
+    btn.style.background = '';
+    if (pdf) pdf.style.display = 'none';
+  }
 }
 
 function reopenChecklist() {
