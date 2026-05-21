@@ -2124,6 +2124,35 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <div id="prop-fobs-list" style="display:flex;flex-direction:column;gap:8px;"></div>
         <button type="button" class="btn btn-secondary" onclick="addFobRow()" style="margin-top:8px;font-size:12px;padding:6px 12px;">+ Add fob / card</button>
       </div>
+
+      <div class="form-group" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <label class="form-label" style="margin-bottom:8px;">Property Owner Details</label>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Owner 1 — full name or entity</label>
+          <input type="text" class="form-input" id="prop-owner-1" placeholder="Jane Smith / Smith Holdings Pty Ltd">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Owner 2 — optional</label>
+          <input type="text" class="form-input" id="prop-owner-2" placeholder="Co-owner name (if applicable)">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Owner email</label>
+          <input type="email" class="form-input" id="prop-owner-email" placeholder="owner@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Owner phone</label>
+          <input type="tel" class="form-input" id="prop-owner-phone" placeholder="+61 4xx xxx xxx">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Owner postal / residential address</label>
+        <input type="text" class="form-input" id="prop-owner-address" placeholder="123 Owner St, Brisbane QLD 4000">
+      </div>
+
       <div class="form-group">
         <label class="form-label">Notes (optional)</label>
         <textarea class="form-textarea" id="prop-notes" placeholder="Anything else to remember about this property..."></textarea>
@@ -2292,10 +2321,10 @@ let assetActiveTab = 'calendar';
 // Default properties — used as fallback if Supabase properties table is unavailable.
 // Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
 let properties = [
-  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, car_parks: 2, capacity: 8, keys_total: 3, keys_guest: 1, fobs: [], status: 'active', notes: 'Live & onboarded' },
-  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], status: 'onboarding', notes: 'Onboarding pending' },
-  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], status: 'onboarding', notes: 'Onboarding pending' },
-  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], status: 'onboarding', notes: 'Onboarding 1 July 2026' }
+  { id: 'ferny', name: 'Ferny Ave', color: '#4f8ef7', address: '2534/9 Ferny Avenue, Surfers Paradise QLD 4217', bedrooms: 4, bathrooms: 2.5, car_parks: 2, capacity: 8, keys_total: 3, keys_guest: 1, fobs: [], owner_1_name: null, owner_2_name: null, owner_email: null, owner_phone: null, owner_address: null, status: 'active', notes: 'Live & onboarded' },
+  { id: 'p2',    name: 'Property 2', color: '#f7714f', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], owner_1_name: null, owner_2_name: null, owner_email: null, owner_phone: null, owner_address: null, status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p3',    name: 'Property 3', color: '#9b6ff7', address: 'Surfers Paradise — address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], owner_1_name: null, owner_2_name: null, owner_email: null, owner_phone: null, owner_address: null, status: 'onboarding', notes: 'Onboarding pending' },
+  { id: 'p4',    name: 'Property 4', color: '#f7c44f', address: 'Address TBC', bedrooms: null, bathrooms: null, car_parks: null, capacity: null, keys_total: null, keys_guest: null, fobs: [], owner_1_name: null, owner_2_name: null, owner_email: null, owner_phone: null, owner_address: null, status: 'onboarding', notes: 'Onboarding 1 July 2026' }
 ];
 
 let propColors = {};
@@ -4418,6 +4447,11 @@ async function loadProperties() {
         keys_total: p.keys_total ?? null,
         keys_guest: p.keys_guest ?? null,
         fobs: Array.isArray(p.fobs) ? p.fobs : [],
+        owner_1_name: p.owner_1_name || null,
+        owner_2_name: p.owner_2_name || null,
+        owner_email: p.owner_email || null,
+        owner_phone: p.owner_phone || null,
+        owner_address: p.owner_address || null,
         status: p.status || 'active',
         notes: p.notes || ''
       }));
@@ -4863,6 +4897,11 @@ function openAddPropertyModal() {
   document.getElementById('prop-capacity').value = '';
   document.getElementById('prop-keys-total').value = '';
   document.getElementById('prop-keys-guest').value = '';
+  document.getElementById('prop-owner-1').value = '';
+  document.getElementById('prop-owner-2').value = '';
+  document.getElementById('prop-owner-email').value = '';
+  document.getElementById('prop-owner-phone').value = '';
+  document.getElementById('prop-owner-address').value = '';
   document.getElementById('prop-color').value = randomPropColor();
   document.getElementById('prop-notes').value = '';
   document.getElementById('prop-error').style.display = 'none';
@@ -4885,6 +4924,11 @@ function openEditPropertyModal(id) {
   document.getElementById('prop-capacity').value = prop.capacity ?? '';
   document.getElementById('prop-keys-total').value = prop.keys_total ?? '';
   document.getElementById('prop-keys-guest').value = prop.keys_guest ?? '';
+  document.getElementById('prop-owner-1').value = prop.owner_1_name || '';
+  document.getElementById('prop-owner-2').value = prop.owner_2_name || '';
+  document.getElementById('prop-owner-email').value = prop.owner_email || '';
+  document.getElementById('prop-owner-phone').value = prop.owner_phone || '';
+  document.getElementById('prop-owner-address').value = prop.owner_address || '';
   document.getElementById('prop-color').value = prop.color || '#4f8ef7';
   document.getElementById('prop-notes').value = prop.notes || '';
   // Clone so edits don't mutate the live property until Save
@@ -4931,6 +4975,11 @@ async function saveProperty() {
   const capacity = document.getElementById('prop-capacity').value;
   const keys_total = document.getElementById('prop-keys-total').value;
   const keys_guest = document.getElementById('prop-keys-guest').value;
+  const owner_1_name = document.getElementById('prop-owner-1').value.trim();
+  const owner_2_name = document.getElementById('prop-owner-2').value.trim();
+  const owner_email = document.getElementById('prop-owner-email').value.trim();
+  const owner_phone = document.getElementById('prop-owner-phone').value.trim();
+  const owner_address = document.getElementById('prop-owner-address').value.trim();
   const color = document.getElementById('prop-color').value;
   const notes = document.getElementById('prop-notes').value.trim();
   const errEl = document.getElementById('prop-error');
@@ -4957,6 +5006,11 @@ async function saveProperty() {
     keys_total: keys_total === '' ? null : Number(keys_total),
     keys_guest: keys_guest === '' ? null : Number(keys_guest),
     fobs: (editingFobs || []).filter(f => (f.number && f.number.trim()) || f.activated_at),
+    owner_1_name: owner_1_name || null,
+    owner_2_name: owner_2_name || null,
+    owner_email: owner_email || null,
+    owner_phone: owner_phone || null,
+    owner_address: owner_address || null,
     notes: notes || null
   };
 
@@ -5117,6 +5171,24 @@ function renderAssetDetails() {
       </div>
       ${prop.notes ? `<div style="grid-column:1/-1;background:var(--surface2);padding:14px;border-radius:10px;font-size:13px;color:var(--text2);"><strong style="color:var(--text);">Notes:</strong> ${escapeHtml(prop.notes)}</div>` : ''}
     </div>
+    ${(prop.owner_1_name || prop.owner_2_name || prop.owner_email || prop.owner_phone || prop.owner_address) ? `
+      <div style="margin-top:24px;">
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;">Property Owner</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;">
+          <div class="asset-details-grid" style="gap:0 24px;">
+            <div>
+              <div class="asset-detail-row"><span class="asset-detail-label">Owner 1</span><span class="asset-detail-value">${escapeHtml(prop.owner_1_name || '—')}</span></div>
+              ${prop.owner_2_name ? `<div class="asset-detail-row"><span class="asset-detail-label">Owner 2</span><span class="asset-detail-value">${escapeHtml(prop.owner_2_name)}</span></div>` : ''}
+              <div class="asset-detail-row"><span class="asset-detail-label">Email</span><span class="asset-detail-value">${prop.owner_email ? `<a href="mailto:${escapeHtml(prop.owner_email)}" style="color:var(--inspections);text-decoration:none;">${escapeHtml(prop.owner_email)}</a>` : '—'}</span></div>
+              <div class="asset-detail-row"><span class="asset-detail-label">Phone</span><span class="asset-detail-value">${prop.owner_phone ? `<a href="tel:${escapeHtml(prop.owner_phone.replace(/\s/g, ''))}" style="color:var(--inspections);text-decoration:none;">${escapeHtml(prop.owner_phone)}</a>` : '—'}</span></div>
+            </div>
+            <div>
+              <div class="asset-detail-row" style="border-bottom:none;align-items:flex-start;"><span class="asset-detail-label" style="padding-top:2px;">Postal / residential address</span><span class="asset-detail-value" style="text-align:right;">${escapeHtml(prop.owner_address || '—')}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : ''}
     ${(prop.fobs && prop.fobs.length) ? `
       <div style="margin-top:24px;">
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;">Fobs / Swipe Cards</div>
