@@ -872,6 +872,55 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .is-locked .checklist-photo-remove { display: none; }
 .is-locked .checklist-photo-add { display: none; }
 
+/* ===== CHECKLIST FIELD TYPES (text/count/yesno/condition/rating) ===== */
+.cl-field {
+  margin-left: 34px;
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.cl-pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: white;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.cl-pill:hover { background: var(--surface2); }
+.cl-pill.active {
+  background: var(--brand);
+  color: var(--accent);
+  border-color: var(--brand);
+}
+.cl-pill.good.active     { background: #15803d; color: white; border-color: #15803d; }
+.cl-pill.dirty.active    { background: #d97706; color: white; border-color: #d97706; }
+.cl-pill.damaged.active  { background: #b91c1c; color: white; border-color: #b91c1c; }
+.cl-pill.notworking.active { background: #374151; color: white; border-color: #374151; }
+.cl-pill.no.active       { background: var(--text2); color: white; border-color: var(--text2); }
+.cl-input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface2);
+  outline: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+.cl-input:focus { background: white; border-color: var(--accent2); }
+.cl-input.text-long { width: 100%; min-height: 60px; resize: vertical; }
+.cl-input.text-short { flex: 1; min-width: 200px; }
+.cl-input.count { width: 80px; text-align: center; }
+.cl-rating { display: inline-flex; gap: 4px; }
+.cl-rating .cl-pill { min-width: 36px; text-align: center; padding: 6px 0; }
+
 /* ===== PHOTO TIMESTAMP OVERLAY ===== */
 .photo-timestamp {
   position: absolute;
@@ -2688,11 +2737,11 @@ function renderAllDepts() {
     </div>`);
 
   renderDept('inspections', 'inspection-jobs', ['Property','Inspector','Date','Type','Status'], j => `
-    <div class="table-row grid-inspections">
+    <div class="table-row grid-inspections" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
-      <span style="font-size:12px;color:var(--text2)">${j.notes || 'General'}</span>
+      <span style="font-size:12px;color:var(--text2)">${j.notes || 'Ingoing Inspection'}</span>
       <span>${statusBadge(j.status)}</span>
     </div>`);
 
@@ -2895,7 +2944,7 @@ function updateJobForm() {
 }
 
 function viewJob(job) {
-  if (job.department === 'cleaning') {
+  if (job.department === 'cleaning' || job.department === 'inspections') {
     openChecklist(job);
     return;
   }
@@ -3062,12 +3111,332 @@ const CHANGEOVER_CLEAN_TEMPLATE = {
   ]
 };
 
-// In-memory state per job: { items: {key: {done, photos: [photoObj|dataURL], notes}}, issues: [{title,desc,severity,photo}] }
-// photoObj = { data_url, uploaded_at, uploaded_by }. We still accept plain
+// ===== INGOING INSPECTION TEMPLATE =====
+// Mirrors the MadeComfy "Ingoing Inspection 2024/25" Breezeway template
+// the user shared as a PDF. Walks an inspector through every room/system
+// of the property capturing photos, text, counts, yes/no, condition, and
+// a final 1-5 rating.
+const INGOING_INSPECTION_TEMPLATE = {
+  key: 'ingoing-inspection',
+  name: 'Ingoing Inspection',
+  description: 'New-property onboarding inspection. Capture property details, photos of every room, appliance conditions, inventory counts, utilities, safety items, and an overall rating.',
+  sections: [
+    { key: 'gen', title: 'General', items: [
+      { key: 'gen-type',       type: 'text',  label: 'Property type (Studio / House / Apartment / Terrace)', placeholder: 'Apartment' },
+      { key: 'gen-hotel',      type: 'yesno', label: 'Building type — is this a hotel or serviced building?' },
+      { key: 'gen-bedrooms',   type: 'count', label: 'TOTAL number of bedrooms' },
+      { key: 'gen-beds',       type: 'count', label: 'TOTAL number of beds' },
+      { key: 'gen-bathrooms',  type: 'count', label: 'TOTAL number of bathrooms' },
+      { key: 'gen-maxguests',  type: 'count', label: 'Maximum guests' },
+      { key: 'gen-owneritems', type: 'yesno', label: 'Is the property free from owner\'s personal items?' },
+      { key: 'gen-pet',        type: 'yesno', label: 'Is the property pet friendly?' }
+    ]},
+    { key: 'checkin', title: 'Check-in / Check-out', items: [
+      { key: 'ci-collection',  type: 'text',  label: 'What is the key collection method? Onsite (lockbox / keyless) or Offsite (Keynest / convenience store / etc.)' },
+      { key: 'ci-lockbox-desc',type: 'text',  label: 'Lockbox description & location (include directions and photo instructions)' },
+      { key: 'ci-lockbox-code',type: 'text',  label: 'Lockbox code / keyless code / drop-off code' },
+      { key: 'ci-self-lock',   type: 'yesno', label: 'Can the door be locked without keys?' },
+      { key: 'ci-lock-instr',  type: 'text',  label: 'Instructions to lock the door and leave the property' }
+    ]},
+    { key: 'keys', title: 'Keys', items: [
+      { key: 'keys-count',      type: 'count', label: 'Number of key sets provided' },
+      { key: 'keys-purpose',    type: 'text',  label: 'Purpose of each key (e.g. main entrance, back door, garage). PLEASE photograph each KeyZapp tag QR code.' },
+      { key: 'keys-guest1',     type: 'text',  label: 'Guest keytag number + keys (photograph QR code)' },
+      { key: 'keys-guest2',     type: 'text',  label: '2nd Guest keytag number + keys (if 1 bed+) (photograph QR code)' },
+      { key: 'keys-office',     type: 'text',  label: 'Office keytag number + keys (photograph QR code)' },
+      { key: 'keys-hk',         type: 'text',  label: 'Housekeeping keytag number + keys (photograph QR code)' },
+      { key: 'keys-entry-clean',type: 'yesno', label: 'Have we left the key for the housekeeping team for the entry clean?' },
+      { key: 'keys-windows',    type: 'yesno', label: 'Do we have a set of all window lock keys?' },
+      { key: 'keys-letterbox-photo', type: 'photo', label: 'Photo of letterbox', minPhotos: 1 },
+      { key: 'keys-letterbox',  type: 'yesno', label: 'Has the owner provided a letterbox key?' }
+    ]},
+    { key: 'parking', title: 'Parking', items: [
+      { key: 'park-type',       type: 'text', label: 'Type of parking — on-site (driveway / garage / carport), paid parking, off-site, etc.' },
+      { key: 'park-offsite',    type: 'text', label: 'If off-site / street parking, what is the street address to access from?' },
+      { key: 'park-spaces',     type: 'count', label: 'Number of spaces' },
+      { key: 'park-size',       type: 'text', label: 'Size restrictions (e.g. height / width)' },
+      { key: 'park-enter',      type: 'text', label: 'Instructions on how to ENTER the carpark' },
+      { key: 'park-enter-unit', type: 'text', label: 'Instructions on how to ENTER the unit on check-in (secondary lift, stairs, what level?)' },
+      { key: 'park-exit',       type: 'text', label: 'Instructions on how to EXIT the carpark on check-out (e.g. fob required?)' }
+    ]},
+    { key: 'entrance', title: 'Entrance and Access', items: [
+      { key: 'ent-directions',  type: 'text',  label: 'Directions to the front door — describe and provide photos (include photos of the front of the building and the front door)' },
+      { key: 'ent-photo',       type: 'photo', label: 'Photos of the building front, signage, and front door', minPhotos: 2 },
+      { key: 'ent-private',     type: 'yesno', label: 'Does the property have a private entrance?' },
+      { key: 'ent-lock-brand',  type: 'text',  label: 'Door lock brand — photos of outside, inside, and edge of door' },
+      { key: 'ent-lock-photo',  type: 'photo', label: 'Photos of door lock (outside / inside / edge)', minPhotos: 3 },
+      { key: 'ent-floor',       type: 'count', label: 'Apartment floor (if applicable)' }
+    ]},
+    { key: 'stairs', title: 'Stairs / Landings', items: [
+      { key: 'stairs-wheelchair', type: 'yesno', label: 'Wheelchair friendly? If YES, please take photos of the ramp / elevator / shower access.' },
+      { key: 'stairs-to-bldg',    type: 'yesno', label: 'Stairs to building entrance' },
+      { key: 'stairs-ramp',       type: 'yesno', label: 'Ramp to building entrance' },
+      { key: 'stairs-inside',     type: 'yesno', label: 'Stairs inside the property' },
+      { key: 'stairs-into',       type: 'yesno', label: 'Stairs into the property (e.g. front door steps)' }
+    ]},
+    { key: 'bedrooms-all', title: 'Bedrooms (All)', items: [
+      { key: 'br-photos-door',     type: 'photo', label: 'Photos: from the door — every bedroom', minPhotos: 1 },
+      { key: 'br-photos-opposite', type: 'photo', label: 'Photos: opposite the door — every bedroom', minPhotos: 1 },
+      { key: 'br-photos-underbed', type: 'photo', label: 'Photos: under the bed — every bedroom', minPhotos: 1 },
+      { key: 'br-photos-walls',    type: 'photo', label: 'Photos: walls / ceiling — every bedroom', minPhotos: 1 },
+      { key: 'br-maint',           type: 'text',  label: 'Any maintenance issues in the bedrooms?' }
+    ]},
+    { key: 'bed-counts', parent: 'Bedrooms', title: 'Bed counts', items: [
+      { key: 'bed-king',     type: 'count', label: 'King beds (total)' },
+      { key: 'bed-queen',    type: 'count', label: 'Queen beds (total)' },
+      { key: 'bed-double',   type: 'count', label: 'Double beds (total)' },
+      { key: 'bed-single',   type: 'count', label: 'Single beds (total)' },
+      { key: 'bed-bunk',     type: 'count', label: 'Bunk beds (total)' },
+      { key: 'bed-sofabed',  type: 'count', label: 'Sofa-beds (total)' }
+    ]},
+    { key: 'blackout', parent: 'Bedrooms', title: 'Blackout blinds', items: [
+      { key: 'blk-have',     type: 'yesno', label: 'Are blackout blinds provided?' },
+      { key: 'blk-location', type: 'text',  label: 'Location of blackout blinds (rooms / windows)' }
+    ]},
+    { key: 'bedroom-items', parent: 'Bedrooms', title: 'Bedroom items', items: [
+      { key: 'bi-ac',         type: 'yesno', label: 'Air conditioning (add details in notes)' },
+      { key: 'bi-fan',        type: 'yesno', label: 'Fan (add details in notes)' },
+      { key: 'bi-heater',     type: 'yesno', label: 'Heater (add details in notes)' },
+      { key: 'bi-mattress',   type: 'count', label: 'Mattress protectors (1 per bed)' },
+      { key: 'bi-pillows',    type: 'count', label: 'Pillows (2 per guest)' },
+      { key: 'bi-quilts',     type: 'count', label: 'Quilts / doonas (1 per bed/sofa-bed)' },
+      { key: 'bi-hangers',    type: 'count', label: 'Wooden coat hangers (6 per guest)' },
+      { key: 'bi-bedside',    type: 'count', label: 'Bedside tables (2 per room)' },
+      { key: 'bi-lamps',      type: 'count', label: 'Bedside lamps (2 per room)' }
+    ]},
+    { key: 'bathrooms-all', title: 'Bathrooms (All)', items: [
+      { key: 'ba-photos',     type: 'photo', label: 'Photos of bathroom(s) from all angles', minPhotos: 2 },
+      { key: 'ba-empty',      type: 'yesno', label: 'Cupboards empty?' },
+      { key: 'ba-ensuite',    type: 'text',  label: 'Is there an en-suite? Which room is it attached to?' },
+      { key: 'ba-flush',      type: 'yesno', label: 'Is the toilet flushing?' },
+      { key: 'ba-maint',      type: 'text',  label: 'Any maintenance issues in the bathrooms?' }
+    ]},
+    { key: 'bathroom-items', parent: 'Bathrooms', title: 'Bathroom items', items: [
+      { key: 'bii-bins',     type: 'count', label: 'Small bathroom bins (1 per bathroom)' },
+      { key: 'bii-brush',    type: 'count', label: 'Toilet brushes (1 per bathroom)' },
+      { key: 'bii-hairdryer',type: 'count', label: 'Hair dryer(s)' }
+    ]},
+    { key: 'living', title: 'Living Area', items: [
+      { key: 'la-photos',  type: 'photo', label: 'Photos of the living room from all angles', minPhotos: 2 },
+      { key: 'la-styled',  type: 'yesno', label: 'Is the room styled (paintings, decorations, pillows)?' },
+      { key: 'la-plants',  type: 'text',  label: 'Plants — natural or artificial?' },
+      { key: 'la-maint',   type: 'text',  label: 'Any maintenance issues in the living area?' }
+    ]},
+    { key: 'couch', parent: 'Living', title: 'Couch', items: [
+      { key: 'co-photo',   type: 'photo', label: 'Take photo(s) of the couch', minPhotos: 1 },
+      { key: 'co-seats',   type: 'count', label: 'How many seats on the couch?' },
+      { key: 'co-sofabed', type: 'yesno', label: 'Is there a sofa bed in the living room?' },
+      { key: 'co-operate', type: 'text',  label: 'How to open / operate the sofa bed?' }
+    ]},
+    { key: 'tv', parent: 'Living', title: 'Television', items: [
+      { key: 'tv-photo',     type: 'photo',     label: 'Photo of TV, model plate, and serial number', minPhotos: 2 },
+      { key: 'tv-instr',     type: 'text',      label: 'Describe TV usage instructions' },
+      { key: 'tv-condition', type: 'condition', label: 'Is the TV working? Describe condition' },
+      { key: 'tv-channels',  type: 'text',      label: 'Availability of Free-to-Air, Pay TV, Netflix, Apple TV' },
+      { key: 'tv-remote',    type: 'text',      label: 'Remote — available / condition' }
+    ]},
+    { key: 'coffee-table', parent: 'Living', title: 'Coffee Table', items: [
+      { key: 'ct-have',    type: 'yesno', label: 'Is there a coffee table?' }
+    ]},
+    { key: 'rug', parent: 'Living', title: 'Rug', items: [
+      { key: 'rug-have',   type: 'yesno', label: 'Is there a rug?' }
+    ]},
+    { key: 'floors', parent: 'Living', title: 'Floors', items: [
+      { key: 'fl-material',type: 'text', label: 'Flooring — describe material' }
+    ]},
+    { key: 'dining', title: 'Dining Area', items: [
+      { key: 'di-have',     type: 'yesno', label: 'Is there a dining table / area?' },
+      { key: 'di-chairs',   type: 'count', label: 'How many chairs around the dining table?' },
+      { key: 'di-counter',  type: 'count', label: 'How many chairs around the countertop?' }
+    ]},
+    { key: 'kitchen', title: 'Kitchen', items: [
+      { key: 'kit-photos',  type: 'photo', label: 'Photos required — kitchen area + testing key appliances', minPhotos: 3 },
+      { key: 'kit-maint',   type: 'text',  label: 'Any maintenance issues in the kitchen?' }
+    ]},
+    { key: 'kit-toaster', parent: 'Kitchen', title: 'Toaster', items: [
+      { key: 'tst-condition', type: 'condition', label: 'Condition of toaster' }
+    ]},
+    { key: 'kit-kettle', parent: 'Kitchen', title: 'Kettle', items: [
+      { key: 'ket-condition', type: 'condition', label: 'Condition of kettle' }
+    ]},
+    { key: 'kit-coffee', parent: 'Kitchen', title: 'Coffee Maker', items: [
+      { key: 'cof-have',      type: 'yesno',     label: 'Is there a coffee machine? (See compatible list)' },
+      { key: 'cof-capsules',  type: 'yesno',     label: 'Does it fit our capsules? (Place a capsule to check & take a photo)' },
+      { key: 'cof-condition', type: 'condition', label: 'Condition of coffee machine' }
+    ]},
+    { key: 'kit-microwave', parent: 'Kitchen', title: 'Microwave', items: [
+      { key: 'mw-condition',  type: 'condition', label: 'Condition of microwave' }
+    ]},
+    { key: 'kit-stove', parent: 'Kitchen', title: 'Stove Top', items: [
+      { key: 'st-type',       type: 'text',      label: 'Type — induction / gas / electric' },
+      { key: 'st-instr',      type: 'text',      label: 'Operating instructions' },
+      { key: 'st-condition',  type: 'condition', label: 'Condition of stove top' }
+    ]},
+    { key: 'kit-hood', parent: 'Kitchen', title: 'Range Hood', items: [
+      { key: 'rh-condition',  type: 'condition', label: 'Condition of rangehood' }
+    ]},
+    { key: 'kit-oven', parent: 'Kitchen', title: 'Oven', items: [
+      { key: 'ov-type',       type: 'text',      label: 'Type — electric / gas / other' },
+      { key: 'ov-instr',      type: 'text',      label: 'Operating instructions' },
+      { key: 'ov-condition',  type: 'condition', label: 'Condition of oven' },
+      { key: 'ov-model',      type: 'text',      label: 'Model plate / serial number' }
+    ]},
+    { key: 'kit-fridge', parent: 'Kitchen', title: 'Refrigerator', items: [
+      { key: 'fr-model',      type: 'text',      label: 'Model plate / serial number' },
+      { key: 'fr-photo',      type: 'photo',     label: 'Photo of refrigerator (model plate, serial)', minPhotos: 1 },
+      { key: 'fr-condition',  type: 'condition', label: 'Condition of fridge (should be emptied prior to cleaning)' }
+    ]},
+    { key: 'kit-dishwasher', parent: 'Kitchen', title: 'Dishwasher', items: [
+      { key: 'dw-model',      type: 'text',      label: 'Model plate / serial number' },
+      { key: 'dw-instr',      type: 'text',      label: 'Operating instructions' },
+      { key: 'dw-condition',  type: 'condition', label: 'Condition of dishwasher' }
+    ]},
+    { key: 'kit-essentials', parent: 'Kitchen', title: 'Essential items', items: [
+      { key: 'es-co',          type: 'yesno', label: 'Carbon monoxide detector (required if gas)' },
+      { key: 'es-dryrack',     type: 'yesno', label: 'Dish drying rack' },
+      { key: 'es-bin',         type: 'yesno', label: 'Large kitchen bin' },
+      { key: 'es-chopping',    type: 'yesno', label: 'Chopping board' },
+      { key: 'es-grater',      type: 'yesno', label: 'Grater' },
+      { key: 'es-mixingbowl',  type: 'count', label: 'Mixing / salad bowls (count)' },
+      { key: 'es-colander',    type: 'yesno', label: 'Colander' },
+      { key: 'es-smallfrypan', type: 'yesno', label: 'Small frypan' },
+      { key: 'es-largefrypan', type: 'yesno', label: 'Large frypan' },
+      { key: 'es-smallsauce',  type: 'yesno', label: 'Small saucepan' },
+      { key: 'es-largesauce',  type: 'yesno', label: 'Large saucepan' },
+      { key: 'es-oventray',    type: 'yesno', label: 'Oven tray' },
+      { key: 'es-smallplates', type: 'count', label: 'Small plates (2 per guest)' },
+      { key: 'es-largeplates', type: 'count', label: 'Large plates (2 per guest)' },
+      { key: 'es-bowls',       type: 'count', label: 'Bowls (2 per guest)' },
+      { key: 'es-wineglass',   type: 'count', label: 'Wine / champagne glasses (2 per guest)' },
+      { key: 'es-waterglass',  type: 'count', label: 'Water glasses (2 per guest)' },
+      { key: 'es-mugs',        type: 'count', label: 'Coffee mugs (2 per guest)' },
+      { key: 'es-knifeset',    type: 'yesno', label: 'Kitchen knife set' },
+      { key: 'es-servingspoon',type: 'yesno', label: 'Serving spoon' },
+      { key: 'es-spatula',     type: 'yesno', label: 'Spatula' },
+      { key: 'es-tongs',       type: 'yesno', label: 'Kitchen tongs' },
+      { key: 'es-canopener',   type: 'yesno', label: 'Can opener' },
+      { key: 'es-ladle',       type: 'yesno', label: 'Ladle' },
+      { key: 'es-peeler',      type: 'yesno', label: 'Vegetable peeler' },
+      { key: 'es-cutlerytray', type: 'yesno', label: 'Cutlery tray / divider' },
+      { key: 'es-forks',       type: 'count', label: 'Forks (2 per guest)' },
+      { key: 'es-knives',      type: 'count', label: 'Knives (2 per guest)' },
+      { key: 'es-spoons',      type: 'count', label: 'Spoons (2 per guest)' },
+      { key: 'es-teaspoons',   type: 'count', label: 'Tea spoons (2 per guest)' }
+    ]},
+    { key: 'laundry', title: 'Laundry Room', items: [
+      { key: 'ld-photos',  type: 'photo', label: 'Overview: photos of laundry room setup and machines', minPhotos: 1 },
+      { key: 'ld-private', type: 'text',  label: 'Is the laundry room private or communal? Add access details in notes.' },
+      { key: 'ld-maint',   type: 'yesno', label: 'Any maintenance issues in the laundry?' }
+    ]},
+    { key: 'ld-washer', parent: 'Laundry', title: 'Washer', items: [
+      { key: 'ws-photo',     type: 'photo',     label: 'Photo of washer and serial / model plate', minPhotos: 1 },
+      { key: 'ws-instr',     type: 'text',      label: 'Operating instructions' },
+      { key: 'ws-condition', type: 'condition', label: 'Condition of washing machine' }
+    ]},
+    { key: 'ld-dryer', parent: 'Laundry', title: 'Dryer', items: [
+      { key: 'dr-photo',     type: 'photo',     label: 'Photo of dryer and serial / model plate', minPhotos: 1 },
+      { key: 'dr-instr',     type: 'text',      label: 'Operating instructions' },
+      { key: 'dr-condition', type: 'condition', label: 'Condition of dryer' }
+    ]},
+    { key: 'ld-vacuum', parent: 'Laundry', title: 'Vacuum Cleaner', items: [
+      { key: 'vc-photo',     type: 'photo',     label: 'Photo of vacuum', minPhotos: 1 },
+      { key: 'vc-condition', type: 'condition', label: 'Condition of vacuum' }
+    ]},
+    { key: 'ld-items', parent: 'Laundry', title: 'Laundry items', items: [
+      { key: 'li-mop',       type: 'yesno', label: 'Mop & bucket' },
+      { key: 'li-dustpan',   type: 'yesno', label: 'Dust pan & brush' },
+      { key: 'li-broom',     type: 'yesno', label: 'Broom' },
+      { key: 'li-ironboard', type: 'yesno', label: 'Ironing board' },
+      { key: 'li-iron',      type: 'yesno', label: 'Iron' },
+      { key: 'li-rack',      type: 'yesno', label: 'Clothes drying rack' }
+    ]},
+    { key: 'amenities', title: 'Amenities', items: [
+      { key: 'am-features', type: 'text', label: 'Available features (pool, gym, sauna, cinema room, garden, rooftop)' },
+      { key: 'am-floor',    type: 'text', label: 'What floor are the amenities on?' },
+      { key: 'am-access',   type: 'text', label: 'How to access from the unit? Include any rules.' }
+    ]},
+    { key: 'outdoor', title: 'Outdoor Areas', items: [
+      { key: 'od-photos', type: 'photo', label: 'Photos required: garden, patio, courtyard, balcony', minPhotos: 1 },
+      { key: 'od-access', type: 'text',  label: 'How to access the outdoor area' },
+      { key: 'od-furn',   type: 'yesno', label: 'Full set of outdoor furniture' }
+    ]},
+    { key: 'wifi', parent: 'Utilities', title: 'Wireless (WiFi) Router', items: [
+      { key: 'wf-location', type: 'text',  label: 'Location of WiFi router' },
+      { key: 'wf-user',     type: 'text',  label: 'WiFi username / SSID' },
+      { key: 'wf-pass',     type: 'text',  label: 'WiFi password' },
+      { key: 'wf-photo',    type: 'photo', label: 'Screenshot of internet speed test', minPhotos: 1 }
+    ]},
+    { key: 'fusebox', parent: 'Utilities', title: 'Fuse Box', items: [
+      { key: 'fb-location', type: 'text',  label: 'Location of fuse box' },
+      { key: 'fb-photo',    type: 'photo', label: 'Photo of fuse box', minPhotos: 1 }
+    ]},
+    { key: 'rubbish', parent: 'Utilities', title: 'Rubbish bin', items: [
+      { key: 'rb-chute',  type: 'text', label: 'Apartment / rubbish chute — location and access from the unit' },
+      { key: 'rb-ext',    type: 'text', label: 'External bins — location' }
+    ]},
+    { key: 'watermeter', parent: 'Utilities', title: 'Water meter', items: [
+      { key: 'wm-location', type: 'text',  label: 'Location of water meter' },
+      { key: 'wm-photo',    type: 'photo', label: 'Photo of water meter', minPhotos: 1 }
+    ]},
+    { key: 'lights', parent: 'Utilities', title: 'Lights', items: [
+      { key: 'lt-condition', type: 'condition', label: 'All lights in working order' }
+    ]},
+    { key: 'ac', parent: 'Utilities', title: 'Air Conditioner', items: [
+      { key: 'ac-type',  type: 'text',  label: 'Type, control method, photos' },
+      { key: 'ac-photo', type: 'photo', label: 'Photos of AC unit + control panel', minPhotos: 1 },
+      { key: 'ac-rooms', type: 'text',  label: 'Detail all rooms A/C is present in' }
+    ]},
+    { key: 'heater', parent: 'Utilities', title: 'Heater', items: [
+      { key: 'ht-rooms', type: 'text', label: 'Location and type for each room' }
+    ]},
+    { key: 'fan', parent: 'Utilities', title: 'Fan', items: [
+      { key: 'fn-rooms', type: 'text', label: 'Location and type for each room' }
+    ]},
+    { key: 'smoke', parent: 'Safety', title: 'Smoke Alarm', items: [
+      { key: 'sm-location',  type: 'text',      label: 'Location(s)' },
+      { key: 'sm-condition', type: 'condition', label: 'Test smoke alarm — condition' }
+    ]},
+    { key: 'safety-items', parent: 'Safety', title: 'Safety items', items: [
+      { key: 'sa-fire-ext',  type: 'yesno', label: 'Fire extinguisher present' },
+      { key: 'sa-fire-blank',type: 'yesno', label: 'Fire blanket present' },
+      { key: 'sa-firstaid',  type: 'yesno', label: 'First aid kit present' }
+    ]},
+    { key: 'finishing', title: 'Finishing Up the Inspection', items: [
+      { key: 'fin-rating',   type: 'rating', label: 'Property condition rating (1 Critical → 5 Excellent). 1 – Critical (Do not go live)  ·  2 – Poor (Needs major fixes)  ·  3 – Fair (Follow-up required)  ·  4 – Good (Guest-ready, minor notes)  ·  5 – Excellent (Guest-ready, no issues). If score is 1–3, briefly explain in notes.', max: 5 },
+      { key: 'fin-desc',     type: 'text',   label: 'Descriptive words for the property (e.g. spacious, modern, bright)' },
+      { key: 'fin-rules',    type: 'text',   label: 'Any additional rules?' }
+    ]}
+  ]
+};
+
+// In-memory state per job: { items: {key: {done, photos: [photoObj|dataURL], notes, value}}, issues: [{title,desc,severity,photo}] }
+// `value` is used by non-check/non-photo item types (text, count, yesno, condition, rating).
+// photoObj = { data_url|url, path, uploaded_at, uploaded_by }. We still accept plain
 // data-URL strings for backward compatibility with rows saved before the
 // timestamping change.
 const checklistState = {};
 let currentChecklistJob = null;
+// The template currently being rendered. Set by openChecklist() based on
+// the job's department: cleaning → Changeover Clean, inspections → Ingoing Inspection.
+let currentTemplate = null;
+
+// Is a particular checklist item considered "complete"?
+// Different item types have different completion rules.
+function isItemComplete(item, itemState) {
+  if (!itemState) return false;
+  switch (item.type) {
+    case 'check':     return !!itemState.done;
+    case 'photo':     return (itemState.photos || []).length >= (item.minPhotos || 1);
+    case 'text':      return !!(itemState.value && String(itemState.value).trim());
+    case 'count':     return itemState.value !== '' && itemState.value !== null && itemState.value !== undefined && !isNaN(Number(itemState.value));
+    case 'yesno':     return itemState.value === 'yes' || itemState.value === 'no';
+    case 'condition': return ['good','dirty','damaged','not_working'].includes(itemState.value);
+    case 'rating':    return Number.isFinite(Number(itemState.value)) && Number(itemState.value) >= 1;
+    default:          return false;
+  }
+}
+
+const CONDITION_LABELS = { good: 'Good', dirty: 'Dirty', damaged: 'Damaged', not_working: 'Not Working' };
 
 // ---- Photo helpers (also used by keys jobs) ----
 // Photos are now stored in Supabase Storage; metadata in JSON is
@@ -3262,7 +3631,7 @@ function saveChecklistState(jobId) {
     const row = {
       job_id: String(jobId),
       property: job ? job.property : null,
-      template_key: 'changeover-clean',
+      template_key: (currentTemplate && currentTemplate.key) || 'changeover-clean',
       state,
       updated_at: new Date().toISOString()
     };
@@ -3278,12 +3647,18 @@ function saveChecklistState(jobId) {
 }
 
 async function openChecklist(job) {
+  // Pick the template based on department. Easy to extend with more templates.
+  if (job.department === 'inspections') {
+    currentTemplate = INGOING_INSPECTION_TEMPLATE;
+  } else {
+    currentTemplate = CHANGEOVER_CLEAN_TEMPLATE;
+  }
   currentChecklistJob = job;
   ensureChecklistState(job.id);
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-cleaning-checklist').classList.add('active');
-  document.getElementById('topbar-title').textContent = 'Cleaning checklist';
-  document.getElementById('checklist-job-title').textContent = 'Changeover Clean';
+  document.getElementById('topbar-title').textContent = currentTemplate.name + ' checklist';
+  document.getElementById('checklist-job-title').textContent = currentTemplate.name;
   const propName = propNames[job.property] || job.property;
   document.getElementById('checklist-job-sub').textContent =
     `${propName} · Due ${formatDate(job.date)}${job.assigned_to ? ' · ' + job.assigned_to : ''}`;
@@ -3299,8 +3674,9 @@ async function openChecklist(job) {
 }
 
 function closeChecklist() {
+  const dept = currentChecklistJob && currentChecklistJob.department === 'inspections' ? 'inspections' : 'cleaning';
   currentChecklistJob = null;
-  showView('cleaning', document.querySelector('.nav-item[onclick*="showView(\'cleaning\'"]'));
+  showView(dept, document.querySelector(`.nav-item[onclick*="showView('${dept}'"]`));
 }
 
 // ===== KEYS JOB DETAIL VIEW =====
@@ -3551,37 +3927,30 @@ function renderChecklistSections() {
   const state = ensureChecklistState(currentChecklistJob.id);
   const locked = isJobLocked(currentChecklistJob);
   container.classList.toggle('is-locked', locked);
+  const tpl = currentTemplate || CHANGEOVER_CLEAN_TEMPLATE;
   const lockBanner = locked ? `
     <div class="lock-banner">
-      <div class="lock-banner-text">🔒 <span><strong>This cleaning is closed.</strong> Reopen to make changes. Photos and ticks are locked.</span></div>
+      <div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes. Entries and photos are locked.</span></div>
       <div class="lock-banner-actions">
         <button class="btn btn-primary lock-allowed" style="background:var(--cleaning);" onclick="downloadChecklistPDF()">Download PDF report</button>
         <button class="btn btn-secondary lock-allowed" onclick="reopenChecklist()">Reopen task</button>
       </div>
     </div>
   ` : '';
-  container.innerHTML = lockBanner + CHANGEOVER_CLEAN_TEMPLATE.sections.map(section => {
+  container.innerHTML = lockBanner + tpl.sections.map(section => {
     const itemsHtml = section.items.map(item => {
-      const itemState = state.items[item.key] || { done: false, photos: [], notes: '' };
-      const done = item.type === 'check' ? itemState.done
-        : (item.minPhotos ? (itemState.photos || []).length >= item.minPhotos : false);
-      let inner = '';
-      if (item.type === 'check') {
-        inner = `
-          <div class="checklist-item-head" onclick="toggleChecklistItem('${item.key}')">
-            <div class="checklist-checkbox ${done ? 'done' : ''}"></div>
-            <div class="checklist-item-label">${escapeHtml(item.label)}</div>
-          </div>
-          <textarea class="checklist-notes" placeholder="Notes (optional)…" oninput="updateChecklistNotes('${item.key}', this.value)">${escapeHtml(itemState.notes || '')}</textarea>
-        `;
-      } else {
+      const itemState = state.items[item.key] || { done: false, photos: [], notes: '', value: null };
+      const done = isItemComplete(item, itemState);
+      const labelRow = `
+        <div class="checklist-item-head"${item.type === 'check' ? ` onclick="toggleChecklistItem('${item.key}')"` : ''}>
+          <div class="checklist-checkbox ${done ? 'done' : ''}"></div>
+          <div class="checklist-item-label">${escapeHtml(item.label)}</div>
+        </div>`;
+      let body = '';
+      if (item.type === 'photo') {
         const photos = itemState.photos || [];
         const need = item.minPhotos || 1;
-        inner = `
-          <div class="checklist-item-head">
-            <div class="checklist-checkbox ${done ? 'done' : ''}"></div>
-            <div class="checklist-item-label">${escapeHtml(item.label)}</div>
-          </div>
+        body = `
           <div class="checklist-photo-area">
             <div class="checklist-photo-required">${photos.length} of ${need} photo${need > 1 ? 's' : ''} uploaded${photos.length >= need ? ' ✓' : ''}</div>
             <div class="checklist-photo-grid">
@@ -3595,26 +3964,43 @@ function renderChecklistSections() {
                 </div>
               `;}).join('')}
               <label class="checklist-photo-add" title="Take a new photo with your device camera">
-                <span class="checklist-photo-add-icon">📷</span>
-                Take photo
+                <span class="checklist-photo-add-icon">📷</span>Take photo
                 <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addChecklistPhotos('${item.key}', this)">
               </label>
               <label class="checklist-photo-add" title="Choose existing photos from this device" style="border-style:solid;">
-                <span class="checklist-photo-add-icon">🖼</span>
-                Upload
+                <span class="checklist-photo-add-icon">🖼</span>Upload
                 <input type="file" accept="image/*" multiple style="display:none" onchange="addChecklistPhotos('${item.key}', this)">
               </label>
             </div>
-          </div>
-          <textarea class="checklist-notes" placeholder="Notes (optional)…" oninput="updateChecklistNotes('${item.key}', this.value)">${escapeHtml(itemState.notes || '')}</textarea>
-        `;
+          </div>`;
+      } else if (item.type === 'text') {
+        const multiline = item.multiline !== false;
+        body = `<div class="cl-field">` + (multiline
+          ? `<textarea class="cl-input text-long" placeholder="${escapeHtml(item.placeholder || '')}" oninput="updateChecklistValue('${item.key}', this.value)">${escapeHtml(itemState.value || '')}</textarea>`
+          : `<input class="cl-input text-short" type="text" placeholder="${escapeHtml(item.placeholder || '')}" value="${escapeHtml(itemState.value || '')}" oninput="updateChecklistValue('${item.key}', this.value)">`)
+          + `</div>`;
+      } else if (item.type === 'count') {
+        body = `<div class="cl-field"><input class="cl-input count" type="number" min="0" step="1" value="${itemState.value ?? ''}" oninput="updateChecklistValue('${item.key}', this.value)"></div>`;
+      } else if (item.type === 'yesno') {
+        body = `<div class="cl-field">
+          <button class="cl-pill ${itemState.value === 'yes' ? 'active' : ''}" onclick="updateChecklistValue('${item.key}', 'yes', true)">Yes</button>
+          <button class="cl-pill no ${itemState.value === 'no' ? 'active' : ''}" onclick="updateChecklistValue('${item.key}', 'no', true)">No</button>
+        </div>`;
+      } else if (item.type === 'condition') {
+        body = `<div class="cl-field">
+          ${['good','dirty','damaged','not_working'].map(v => `<button class="cl-pill ${v === 'not_working' ? 'notworking' : v} ${itemState.value === v ? 'active' : ''}" onclick="updateChecklistValue('${item.key}', '${v}', true)">${CONDITION_LABELS[v]}</button>`).join('')}
+        </div>`;
+      } else if (item.type === 'rating') {
+        const max = item.max || 5;
+        const arr = Array.from({ length: max }, (_, i) => i + 1);
+        body = `<div class="cl-field"><div class="cl-rating">
+          ${arr.map(n => `<button class="cl-pill ${Number(itemState.value) === n ? 'active' : ''}" onclick="updateChecklistValue('${item.key}', ${n}, true)">${n}</button>`).join('')}
+        </div></div>`;
       }
-      return `<div class="checklist-item ${done ? 'done' : ''}">${inner}</div>`;
+      const notes = `<textarea class="checklist-notes" placeholder="Notes (optional)…" oninput="updateChecklistNotes('${item.key}', this.value)">${escapeHtml(itemState.notes || '')}</textarea>`;
+      return `<div class="checklist-item ${done ? 'done' : ''}">${labelRow}${body}${notes}</div>`;
     }).join('');
-    const doneInSection = section.items.filter(it => {
-      const s = state.items[it.key] || {};
-      return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
-    }).length;
+    const doneInSection = section.items.filter(it => isItemComplete(it, state.items[it.key])).length;
 
     // Property-driven info banners. If the section is the Keys section we
     // surface how many guest key sets the property actually has, so the
@@ -3670,6 +4056,17 @@ function updateChecklistNotes(itemKey, value) {
   saveChecklistState(currentChecklistJob.id);
 }
 
+// Generic value writer for text / count / yesno / condition / rating items.
+function updateChecklistValue(itemKey, value, rerender) {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  const cur = state.items[itemKey] || { done: false, photos: [], notes: '', value: null };
+  cur.value = value;
+  state.items[itemKey] = cur;
+  if (rerender) renderChecklistSections();
+  updateChecklistProgress();
+  saveChecklistState(currentChecklistJob.id);
+}
+
 async function addChecklistPhotos(itemKey, input) {
   const state = ensureChecklistState(currentChecklistJob.id);
   const cur = state.items[itemKey] || { done: false, photos: [], notes: '' };
@@ -3704,11 +4101,9 @@ function removeChecklistPhoto(itemKey, index) {
 
 function updateChecklistProgress() {
   const state = ensureChecklistState(currentChecklistJob.id);
-  const allItems = CHANGEOVER_CLEAN_TEMPLATE.sections.flatMap(s => s.items);
-  const doneCount = allItems.filter(it => {
-    const s = state.items[it.key] || {};
-    return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
-  }).length;
+  const tpl = currentTemplate || CHANGEOVER_CLEAN_TEMPLATE;
+  const allItems = tpl.sections.flatMap(s => s.items);
+  const doneCount = allItems.filter(it => isItemComplete(it, state.items[it.key])).length;
   const total = allItems.length;
   document.getElementById('checklist-done-count').textContent = doneCount;
   document.getElementById('checklist-total-count').textContent = total;
@@ -3831,7 +4226,7 @@ function removeChecklistIssue(idx) {
 // ===== TEMPLATES VIEW =====
 // All currently-available task templates. Today we only ship Changeover Clean,
 // but this list is the seed for future inspection/maintenance templates.
-const TASK_TEMPLATES = [CHANGEOVER_CLEAN_TEMPLATE];
+const TASK_TEMPLATES = [CHANGEOVER_CLEAN_TEMPLATE, INGOING_INSPECTION_TEMPLATE];
 
 function templateStats(t) {
   const items = t.sections.flatMap(s => s.items);
@@ -4179,6 +4574,7 @@ async function downloadChecklistPDF() {
   if (!doc) return;
   const j = currentChecklistJob;
   const state = ensureChecklistState(j.id);
+  const tpl = currentTemplate || CHANGEOVER_CLEAN_TEMPLATE;
   const prop = properties.find(p => p.id === j.property);
   const propName = prop ? prop.name : (propNames[j.property] || j.property);
   const propAddress = prop ? (prop.address || '') : '';
@@ -4186,10 +4582,10 @@ async function downloadChecklistPDF() {
   let y = 18;
   const ensureSpace = (h) => { if (y + h > 280) { doc.addPage(); y = 20; } };
 
-  // Header
+  // Header — use the active template's name (Changeover Clean / Ingoing Inspection / ...)
   doc.setFontSize(18);
   doc.setTextColor(20);
-  doc.text('Changeover Clean Report', marginX, y); y += 7;
+  doc.text(`${tpl.name} Report`, marginX, y); y += 7;
   doc.setFontSize(11);
   doc.setTextColor(70);
   doc.text(`${propName}`, marginX, y); y += 5;
@@ -4200,18 +4596,15 @@ async function downloadChecklistPDF() {
   doc.text(`Generated: ${new Date().toLocaleString('en-AU')}`, marginX, y); y += 8;
 
   // Progress
-  const allItems = CHANGEOVER_CLEAN_TEMPLATE.sections.flatMap(s => s.items);
-  const done = allItems.filter(it => {
-    const s = state.items[it.key] || {};
-    return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
-  }).length;
+  const allItems = tpl.sections.flatMap(s => s.items);
+  const done = allItems.filter(it => isItemComplete(it, state.items[it.key])).length;
   const totalPhotos = Object.values(state.items).reduce((n, it) => n + ((it.photos || []).length), 0);
   doc.setFontSize(10);
   doc.setTextColor(40);
   doc.text(`Progress: ${done} of ${allItems.length} items complete · ${totalPhotos} photos · ${state.issues.length} issues reported`, marginX, y); y += 8;
 
   // Sections
-  for (const section of CHANGEOVER_CLEAN_TEMPLATE.sections) {
+  for (const section of tpl.sections) {
     ensureSpace(12);
     doc.setFontSize(13);
     doc.setTextColor(20);
@@ -4219,10 +4612,8 @@ async function downloadChecklistPDF() {
     doc.text(header, marginX, y); y += 5;
     doc.setDrawColor(220); doc.line(marginX, y, 200, y); y += 4;
     for (const item of section.items) {
-      const itemState = state.items[item.key] || { done: false, photos: [], notes: '' };
-      const isDone = item.type === 'check'
-        ? itemState.done
-        : (item.minPhotos ? (itemState.photos || []).length >= item.minPhotos : false);
+      const itemState = state.items[item.key] || { done: false, photos: [], notes: '', value: null };
+      const isDone = isItemComplete(item, itemState);
       ensureSpace(8);
       doc.setFontSize(9);
       doc.setTextColor(isDone ? 40 : 120);
@@ -4230,6 +4621,19 @@ async function downloadChecklistPDF() {
       const labelLines = doc.splitTextToSize(item.label, 175);
       doc.text(labelLines, marginX + 8, y);
       y += labelLines.length * 4;
+      // Render the captured value for non-check/non-photo types
+      if (item.type !== 'check' && item.type !== 'photo' && itemState.value !== null && itemState.value !== undefined && itemState.value !== '') {
+        ensureSpace(6);
+        doc.setFontSize(9);
+        doc.setTextColor(70);
+        let valStr = String(itemState.value);
+        if (item.type === 'condition') valStr = (CONDITION_LABELS[itemState.value] || itemState.value).toUpperCase();
+        else if (item.type === 'yesno') valStr = itemState.value === 'yes' ? 'Yes' : 'No';
+        else if (item.type === 'rating') valStr = `${itemState.value} / ${item.max || 5}`;
+        const valLines = doc.splitTextToSize(`→ ${valStr}`, 170);
+        doc.text(valLines, marginX + 8, y);
+        y += valLines.length * 4;
+      }
       if (itemState.notes && itemState.notes.trim()) {
         ensureSpace(6);
         doc.setFontSize(8);
@@ -4356,11 +4760,9 @@ async function downloadKeysJobPDF() {
 
 function completeChecklist() {
   const state = ensureChecklistState(currentChecklistJob.id);
-  const allItems = CHANGEOVER_CLEAN_TEMPLATE.sections.flatMap(s => s.items);
-  const doneCount = allItems.filter(it => {
-    const s = state.items[it.key] || {};
-    return it.type === 'check' ? s.done : (it.minPhotos ? (s.photos || []).length >= it.minPhotos : false);
-  }).length;
+  const tpl = currentTemplate || CHANGEOVER_CLEAN_TEMPLATE;
+  const allItems = tpl.sections.flatMap(s => s.items);
+  const doneCount = allItems.filter(it => isItemComplete(it, state.items[it.key])).length;
   const total = allItems.length;
   if (doneCount < total) {
     if (!confirm(`Only ${doneCount} of ${total} items are complete. Mark cleaning complete anyway?`)) return;
@@ -4374,7 +4776,9 @@ function completeChecklist() {
     renderAllDepts();
     updateStats();
   });
-  addActivity(`Cleaning complete: ${propNames[currentChecklistJob.property] || currentChecklistJob.property}`, 'cleaning');
+  const completionDept = currentChecklistJob.department === 'inspections' ? 'inspections' : 'cleaning';
+  const completionLabel = currentChecklistJob.department === 'inspections' ? 'Inspection' : 'Cleaning';
+  addActivity(`${completionLabel} complete: ${propNames[currentChecklistJob.property] || currentChecklistJob.property}`, completionDept);
   // Make sure the final state — including the latest tick — is flushed
   // synchronously by clearing any pending debounce timer first.
   if (_checklistSaveTimers[currentChecklistJob.id]) {
