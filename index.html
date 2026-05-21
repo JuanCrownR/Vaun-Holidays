@@ -4240,18 +4240,30 @@ function templateStats(t) {
   };
 }
 
+// Map a template key to its corresponding department icon, accent colour,
+// and icon-background colour so each card on the Templates page looks
+// distinct (cleaning broom vs inspection magnifying glass etc.).
+function templateChrome(t) {
+  if (t.key === 'ingoing-inspection') {
+    return { icon: '🔍', color: 'var(--inspections)', bg: '#dbeafe' };
+  }
+  // Default to cleaning
+  return { icon: '🧹', color: 'var(--cleaning)', bg: '#dcfce7' };
+}
+
 function renderTemplatesGrid() {
   const grid = document.getElementById('templates-grid');
   if (!grid) return;
   document.getElementById('template-preview').style.display = 'none';
   grid.innerHTML = TASK_TEMPLATES.map(t => {
     const s = templateStats(t);
+    const c = templateChrome(t);
     return `
       <div class="card" style="cursor:pointer;" onclick="openTemplatePreview('${t.key}')">
-        <div style="height:6px;background:var(--cleaning)"></div>
+        <div style="height:6px;background:${c.color}"></div>
         <div class="card-body">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-            <div style="width:34px;height:34px;border-radius:8px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:16px;">🧹</div>
+            <div style="width:34px;height:34px;border-radius:8px;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:16px;">${c.icon}</div>
             <div style="font-size:16px;font-weight:600;">${escapeHtml(t.name)}</div>
           </div>
           <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5;">${escapeHtml(t.description)}</div>
@@ -4363,11 +4375,17 @@ function saveTemplateEdits() {
   } else {
     TASK_TEMPLATES.push(editingTemplate);
   }
-  // Mirror onto CHANGEOVER_CLEAN_TEMPLATE so the active checklist uses the edits
+  // Mirror onto the bundled template constant so any currently-open checklist
+  // picks up the edits immediately.
   if (editingTemplate.key === CHANGEOVER_CLEAN_TEMPLATE.key) {
     CHANGEOVER_CLEAN_TEMPLATE.name = editingTemplate.name;
     CHANGEOVER_CLEAN_TEMPLATE.description = editingTemplate.description;
     CHANGEOVER_CLEAN_TEMPLATE.sections = editingTemplate.sections;
+  }
+  if (editingTemplate.key === INGOING_INSPECTION_TEMPLATE.key) {
+    INGOING_INSPECTION_TEMPLATE.name = editingTemplate.name;
+    INGOING_INSPECTION_TEMPLATE.description = editingTemplate.description;
+    INGOING_INSPECTION_TEMPLATE.sections = editingTemplate.sections;
   }
   saveTemplatesToStorage();
   editingTemplate = null;
@@ -4388,15 +4406,32 @@ function loadTemplatesFromStorage() {
     if (!raw) return;
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return;
-    // Replace in place
-    TASK_TEMPLATES.length = 0;
-    arr.forEach(t => TASK_TEMPLATES.push(t));
-    // Mirror Changeover Clean back onto the constant so the running checklist picks up overrides
+    // Merge by template key — overlay any persisted edits over the in-code defaults.
+    // This way a brand-new bundled template (e.g. Ingoing Inspection) still appears
+    // even if the user already saved an edit to Changeover Clean.
+    arr.forEach(saved => {
+      if (!saved || !saved.key) return;
+      const existing = TASK_TEMPLATES.find(t => t.key === saved.key);
+      if (existing) {
+        existing.name = saved.name || existing.name;
+        existing.description = saved.description || existing.description;
+        if (Array.isArray(saved.sections)) existing.sections = saved.sections;
+      } else {
+        TASK_TEMPLATES.push(saved);
+      }
+    });
+    // Keep the global constants in sync so the running checklist picks up overrides
     const co = TASK_TEMPLATES.find(t => t.key === CHANGEOVER_CLEAN_TEMPLATE.key);
     if (co) {
       CHANGEOVER_CLEAN_TEMPLATE.name = co.name;
       CHANGEOVER_CLEAN_TEMPLATE.description = co.description;
       CHANGEOVER_CLEAN_TEMPLATE.sections = co.sections;
+    }
+    const ig = TASK_TEMPLATES.find(t => t.key === INGOING_INSPECTION_TEMPLATE.key);
+    if (ig) {
+      INGOING_INSPECTION_TEMPLATE.name = ig.name;
+      INGOING_INSPECTION_TEMPLATE.description = ig.description;
+      INGOING_INSPECTION_TEMPLATE.sections = ig.sections;
     }
   } catch (e) { console.warn('localStorage load failed', e); }
 }
@@ -4411,8 +4446,13 @@ function renderTemplateEditor() {
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;">
         <div style="display:flex;gap:8px;align-items:flex-start;">
           <select onchange="editorUpdateItem(${si}, ${ii}, 'type', this.value)" style="flex-shrink:0;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:white;">
-            <option value="check" ${item.type === 'check' ? 'selected' : ''}>✓ Checklist</option>
-            <option value="photo" ${item.type === 'photo' ? 'selected' : ''}>📷 Photo</option>
+            <option value="check"     ${item.type === 'check'     ? 'selected' : ''}>✓ Checklist</option>
+            <option value="photo"     ${item.type === 'photo'     ? 'selected' : ''}>📷 Photo</option>
+            <option value="text"      ${item.type === 'text'      ? 'selected' : ''}>📝 Text</option>
+            <option value="count"     ${item.type === 'count'     ? 'selected' : ''}>🔢 Count</option>
+            <option value="yesno"     ${item.type === 'yesno'     ? 'selected' : ''}>☑ Yes / No</option>
+            <option value="condition" ${item.type === 'condition' ? 'selected' : ''}>🩹 Condition</option>
+            <option value="rating"    ${item.type === 'rating'    ? 'selected' : ''}>⭐ Rating 1–5</option>
           </select>
           <textarea oninput="editorUpdateItem(${si}, ${ii}, 'label', this.value)" placeholder="Item description…" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;resize:vertical;min-height:36px;">${escapeHtml(item.label || '')}</textarea>
           ${item.type === 'photo' ? `
@@ -4490,10 +4530,15 @@ function editorAddSection() {
 function editorUpdateItem(si, ii, field, value) {
   const item = editingTemplate.sections[si].items[ii];
   item[field] = value;
-  // If toggling to photo type, ensure minPhotos default
-  if (field === 'type' && value === 'photo' && !item.minPhotos) item.minPhotos = 1;
-  // Re-render only if type changed (to show/hide the minPhotos field)
-  if (field === 'type') renderTemplateEditor();
+  if (field === 'type') {
+    // Photo items need a min count; everything else loses minPhotos to avoid stale state.
+    if (value === 'photo' && !item.minPhotos) item.minPhotos = 1;
+    if (value !== 'photo') delete item.minPhotos;
+    // Rating items use a 1-5 scale by default
+    if (value === 'rating' && !item.max) item.max = 5;
+    if (value !== 'rating') delete item.max;
+    renderTemplateEditor();
+  }
 }
 
 function editorDeleteItem(si, ii) {
