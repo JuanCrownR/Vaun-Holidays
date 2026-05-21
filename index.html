@@ -2378,6 +2378,7 @@ async function loadApp(user) {
   renderPropertiesGrid();
   populateJobPropertyDropdown();
   loadJobs();
+  setupRealtime();
 }
 
 // Check session on load
@@ -2432,6 +2433,168 @@ async function loadJobs() {
     syncFobExpiryTasks();
   }
 }
+
+// ===== REALTIME SYNC =====
+// We subscribe to postgres_changes on the four tables that drive the UI.
+// Every change made by another device (or this device's other tabs) is
+// merged into our local state, and the relevant views re-render.
+//
+// Two important behaviours:
+//   - We never blow away a textarea/input that's currently focused. The
+//     user might be typing; we defer the re-render until they blur.
+//   - Echo updates from our OWN writes also come through. The handlers are
+//     idempotent (find-by-id-and-replace), so it's safe — the only cost is
+//     a wasted re-render which is cheap.
+let realtimeChannel = null;
+
+function setupRealtime() {
+  if (realtimeChannel) return;
+  try {
+    realtimeChannel = sb.channel('vh-public-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, p => handleJobChange(p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, p => handlePropertyChange(p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, p => handleBookingChange(p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cleaning_completions' }, p => handleCleaningCompletionChange(p))
+      .subscribe();
+  } catch (e) {
+    console.warn('Realtime setup failed', e);
+  }
+}
+
+// True if the user is currently typing in an editable field, so we should
+// hold off on re-rendering the whole checklist (which would steal focus).
+function isUserEditing() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+// Schedule a deferred render that runs once the user finishes typing.
+const _deferredRenders = new Set();
+function scheduleRender(fn) {
+  if (!isUserEditing()) { fn(); return; }
+  _deferredRenders.add(fn);
+}
+document.addEventListener('focusout', () => {
+  setTimeout(() => {
+    if (isUserEditing()) return;
+    _deferredRenders.forEach(fn => { try { fn(); } catch (e) {} });
+    _deferredRenders.clear();
+  }, 50);
+}, true);
+
+function handleJobChange({ eventType, new: row, old }) {
+  if (eventType === 'INSERT') {
+    if (!jobs.some(j => String(j.id) === String(row.id))) {
+      if (!row.meta || typeof row.meta !== 'object') row.meta = {};
+      jobs.push(row);
+    }
+  } else if (eventType === 'UPDATE') {
+    const idx = jobs.findIndex(j => String(j.id) === String(row.id));
+    if (!row.meta || typeof row.meta !== 'object') row.meta = {};
+    if (idx >= 0) jobs[idx] = row; else jobs.push(row);
+    // If user is currently viewing this job's keys-detail view, refresh fields
+    if (currentKeysJob && String(currentKeysJob.id) === String(row.id)) {
+      currentKeysJob = row;
+      scheduleRender(() => { renderKeysJob(); });
+    }
+    if (currentChecklistJob && String(currentChecklistJob.id) === String(row.id)) {
+      currentChecklistJob = row;
+    }
+  } else if (eventType === 'DELETE') {
+    const idx = jobs.findIndex(j => String(j.id) === String(old.id));
+    if (idx >= 0) jobs.splice(idx, 1);
+  }
+  scheduleRender(() => {
+    renderAllDepts();
+    updateStats();
+    if (currentChecklistJob) {
+      // Footer button label may need to flip if status changed
+      refreshChecklistFooter();
+      renderChecklistSections();
+    }
+  });
+}
+
+function handlePropertyChange({ eventType, new: row, old }) {
+  if (eventType === 'INSERT') {
+    if (!properties.some(p => p.id === row.id)) properties.push(row);
+  } else if (eventType === 'UPDATE') {
+    const idx = properties.findIndex(p => p.id === row.id);
+    if (idx >= 0) properties[idx] = row;
+    else properties.push(row);
+  } else if (eventType === 'DELETE') {
+    const idx = properties.findIndex(p => p.id === (old && old.id));
+    if (idx >= 0) properties.splice(idx, 1);
+  }
+  rebuildPropMaps();
+  scheduleRender(() => {
+    renderPropertySwitcher();
+    renderSidebarProperties();
+    renderPropertiesGrid();
+    populateJobPropertyDropdown();
+    if (selectedPropertyId && document.getElementById('view-asset').classList.contains('active')) {
+      renderAssetView();
+    }
+  });
+}
+
+function handleBookingChange({ eventType, new: row, old }) {
+  if (eventType === 'INSERT') {
+    if (!bookings.some(b => b.id === row.id)) bookings.push(row);
+  } else if (eventType === 'UPDATE') {
+    const idx = bookings.findIndex(b => b.id === row.id);
+    if (idx >= 0) bookings[idx] = row;
+    else bookings.push(row);
+  } else if (eventType === 'DELETE') {
+    const idx = bookings.findIndex(b => b.id === (old && old.id));
+    if (idx >= 0) bookings.splice(idx, 1);
+  }
+  scheduleRender(() => {
+    if (selectedPropertyId && document.getElementById('view-asset').classList.contains('active')) {
+      renderAssetView();
+    }
+  });
+}
+
+function handleCleaningCompletionChange({ eventType, new: row }) {
+  if (!row || !row.job_id) return;
+  if (eventType === 'INSERT' || eventType === 'UPDATE') {
+    checklistState[row.job_id] = row.state || { items: {}, issues: [] };
+    if (currentChecklistJob && String(currentChecklistJob.id) === String(row.job_id)) {
+      scheduleRender(() => {
+        renderChecklistSections();
+        renderChecklistIssues();
+        updateChecklistProgress();
+      });
+    }
+  }
+}
+
+// Tab focus refresh — if Realtime drops or the user has just switched back
+// from a long sleep, pull fresh data so they're never stuck on stale state.
+let _lastFocusRefresh = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const now = Date.now();
+  if (now - _lastFocusRefresh < 15000) return; // throttle to once per 15s
+  _lastFocusRefresh = now;
+  loadProperties().then(() => {
+    rebuildPropMaps();
+    renderPropertySwitcher();
+    renderSidebarProperties();
+    renderPropertiesGrid();
+    populateJobPropertyDropdown();
+  });
+  loadBookings();
+  loadJobs();
+  if (currentChecklistJob) loadChecklistState(currentChecklistJob.id).then(() => {
+    renderChecklistSections();
+    renderChecklistIssues();
+    updateChecklistProgress();
+  });
+});
 
 async function saveJob() {
   const dept = document.getElementById('job-dept').value;
