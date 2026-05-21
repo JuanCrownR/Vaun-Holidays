@@ -5105,7 +5105,20 @@ function renderPropertiesGrid() {
     grid.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text3);grid-column:1/-1;">No properties yet. Click "+ Add Property" to add one.</div>`;
     return;
   }
-  grid.innerHTML = properties.map(p => `
+  grid.innerHTML = properties.map(p => {
+    // Compose the owner block — only render if any owner field is set.
+    // Click handlers stopPropagation so tapping mailto/tel doesn't drill into the property.
+    const ownerNames = [p.owner_1_name, p.owner_2_name].filter(Boolean).join(' & ');
+    const hasOwner = ownerNames || p.owner_email || p.owner_phone;
+    const ownerBlock = hasOwner ? `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;display:flex;flex-direction:column;gap:4px;">
+        ${ownerNames ? `<div style="display:flex;align-items:center;gap:6px;color:var(--text);"><span style="font-size:13px;">👤</span><span style="font-weight:500;">${escapeHtml(ownerNames)}</span></div>` : ''}
+        ${p.owner_email ? `<div style="display:flex;align-items:center;gap:6px;color:var(--text2);"><span>📧</span><a href="mailto:${escapeHtml(p.owner_email)}" onclick="event.stopPropagation();" style="color:var(--inspections);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.owner_email)}</a></div>` : ''}
+        ${p.owner_phone ? `<div style="display:flex;align-items:center;gap:6px;color:var(--text2);"><span>📞</span><a href="tel:${escapeHtml(p.owner_phone.replace(/\s/g, ''))}" onclick="event.stopPropagation();" style="color:var(--inspections);text-decoration:none;">${escapeHtml(p.owner_phone)}</a></div>` : ''}
+      </div>
+    ` : '';
+
+    return `
     <div class="card" style="cursor:pointer;position:relative;" onclick="selectProperty('${p.id}')">
       <div class="prop-card-actions">
         <button class="prop-card-btn edit" title="Edit property" onclick="event.stopPropagation(); openEditPropertyModal('${p.id}')">✎</button>
@@ -5133,9 +5146,10 @@ function renderPropertiesGrid() {
           <span style="color:var(--text2);">${p.capacity ? p.capacity + ' guests' : ''}</span>
           <span class="prop-status ${p.status === 'active' ? 'status-available' : ''}" style="font-size:11px;padding:3px 8px;border-radius:999px;background:${p.status === 'active' ? '#dcfce7' : '#fef3c7'};color:${p.status === 'active' ? '#15803d' : '#92400e'};">${escapeHtml(p.status || 'active')}</span>
         </div>
+        ${ownerBlock}
       </div>
     </div>
-  `).join('');
+  `;}).join('');
 }
 
 function populateJobPropertyDropdown() {
