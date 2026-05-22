@@ -2372,6 +2372,11 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
           <option value="keys">🔑 Keys Management</option>
         </select>
       </div>
+      <div class="form-group" id="job-task-type-group" style="display:none">
+        <label class="form-label">Task type</label>
+        <select class="form-select" id="job-task-type">
+        </select>
+      </div>
       <div class="form-group" id="job-keys-type-group" style="display:none">
         <label class="form-label">Key job type</label>
         <select class="form-select" id="job-keys-type" onchange="updateJobForm()">
@@ -2755,6 +2760,11 @@ document.addEventListener('visibilitychange', () => {
 async function saveJob() {
   const dept = document.getElementById('job-dept').value;
   const meta = {};
+
+  // Store the selected task type for all departments that have one
+  const taskTypeVal = document.getElementById('job-task-type').value;
+  if (taskTypeVal) meta.task_type = taskTypeVal;
+
   if (dept === 'keys') {
     const keyType = document.getElementById('job-keys-type').value;
     meta.key_job_type = keyType;
@@ -2796,12 +2806,12 @@ async function saveJob() {
 }
 
 function renderAllDepts() {
-  renderDept('cleaning', 'cleaning-jobs', ['Property','Assigned to','Date','Window','Status',''], j => `
+  renderDept('cleaning', 'cleaning-jobs', ['Property','Task type','Assigned to','Date','Status',''], j => `
     <div class="table-row grid-cleaning" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span style="font-size:12px;color:var(--text2)">${taskTypeLabel(j)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
-      <span style="font-size:12px;color:var(--text2)">${j.time_window || '—'}</span>
       <span>${statusBadge(j.status)}</span>
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
@@ -2821,7 +2831,7 @@ function renderAllDepts() {
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
-      <span style="font-size:12px;color:var(--text2)">${j.notes || 'Ingoing Inspection'}</span>
+      <span style="font-size:12px;color:var(--text2)">${taskTypeLabel(j)}</span>
       <span>${statusBadge(j.status)}</span>
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
@@ -3081,6 +3091,22 @@ function closeNewJobModal() { document.getElementById('new-job-modal').classList
 function updateJobForm() {
   const dept = document.getElementById('job-dept').value;
   const isKeys = dept === 'keys';
+
+  // Populate + show/hide the Task type dropdown
+  const taskTypeGroup  = document.getElementById('job-task-type-group');
+  const taskTypeSelect = document.getElementById('job-task-type');
+  const types = DEPT_TASK_TYPES[dept] || [];
+  if (types.length > 0) {
+    taskTypeSelect.innerHTML = types
+      .map(t => `<option value="${t.value}">${t.label}</option>`)
+      .join('');
+    taskTypeGroup.style.display = '';
+  } else {
+    taskTypeSelect.innerHTML = '';
+    taskTypeGroup.style.display = 'none';
+  }
+
+  // Keys-specific sub-fields
   document.getElementById('job-keys-type-group').style.display = isKeys ? '' : 'none';
   const keysType = document.getElementById('job-keys-type').value;
   const isOrder = isKeys && keysType === 'order';
@@ -3557,6 +3583,40 @@ const INGOING_INSPECTION_TEMPLATE = {
   ]
 };
 
+// ===== DEPARTMENT → TASK TYPE REGISTRY =====
+// Each entry lists the task types (template-backed or generic) available in
+// that department. value = stored in job.meta.task_type; label = shown in
+// the New Job modal and in job-row "Type" columns.
+// Keys uses its own key-type/reason flow so its array stays empty here.
+const DEPT_TASK_TYPES = {
+  cleaning:    [{ value: 'changeover-clean',    label: 'Changeover Clean' }],
+  maintenance: [{ value: 'general-maintenance', label: 'General Maintenance' }],
+  inspections: [{ value: 'ingoing-inspection',  label: 'Ingoing Inspection' }],
+  operations:  [{ value: 'general-operations',  label: 'General Task' }],
+  compliance:  [{ value: 'general-compliance',  label: 'General Task' }],
+  keys:        []
+};
+
+// Returns the template object for a given task_type key, or null if none.
+function templateForTaskType(taskType) {
+  if (taskType === 'changeover-clean')   return CHANGEOVER_CLEAN_TEMPLATE;
+  if (taskType === 'ingoing-inspection') return INGOING_INSPECTION_TEMPLATE;
+  return null;
+}
+
+// Returns a human-readable label for a job's task type.
+function taskTypeLabel(job) {
+  const taskType = job.meta && job.meta.task_type;
+  if (taskType) {
+    const found = (DEPT_TASK_TYPES[job.department] || []).find(t => t.value === taskType);
+    if (found) return found.label;
+  }
+  // Graceful fallback for jobs created before this feature existed
+  if (job.department === 'inspections') return 'Ingoing Inspection';
+  if (job.department === 'cleaning')    return 'Changeover Clean';
+  return '—';
+}
+
 // In-memory state per job: { items: {key: {done, photos: [photoObj|dataURL], notes, value}}, issues: [{title,desc,severity,photo}] }
 // `value` is used by non-check/non-photo item types (text, count, yesno, condition, rating).
 // photoObj = { data_url|url, path, uploaded_at, uploaded_by }. We still accept plain
@@ -3797,8 +3857,13 @@ function saveChecklistState(jobId) {
 
 async function openChecklist(job) {
   if (_historyPush) history.pushState({ view: 'cleaning-checklist', jobId: job.id }, '', '#cleaning-checklist');
-  // Pick the template based on department. Easy to extend with more templates.
-  if (job.department === 'inspections') {
+  // Pick template: prefer meta.task_type (set since task-type feature), fall back
+  // to department for jobs created before the feature existed.
+  const taskType = job.meta && job.meta.task_type;
+  const tplByKey = taskType ? templateForTaskType(taskType) : null;
+  if (tplByKey) {
+    currentTemplate = tplByKey;
+  } else if (job.department === 'inspections') {
     currentTemplate = INGOING_INSPECTION_TEMPLATE;
   } else {
     currentTemplate = CHANGEOVER_CLEAN_TEMPLATE;
