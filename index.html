@@ -2591,6 +2591,30 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <label class="form-label" id="job-assign-label">Assigned to</label>
         <input type="text" class="form-input" id="job-assign" placeholder="Cleaner name or staff member">
       </div>
+
+      <!-- Supplier / Contractor -->
+      <div style="margin:16px 0 10px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;">
+        Supplier / Contractor <span style="font-weight:400;opacity:0.6;">(optional)</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Company / Supplier</label>
+        <input type="text" class="form-input" id="job-supplier" placeholder="e.g. ABC Plumbing Pty Ltd">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Contact name</label>
+          <input type="text" class="form-input" id="job-contact-name" placeholder="Full name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="tel" class="form-input" id="job-supplier-phone" placeholder="+61 400 000 000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="job-supplier-email" placeholder="supplier@example.com">
+      </div>
+
       <div class="form-group">
         <label class="form-label" id="job-notes-label">Notes</label>
         <textarea class="form-textarea" id="job-notes" placeholder="Any special instructions or context…"></textarea>
@@ -2938,6 +2962,16 @@ async function saveJob() {
   // Audit trail — who created this job
   meta.created_by_name = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
 
+  // Supplier / contractor details
+  const _supplier = (document.getElementById('job-supplier').value || '').trim();
+  const _contactName = (document.getElementById('job-contact-name').value || '').trim();
+  const _supplierPhone = (document.getElementById('job-supplier-phone').value || '').trim();
+  const _supplierEmail = (document.getElementById('job-supplier-email').value || '').trim();
+  if (_supplier)      meta.supplier       = _supplier;
+  if (_contactName)   meta.contact_name   = _contactName;
+  if (_supplierPhone) meta.supplier_phone = _supplierPhone;
+  if (_supplierEmail) meta.supplier_email = _supplierEmail;
+
   if (taskTypeVal && taskTypeVal.startsWith('custom-')) {
     const _ctpl = TASK_TEMPLATES.find(t => t.key === taskTypeVal);
     if (_ctpl) {
@@ -3263,6 +3297,10 @@ function openNewJobModal() {
   document.getElementById('job-date').value = today;
   document.getElementById('job-heading').value = '';
   document.getElementById('job-notes').value = '';
+  document.getElementById('job-supplier').value = '';
+  document.getElementById('job-contact-name').value = '';
+  document.getElementById('job-supplier-phone').value = '';
+  document.getElementById('job-supplier-email').value = '';
   // Pre-select the currently scoped property (if any) so jobs from inside an
   // Asset View default to that property — user can still change via dropdown.
   const propSelect = document.getElementById('job-property');
@@ -3514,6 +3552,56 @@ function renderAuditCard(job) {
         </div>
       </div>
     </div>`;
+}
+
+// Editable supplier card — shown in every task detail view.
+function renderSupplierCard(job) {
+  const m = job.meta || {};
+  return `
+    <div class="checklist-section-card">
+      <div class="checklist-section-head">
+        <span class="checklist-section-title">Supplier / Contractor</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px;">
+        <div style="grid-column:1/-1;">
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Company / Supplier</div>
+          <input type="text" class="form-input" value="${escapeHtml(m.supplier||'')}" placeholder="e.g. ABC Plumbing Pty Ltd"
+            oninput="updateSupplierField('supplier',this.value)">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Contact name</div>
+          <input type="text" class="form-input" value="${escapeHtml(m.contact_name||'')}" placeholder="Full name"
+            oninput="updateSupplierField('contact_name',this.value)">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Phone</div>
+          <input type="tel" class="form-input" value="${escapeHtml(m.supplier_phone||'')}" placeholder="+61 400 000 000"
+            oninput="updateSupplierField('supplier_phone',this.value)">
+        </div>
+        <div style="grid-column:1/-1;">
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Email</div>
+          <input type="email" class="form-input" value="${escapeHtml(m.supplier_email||'')}" placeholder="supplier@example.com"
+            oninput="updateSupplierField('supplier_email',this.value)">
+        </div>
+      </div>
+    </div>`;
+}
+
+let _supplierSaveTimer = null;
+function updateSupplierField(field, value) {
+  // Works for whichever task type is currently open
+  const j = currentGeneralTask || currentKeysJob || currentChecklistJob;
+  if (!j) return;
+  if (!j.meta) j.meta = {};
+  j.meta[field] = value;
+  clearTimeout(_supplierSaveTimer);
+  _supplierSaveTimer = setTimeout(async () => {
+    try {
+      await sb.from('jobs').update({ meta: j.meta }).eq('id', j.id);
+      const idx = jobs.findIndex(jj => jj.id === j.id);
+      if (idx >= 0) jobs[idx].meta = j.meta;
+    } catch(e) { console.warn('Supplier save failed', e); }
+  }, 600);
 }
 
 function addActivity(text, dept) {
@@ -4407,6 +4495,7 @@ function renderGeneralTask() {
         </div>
       </div>
     </div>
+    ${renderSupplierCard(j)}
     ${attachmentsHtml}
     ${renderAuditCard(j)}`;
 }
@@ -4466,6 +4555,7 @@ function renderCustomTemplateSections(j, tpl, locked) {
         </div>
       </div>
     </div>
+    ${renderSupplierCard(j)}
     ${renderAuditCard(j)}`;
 }
 
@@ -4713,6 +4803,7 @@ function renderKeysJob() {
         <textarea class="checklist-notes" style="margin-left:0;width:100%;min-height:80px;" placeholder="Anything else the team should know…" oninput="updateKeysJobField('notes', this.value)">${escapeHtml(j.notes || '')}</textarea>
       </div>
 
+      ${renderSupplierCard(j)}
       ${attachmentsHtml}
       ${renderAuditCard(j)}
     `;
@@ -4728,6 +4819,7 @@ function renderKeysJob() {
         <textarea class="checklist-notes" style="margin-left:0;width:100%;min-height:140px;" placeholder="Describe what is happening or what needs to happen. e.g. 'Keys / fobs expiring, please take all fobs / cards to reception for recoding.'" oninput="updateKeysJobField('expiry_notes', this.value)">${escapeHtml(noteSeed)}</textarea>
       </div>
 
+      ${renderSupplierCard(j)}
       ${attachmentsHtml}
       ${renderAuditCard(j)}
     `;
@@ -4989,7 +5081,7 @@ function renderChecklistSections() {
         ${secExtrasHtml}
       </div>
     `;
-  }).join('') + renderAuditCard(currentChecklistJob);
+  }).join('') + renderSupplierCard(currentChecklistJob) + renderAuditCard(currentChecklistJob);
 }
 
 function toggleChecklistItem(itemKey) {
