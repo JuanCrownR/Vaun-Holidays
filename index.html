@@ -2935,6 +2935,9 @@ async function saveJob() {
   const taskTypeVal = document.getElementById('job-task-type').value;
   if (taskTypeVal) meta.task_type = taskTypeVal;
 
+  // Audit trail — who created this job
+  meta.created_by_name = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+
   if (taskTypeVal && taskTypeVal.startsWith('custom-')) {
     const _ctpl = TASK_TEMPLATES.find(t => t.key === taskTypeVal);
     if (_ctpl) {
@@ -3466,6 +3469,51 @@ function formatDate(d) {
   if (!d) return '—';
   const date = new Date(d + 'T00:00:00');
   return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Formats a full ISO timestamp (e.g. Supabase created_at) to a readable date + time.
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('en-AU', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } catch(e) { return iso; }
+}
+
+// Reusable audit trail card shown at the bottom of every task view.
+function renderAuditCard(job) {
+  const createdAt  = formatDateTime(job.created_at);
+  const createdBy  = escapeHtml((job.meta && job.meta.created_by_name) || '—');
+  const isComplete = job.status === 'complete' || job.status === 'resolved';
+  const completedAt = isComplete ? formatDateTime(job.meta && job.meta.completed_at) : '—';
+  const completedBy = isComplete ? escapeHtml((job.meta && job.meta.completed_by) || '—') : '—';
+  const doneColor  = isComplete ? 'color:#15803d;' : 'color:var(--text3);';
+  return `
+    <div class="checklist-section-card">
+      <div class="checklist-section-head">
+        <span class="checklist-section-title">Task history</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 16px 16px;">
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Created</div>
+          <div style="font-size:13px;font-weight:500;">${createdAt}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Created by</div>
+          <div style="font-size:13px;font-weight:500;">${createdBy}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Completed</div>
+          <div style="font-size:13px;font-weight:500;${doneColor}">${completedAt}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Completed by</div>
+          <div style="font-size:13px;font-weight:500;${doneColor}">${completedBy}</div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function addActivity(text, dept) {
@@ -4359,7 +4407,8 @@ function renderGeneralTask() {
         </div>
       </div>
     </div>
-    ${attachmentsHtml}`;
+    ${attachmentsHtml}
+    ${renderAuditCard(j)}`;
 }
 
 function renderCustomTemplateSections(j, tpl, locked) {
@@ -4416,7 +4465,8 @@ function renderCustomTemplateSections(j, tpl, locked) {
           <input type="date" class="form-input" value="${j.date||''}" oninput="updateGenTaskField('date',this.value)">
         </div>
       </div>
-    </div>`;
+    </div>
+    ${renderAuditCard(j)}`;
 }
 
 async function addGenTaskSectionAttachments(input, si) {
@@ -4517,9 +4567,17 @@ async function toggleGeneralTaskStatus() {
   if (!j) return;
   const newStatus = isJobLocked(j) ? 'pending' : 'complete';
   j.status = newStatus;
-  try { await sb.from('jobs').update({ status: newStatus }).eq('id', j.id); } catch(e) {}
+  if (!j.meta) j.meta = {};
+  if (newStatus === 'complete') {
+    j.meta.completed_at = new Date().toISOString();
+    j.meta.completed_by = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+  } else {
+    delete j.meta.completed_at;
+    delete j.meta.completed_by;
+  }
+  try { await sb.from('jobs').update({ status: newStatus, meta: j.meta }).eq('id', j.id); } catch(e) {}
   const idx = jobs.findIndex(jj => jj.id === j.id);
-  if (idx >= 0) jobs[idx].status = newStatus;
+  if (idx >= 0) { jobs[idx].status = newStatus; jobs[idx].meta = j.meta; }
   openGeneralTask(j); // re-open to refresh header + lock state
 }
 
@@ -4656,6 +4714,7 @@ function renderKeysJob() {
       </div>
 
       ${attachmentsHtml}
+      ${renderAuditCard(j)}
     `;
   } else {
     // Expiry
@@ -4670,6 +4729,7 @@ function renderKeysJob() {
       </div>
 
       ${attachmentsHtml}
+      ${renderAuditCard(j)}
     `;
   }
 }
@@ -4762,6 +4822,14 @@ function completeKeysJob() {
   if (!j) return;
   const isOpen = j.status !== 'complete' && j.status !== 'resolved';
   j.status = isOpen ? 'complete' : 'pending';
+  if (!j.meta) j.meta = {};
+  if (isOpen) {
+    j.meta.completed_at = new Date().toISOString();
+    j.meta.completed_by = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+  } else {
+    delete j.meta.completed_at;
+    delete j.meta.completed_by;
+  }
   persistKeysJob();
   addActivity(`${j.meta?.key_job_type === 'order' ? 'Key Order' : 'Key Expiry'} ${isOpen ? 'completed' : 'reopened'}: ${propNames[j.property] || j.property}`, 'operations');
   openKeysJob(j); // re-render header pill + button label
@@ -4921,7 +4989,7 @@ function renderChecklistSections() {
         ${secExtrasHtml}
       </div>
     `;
-  }).join('');
+  }).join('') + renderAuditCard(currentChecklistJob);
 }
 
 function toggleChecklistItem(itemKey) {
@@ -5895,9 +5963,12 @@ function completeChecklist() {
   if (doneCount < total) {
     if (!confirm(`Only ${doneCount} of ${total} items are complete. Mark cleaning complete anyway?`)) return;
   }
-  // Update the linked job's status
+  // Update the linked job's status + audit trail
   currentChecklistJob.status = 'complete';
-  sb.from('jobs').update({ status: 'complete' }).eq('id', currentChecklistJob.id).then(() => {
+  if (!currentChecklistJob.meta) currentChecklistJob.meta = {};
+  currentChecklistJob.meta.completed_at = new Date().toISOString();
+  currentChecklistJob.meta.completed_by = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+  sb.from('jobs').update({ status: 'complete', meta: currentChecklistJob.meta }).eq('id', currentChecklistJob.id).then(() => {
     renderAllDepts();
     updateStats();
   }).catch(() => {
@@ -5950,9 +6021,10 @@ function reopenChecklist() {
   if (!j) return;
   if (!confirm('Reopen this cleaning task so it can be edited again?')) return;
   j.status = 'pending';
-  sb.from('jobs').update({ status: 'pending' }).eq('id', j.id).then(() => {
+  if (j.meta) { delete j.meta.completed_at; delete j.meta.completed_by; }
+  sb.from('jobs').update({ status: 'pending', meta: j.meta }).eq('id', j.id).then(() => {
     const live = jobs.find(x => String(x.id) === String(j.id));
-    if (live) live.status = 'pending';
+    if (live) { live.status = 'pending'; if (live.meta) { delete live.meta.completed_at; delete live.meta.completed_by; } }
     renderAllDepts();
     updateStats();
   }).catch(() => {});
