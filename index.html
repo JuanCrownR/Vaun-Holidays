@@ -3159,8 +3159,8 @@ function renderCalendar() {
       && (!selectedPropertyId || j.property === selectedPropertyId));
     const cell = document.createElement('div');
     cell.className = 'cal-cell' + (isOther ? ' other-month' : '') + (isToday ? ' today' : '') + (dayJobs.length ? ' has-events' : '');
-    let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${(propNames[j.property]||'').replace(/"/g,'&quot;')} — ${j.department}" onclick="event.stopPropagation();openCalPreview(${j.id})">${propNames[j.property] || '—'}</div>`).join('');
-    if (dayJobs.length > 3) eventsHtml += `<div class="cal-event" style="color:var(--text3);cursor:pointer;" onclick="event.stopPropagation();openCalPreview(${dayJobs[3].id})">+${dayJobs.length-3} more</div>`;
+    let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${(propNames[j.property]||'').replace(/"/g,'&quot;')} — ${j.department}" onclick="event.stopPropagation();openCalPreview('${j.id}')">${propNames[j.property] || '—'}</div>`).join('');
+    if (dayJobs.length > 3) eventsHtml += `<div class="cal-event" style="color:var(--text3);cursor:pointer;" onclick="event.stopPropagation();openCalPreview('${dayJobs[3].id}')">+${dayJobs.length-3} more</div>`;
     cell.innerHTML = `<div class="cal-date">${day}</div>${eventsHtml}`;
     body.appendChild(cell);
   }
