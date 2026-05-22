@@ -590,6 +590,67 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .cal-event.compliance { background: rgba(139,92,246,0.15); color: #5b21b6; }
 .cal-event.keys { background: rgba(202,138,4,0.15); color: #854d0e; }
 
+/* ===== CALENDAR TASK PREVIEW SHEET ===== */
+#cal-preview-modal {
+  display: none; position: fixed; inset: 0; z-index: 150;
+  background: rgba(0,0,0,0.45);
+  align-items: flex-end; justify-content: center;
+}
+#cal-preview-modal.open { display: flex; }
+.cal-preview-sheet {
+  background: white;
+  border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 600px;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+  animation: calPreviewUp 0.2s ease;
+}
+@keyframes calPreviewUp {
+  from { transform: translateY(50px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.cal-preview-handle {
+  width: 40px; height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+.cal-preview-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.cal-preview-title {
+  font-size: 16px; font-weight: 700; color: var(--text);
+  line-height: 1.3;
+}
+.cal-preview-body {
+  padding: 14px 20px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.cal-preview-row {
+  display: flex; gap: 10px; align-items: baseline;
+}
+.cal-preview-label {
+  font-size: 11px; font-weight: 600; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  min-width: 78px; padding-top: 2px;
+}
+.cal-preview-value {
+  font-size: 14px; color: var(--text); font-weight: 500;
+  flex: 1;
+}
+.cal-preview-badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+}
+.cal-preview-footer {
+  padding: 10px 20px 18px;
+  display: flex; gap: 10px;
+}
+
 /* Property legend */
 .prop-legend {
   display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
@@ -2367,6 +2428,25 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   </div>
 </div>
 
+<!-- CALENDAR TASK PREVIEW SHEET -->
+<div id="cal-preview-modal" onclick="if(event.target===this)closeCalPreview()">
+  <div class="cal-preview-sheet">
+    <div class="cal-preview-handle"></div>
+    <div class="cal-preview-header">
+      <div style="flex:1;min-width:0;">
+        <div id="cal-preview-dept-tag" style="margin-bottom:6px;"></div>
+        <div class="cal-preview-title" id="cal-preview-title">—</div>
+      </div>
+      <button class="modal-close" onclick="closeCalPreview()">✕</button>
+    </div>
+    <div class="cal-preview-body" id="cal-preview-body"></div>
+    <div class="cal-preview-footer">
+      <button class="btn btn-secondary" onclick="closeCalPreview()" style="flex:1;">Close</button>
+      <button class="btn btn-primary" id="cal-preview-goto-btn" onclick="calPreviewGoToTask()" style="flex:2;background:var(--brand);">Go to task →</button>
+    </div>
+  </div>
+</div>
+
 <!-- NEW JOB MODAL -->
 <div class="modal-overlay" id="new-job-modal">
   <div class="modal">
@@ -3079,8 +3159,8 @@ function renderCalendar() {
       && (!selectedPropertyId || j.property === selectedPropertyId));
     const cell = document.createElement('div');
     cell.className = 'cal-cell' + (isOther ? ' other-month' : '') + (isToday ? ' today' : '') + (dayJobs.length ? ' has-events' : '');
-    let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${propNames[j.property]} — ${j.department}">${propNames[j.property]}</div>`).join('');
-    if (dayJobs.length > 3) eventsHtml += `<div class="cal-event" style="color:var(--text3)">+${dayJobs.length-3} more</div>`;
+    let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${(propNames[j.property]||'').replace(/"/g,'&quot;')} — ${j.department}" onclick="event.stopPropagation();openCalPreview(${j.id})">${propNames[j.property] || '—'}</div>`).join('');
+    if (dayJobs.length > 3) eventsHtml += `<div class="cal-event" style="color:var(--text3);cursor:pointer;" onclick="event.stopPropagation();openCalPreview(${dayJobs[3].id})">+${dayJobs.length-3} more</div>`;
     cell.innerHTML = `<div class="cal-date">${day}</div>${eventsHtml}`;
     body.appendChild(cell);
   }
@@ -3161,6 +3241,100 @@ function viewJob(job) {
   }
   // maintenance, operations, compliance → general task view
   openGeneralTask(job);
+}
+
+// ===== CALENDAR TASK PREVIEW =====
+let _calPreviewJobId = null;
+
+function openCalPreview(jobId) {
+  const job = jobs.find(j => String(j.id) === String(jobId));
+  if (!job) return;
+  _calPreviewJobId = jobId;
+
+  const deptColors = {
+    cleaning: '#2ecc71', maintenance: '#e74c3c', inspections: '#3498db',
+    operations: '#f39c12', compliance: '#8b5cf6', keys: '#ca8a04'
+  };
+  const deptLabels = {
+    cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections',
+    operations: 'Operations', compliance: 'Compliance', keys: 'Keys'
+  };
+
+  // Title — heading > task-type label > notes > fallback
+  const title = (job.meta && job.meta.heading) || taskTypeLabel(job) || job.notes || 'Task';
+  document.getElementById('cal-preview-title').textContent = title;
+
+  // Department badge
+  const deptColor = deptColors[job.department] || '#999';
+  const deptLabel = deptLabels[job.department] || job.department;
+  document.getElementById('cal-preview-dept-tag').innerHTML =
+    `<span class="cal-preview-badge" style="background:${deptColor}22;color:${deptColor}">${deptLabel}</span>`;
+
+  // Status
+  const isComplete = job.status === 'complete';
+  const statusColor = isComplete ? '#2ecc71' : '#f39c12';
+  const statusLabel = isComplete ? 'Complete' : 'Pending';
+
+  // Task type row (only when it adds info beyond the title)
+  const ttLabel = taskTypeLabel(job);
+  const taskTypeRow = (ttLabel && ttLabel !== '—' && ttLabel !== title)
+    ? `<div class="cal-preview-row">
+         <span class="cal-preview-label">Task type</span>
+         <span class="cal-preview-value">${ttLabel}</span>
+       </div>`
+    : '';
+
+  // Assigned-to row
+  const assignedTo = job.assigned_to || (job.meta && job.meta.assigned_to);
+  const assignedRow = assignedTo
+    ? `<div class="cal-preview-row">
+         <span class="cal-preview-label">Assigned to</span>
+         <span class="cal-preview-value">${assignedTo}</span>
+       </div>`
+    : '';
+
+  // Notes/description (truncated)
+  const notes = job.notes || (job.meta && job.meta.description);
+  const notesRow = notes
+    ? `<div class="cal-preview-row">
+         <span class="cal-preview-label">Notes</span>
+         <span class="cal-preview-value" style="color:var(--text2);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${notes}</span>
+       </div>`
+    : '';
+
+  document.getElementById('cal-preview-body').innerHTML = `
+    <div class="cal-preview-row">
+      <span class="cal-preview-label">Property</span>
+      <span class="cal-preview-value">${propNames[job.property] || '—'}</span>
+    </div>
+    <div class="cal-preview-row">
+      <span class="cal-preview-label">Date</span>
+      <span class="cal-preview-value">${formatDate(job.date)}</span>
+    </div>
+    ${taskTypeRow}
+    ${assignedRow}
+    <div class="cal-preview-row">
+      <span class="cal-preview-label">Status</span>
+      <span class="cal-preview-value">
+        <span class="cal-preview-badge" style="background:${statusColor}22;color:${statusColor}">${statusLabel}</span>
+      </span>
+    </div>
+    ${notesRow}
+  `;
+
+  document.getElementById('cal-preview-modal').classList.add('open');
+}
+
+function closeCalPreview() {
+  document.getElementById('cal-preview-modal').classList.remove('open');
+  _calPreviewJobId = null;
+}
+
+function calPreviewGoToTask() {
+  const job = jobs.find(j => String(j.id) === String(_calPreviewJobId));
+  if (!job) { closeCalPreview(); return; }
+  closeCalPreview();
+  viewJob(job);
 }
 
 // ===== HELPERS =====
