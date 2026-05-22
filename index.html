@@ -2531,6 +2531,9 @@ async function loadApp(user) {
   populateJobPropertyDropdown();
   loadJobs();
   setupRealtime();
+  // Seed the history stack so the browser back button always has a safe
+  // "home" entry to return to instead of leaving the app entirely.
+  history.replaceState({ view: 'overview' }, '', '#overview');
 }
 
 // Check session on load
@@ -2543,6 +2546,7 @@ document.getElementById('login-password').addEventListener('keydown', e => { if 
 
 // ===== VIEWS =====
 function showView(name, el) {
+  if (_historyPush) history.pushState({ view: name }, '', '#' + name);
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
@@ -2854,6 +2858,35 @@ function renderAllDepts() {
 
   updateDeptBadges();
 }
+
+// ===== HISTORY / BACK-BUTTON NAVIGATION =====
+// _historyPush is set to false while restoring from a popstate event so that
+// the navigation functions don't push a duplicate entry onto the stack.
+let _historyPush = true;
+
+window.addEventListener('popstate', function(e) {
+  const state = e.state;
+  if (!state) return;
+  _historyPush = false;
+  try {
+    if (state.view === 'cleaning-checklist') {
+      const job = jobs.find(j => String(j.id) === String(state.jobId));
+      if (job) openChecklist(job);
+      else showView('cleaning');
+    } else if (state.view === 'keys-job') {
+      const job = jobs.find(j => String(j.id) === String(state.jobId));
+      if (job) openKeysJob(job);
+      else showView('keys');
+    } else if (state.view === 'asset') {
+      selectProperty(state.propertyId);
+    } else if (state.view) {
+      const el = document.querySelector(`.nav-item[onclick*="showView('${state.view}'"]`);
+      showView(state.view, el || null);
+    }
+  } finally {
+    _historyPush = true;
+  }
+});
 
 // ===== DELETE JOB =====
 let _pendingDeleteJobId = null;
@@ -3759,6 +3792,7 @@ function saveChecklistState(jobId) {
 }
 
 async function openChecklist(job) {
+  if (_historyPush) history.pushState({ view: 'cleaning-checklist', jobId: job.id }, '', '#cleaning-checklist');
   // Pick the template based on department. Easy to extend with more templates.
   if (job.department === 'inspections') {
     currentTemplate = INGOING_INSPECTION_TEMPLATE;
@@ -3798,6 +3832,7 @@ function closeChecklist() {
 let currentKeysJob = null;
 
 function openKeysJob(job) {
+  if (_historyPush) history.pushState({ view: 'keys-job', jobId: job.id }, '', '#keys-job');
   // Find the latest copy of the job from the live list (in case meta updated)
   const live = jobs.find(j => j.id === job.id) || job;
   if (!live.meta || typeof live.meta !== 'object') live.meta = {};
@@ -5139,6 +5174,10 @@ function renderSidebarProperties() {
 }
 
 function selectProperty(id) {
+  if (_historyPush) {
+    if (id === null) history.pushState({ view: 'overview' }, '', '#overview');
+    else history.pushState({ view: 'asset', propertyId: id }, '', '#asset');
+  }
   selectedPropertyId = id;
   // Reset asset tab when changing property
   assetActiveTab = 'calendar';
