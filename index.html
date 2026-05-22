@@ -693,6 +693,60 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .send-status-banner.success { background: #dcfce7; color: #15803d; display: block; }
 .send-status-banner.error   { background: #fee2e2; color: #b91c1c; display: block; }
 
+/* ===== CONTACTS ===== */
+.contact-card {
+  background: white; border-radius: var(--radius-lg);
+  box-shadow: var(--shadow); overflow: hidden;
+  display: flex; flex-direction: column;
+  transition: box-shadow 0.15s;
+}
+.contact-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.10); }
+.contact-avatar-wrap {
+  padding: 20px 20px 0;
+  display: flex; align-items: center; gap: 14px;
+}
+.contact-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; color: white; flex-shrink: 0;
+  font-family: 'Syne', sans-serif;
+}
+.contact-name-block { min-width: 0; }
+.contact-name { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-company { font-size: 12px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-type-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 9px; border-radius: 20px;
+  font-size: 10px; font-weight: 600; margin-top: 5px;
+}
+.contact-details {
+  padding: 12px 20px; display: flex; flex-direction: column; gap: 6px; flex: 1;
+}
+.contact-detail-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text2);
+}
+.contact-detail-row a { color: var(--text2); text-decoration: none; }
+.contact-detail-row a:hover { color: var(--text); text-decoration: underline; }
+.contact-actions {
+  padding: 10px 20px 14px;
+  display: flex; gap: 8px; border-top: 1px solid var(--border);
+}
+.contact-filter-bar {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center;
+}
+.contact-search {
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+  background: white; outline: none; margin-bottom: 14px;
+  transition: border-color 0.15s;
+}
+.contact-search:focus { border-color: var(--accent2); }
+.contacts-empty {
+  text-align: center; padding: 60px 20px; color: var(--text3);
+}
+.contacts-empty-icon { font-size: 40px; margin-bottom: 12px; }
+
 /* Property legend */
 .prop-legend {
   display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
@@ -1856,6 +1910,11 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <span class="nav-badge" id="keys-badge" style="display:none">0</span>
       </div>
 
+      <div class="nav-section-label">People</div>
+      <div class="nav-item" onclick="showView('contacts',this)">
+        <span class="nav-icon">👥</span> Contacts
+      </div>
+
       <div class="nav-section-label">Properties</div>
       <div class="nav-item" onclick="showAllPropertiesView(this)">
         <span class="nav-icon">🏢</span> All Properties
@@ -2272,6 +2331,27 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
       </div>
 
+      <!-- CONTACTS -->
+      <div class="view" id="view-contacts">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Contacts</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:2px;">Staff, cleaners, trades, suppliers and property owners</div>
+          </div>
+          <button class="btn btn-primary" onclick="openAddContactModal()">+ Add Contact</button>
+        </div>
+        <input type="search" class="contact-search" id="contact-search" placeholder="🔍  Search by name, company or email…" oninput="renderContacts()">
+        <div class="contact-filter-bar" id="contact-filter-bar">
+          <span class="filter-pill active" onclick="setContactFilter('all',this)">All</span>
+          <span class="filter-pill" onclick="setContactFilter('staff',this)">👤 Staff</span>
+          <span class="filter-pill" onclick="setContactFilter('cleaner',this)">🧹 Cleaners</span>
+          <span class="filter-pill" onclick="setContactFilter('trade',this)">🔧 Trades</span>
+          <span class="filter-pill" onclick="setContactFilter('supplier',this)">📦 Suppliers</span>
+          <span class="filter-pill" onclick="setContactFilter('owner',this)">🏠 Owners</span>
+        </div>
+        <div id="contacts-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
+      </div>
+
       <!-- ASSET VIEW (per-property) -->
       <div class="view" id="view-asset">
         <div class="asset-header" id="asset-header"></div>
@@ -2523,6 +2603,54 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeSendSupplierModal()">Cancel</button>
       <button class="btn btn-primary" id="send-email-btn" onclick="sendSupplierEmail()" style="background:var(--brand);min-width:140px;">Send email →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT CONTACT MODAL -->
+<div class="modal-overlay" id="add-contact-modal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 class="modal-title" id="contact-modal-title">New Contact</h3>
+      <button class="modal-close" onclick="closeAddContactModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="contact-type">
+          <option value="staff">👤 Staff</option>
+          <option value="cleaner">🧹 Cleaner</option>
+          <option value="trade">🔧 Trade</option>
+          <option value="supplier">📦 Supplier</option>
+          <option value="owner">🏠 Property Owner</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Full name <span style="color:#e74c3c">*</span></label>
+        <input type="text" class="form-input" id="contact-name" placeholder="e.g. Sarah Johnson">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Company / Business</label>
+        <input type="text" class="form-input" id="contact-company" placeholder="e.g. ABC Plumbing Pty Ltd">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" id="contact-email" placeholder="email@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="tel" class="form-input" id="contact-phone" placeholder="+61 400 000 000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="contact-notes" placeholder="Any extra details…" style="min-height:70px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddContactModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContact()">Save contact</button>
     </div>
   </div>
 </div>
@@ -2804,9 +2932,10 @@ function showView(name, el) {
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task' };
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
+  if (name === 'contacts') { loadContacts(); }
   if (name === 'asset') renderAssetView();
   if (name === 'properties') renderPropertiesGrid();
   if (name === 'templates') renderTemplatesGrid();
@@ -3661,6 +3790,184 @@ function updateSupplierField(field, value) {
       if (idx >= 0) jobs[idx].meta = j.meta;
     } catch(e) { console.warn('Supplier save failed', e); }
   }, 600);
+}
+
+// ===== CONTACTS =====
+const CONTACT_TYPES = {
+  staff:    { label: 'Staff',          color: '#3498db', bg: '#dbeafe' },
+  cleaner:  { label: 'Cleaner',        color: '#2ecc71', bg: '#dcfce7' },
+  trade:    { label: 'Trade',          color: '#f39c12', bg: '#fef3c7' },
+  supplier: { label: 'Supplier',       color: '#8b5cf6', bg: '#ede9fe' },
+  owner:    { label: 'Property Owner', color: '#ca8a04', bg: '#fef9c3' }
+};
+
+let contacts = [];
+let contactFilter = 'all';
+let editingContactId = null;
+
+async function loadContacts() {
+  try {
+    const { data, error } = await sb.from('contacts').select('*').order('name');
+    if (!error && Array.isArray(data)) {
+      contacts = data;
+    } else {
+      // Fallback: localStorage while table is being set up
+      const raw = localStorage.getItem('vh_contacts_v1');
+      contacts = raw ? JSON.parse(raw) : [];
+    }
+  } catch(e) {
+    const raw = localStorage.getItem('vh_contacts_v1');
+    contacts = raw ? JSON.parse(raw) : [];
+  }
+  renderContacts();
+}
+
+function saveContactsLocally() {
+  try { localStorage.setItem('vh_contacts_v1', JSON.stringify(contacts)); } catch(e) {}
+}
+
+function setContactFilter(f, el) {
+  contactFilter = f;
+  document.querySelectorAll('#contact-filter-bar .filter-pill').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderContacts();
+}
+
+function renderContacts() {
+  const grid = document.getElementById('contacts-grid');
+  if (!grid) return;
+  const q = (document.getElementById('contact-search')?.value || '').toLowerCase();
+  const filtered = contacts.filter(c => {
+    if (contactFilter !== 'all' && c.type !== contactFilter) return false;
+    if (q) {
+      const hay = `${c.name} ${c.company||''} ${c.email||''} ${c.phone||''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="contacts-empty" style="grid-column:1/-1;">
+      <div class="contacts-empty-icon">👥</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:6px;">${contacts.length === 0 ? 'No contacts yet' : 'No contacts match your search'}</div>
+      <div style="font-size:13px;">${contacts.length === 0 ? 'Add your first contact to get started.' : 'Try a different search or filter.'}</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(c => {
+    const cfg = CONTACT_TYPES[c.type] || CONTACT_TYPES.staff;
+    const initials = (c.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    return `
+      <div class="contact-card">
+        <div class="contact-avatar-wrap">
+          <div class="contact-avatar" style="background:${cfg.color}">${initials}</div>
+          <div class="contact-name-block">
+            <div class="contact-name">${escapeHtml(c.name)}</div>
+            ${c.company ? `<div class="contact-company">${escapeHtml(c.company)}</div>` : ''}
+            <span class="contact-type-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
+          </div>
+        </div>
+        <div class="contact-details">
+          ${c.email ? `<div class="contact-detail-row">✉️ <a href="mailto:${escapeHtml(c.email)}">${escapeHtml(c.email)}</a></div>` : ''}
+          ${c.phone ? `<div class="contact-detail-row">📞 <a href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></div>` : ''}
+          ${c.notes ? `<div class="contact-detail-row" style="color:var(--text3);font-size:12px;">📝 ${escapeHtml(c.notes)}</div>` : ''}
+          ${!c.email && !c.phone && !c.notes ? '<div style="font-size:12px;color:var(--text3);">No details added</div>' : ''}
+        </div>
+        <div class="contact-actions">
+          <button class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;" onclick="openEditContactModal('${c.id}')">Edit</button>
+          <button class="btn btn-danger" style="font-size:12px;padding:8px 14px;" onclick="deleteContact('${c.id}')">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openAddContactModal() {
+  editingContactId = null;
+  document.getElementById('contact-modal-title').textContent = 'New Contact';
+  document.getElementById('contact-type').value = 'staff';
+  document.getElementById('contact-name').value = '';
+  document.getElementById('contact-company').value = '';
+  document.getElementById('contact-email').value = '';
+  document.getElementById('contact-phone').value = '';
+  document.getElementById('contact-notes').value = '';
+  document.getElementById('add-contact-modal').classList.add('open');
+}
+
+function openEditContactModal(id) {
+  const c = contacts.find(x => String(x.id) === String(id));
+  if (!c) return;
+  editingContactId = id;
+  document.getElementById('contact-modal-title').textContent = 'Edit Contact';
+  document.getElementById('contact-type').value = c.type || 'staff';
+  document.getElementById('contact-name').value = c.name || '';
+  document.getElementById('contact-company').value = c.company || '';
+  document.getElementById('contact-email').value = c.email || '';
+  document.getElementById('contact-phone').value = c.phone || '';
+  document.getElementById('contact-notes').value = c.notes || '';
+  document.getElementById('add-contact-modal').classList.add('open');
+}
+
+function closeAddContactModal() {
+  document.getElementById('add-contact-modal').classList.remove('open');
+  editingContactId = null;
+}
+
+async function saveContact() {
+  const name = (document.getElementById('contact-name').value || '').trim();
+  if (!name) { alert('Please enter a name.'); return; }
+  const payload = {
+    name,
+    type:    document.getElementById('contact-type').value,
+    company: document.getElementById('contact-company').value.trim(),
+    email:   document.getElementById('contact-email').value.trim(),
+    phone:   document.getElementById('contact-phone').value.trim(),
+    notes:   document.getElementById('contact-notes').value.trim(),
+  };
+
+  if (editingContactId) {
+    // Update
+    try {
+      const { data, error } = await sb.from('contacts').update(payload).eq('id', editingContactId).select();
+      if (!error && data?.[0]) {
+        const idx = contacts.findIndex(c => String(c.id) === String(editingContactId));
+        if (idx >= 0) contacts[idx] = data[0];
+      } else {
+        const idx = contacts.findIndex(c => String(c.id) === String(editingContactId));
+        if (idx >= 0) contacts[idx] = { ...contacts[idx], ...payload };
+      }
+    } catch(e) {
+      const idx = contacts.findIndex(c => String(c.id) === String(editingContactId));
+      if (idx >= 0) contacts[idx] = { ...contacts[idx], ...payload };
+    }
+  } else {
+    // Create
+    payload.created_by = currentUser?.id;
+    try {
+      const { data, error } = await sb.from('contacts').insert([payload]).select();
+      if (!error && data?.[0]) {
+        contacts.push(data[0]);
+      } else {
+        contacts.push({ id: 'local-' + Date.now(), ...payload });
+      }
+    } catch(e) {
+      contacts.push({ id: 'local-' + Date.now(), ...payload });
+    }
+  }
+
+  saveContactsLocally();
+  closeAddContactModal();
+  renderContacts();
+}
+
+async function deleteContact(id) {
+  const c = contacts.find(x => String(x.id) === String(id));
+  if (!c) return;
+  if (!confirm(`Delete contact "${c.name}"?`)) return;
+  try { await sb.from('contacts').delete().eq('id', id); } catch(e) {}
+  contacts = contacts.filter(x => String(x.id) !== String(id));
+  saveContactsLocally();
+  renderContacts();
 }
 
 // ===== SUPPLIER EMAIL / WORK ORDERS =====
