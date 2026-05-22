@@ -3149,8 +3149,8 @@ function renderCalendar() {
       && (!selectedPropertyId || j.property === selectedPropertyId));
     const cell = document.createElement('div');
     cell.className = 'cal-cell' + (isOther ? ' other-month' : '') + (isToday ? ' today' : '') + (dayJobs.length ? ' has-events' : '');
-    let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${(propNames[j.property]||'').replace(/"/g,'&quot;')} — ${j.department}" onclick="event.stopPropagation();openCalPreview('${j.id}')">${propNames[j.property] || '—'}</div>`).join('');
-    if (dayJobs.length > 3) eventsHtml += `<div class="cal-event" style="color:var(--text3);cursor:pointer;" onclick="event.stopPropagation();openCalPreview('${dayJobs[3].id}')">+${dayJobs.length-3} more</div>`;
+    let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${(propNames[j.property]||'').replace(/"/g,'&quot;')} — ${j.department}" onclick="event.stopPropagation();openCalPreview('${j.id}',this)">${propNames[j.property] || '—'}</div>`).join('');
+    if (dayJobs.length > 3) eventsHtml += `<div class="cal-event" style="color:var(--text3);cursor:pointer;" onclick="event.stopPropagation();openCalPreview('${dayJobs[3].id}',this)">+${dayJobs.length-3} more</div>`;
     cell.innerHTML = `<div class="cal-date">${day}</div>${eventsHtml}`;
     body.appendChild(cell);
   }
@@ -3236,7 +3236,7 @@ function viewJob(job) {
 // ===== CALENDAR TASK PREVIEW =====
 let _calPreviewJobId = null;
 
-function openCalPreview(jobId, e) {
+function openCalPreview(jobId, pillEl) {
   const job = jobs.find(j => String(j.id) === String(jobId));
   if (!job) return;
   _calPreviewJobId = jobId;
@@ -3312,32 +3312,36 @@ function openCalPreview(jobId, e) {
     ${notesRow}
   `;
 
-  // Show first so we can measure the sheet height
+  // Show first so we can measure the rendered card height
   const modal = document.getElementById('cal-preview-modal');
   const sheet = document.getElementById('cal-preview-sheet');
   modal.classList.add('open');
 
-  // Position the card near the clicked pill
+  // --- Position card at "11 o'clock" relative to the pill ---
+  // That means: above the pill, with the card's right edge
+  // sitting roughly over the pill so it reads left-of-center.
   const CARD_W = 290;
-  const MARGIN = 8;
+  const MARGIN = 10;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const pillRect = e.currentTarget.getBoundingClientRect();
+  const r = pillEl.getBoundingClientRect();   // pill rect
   const cardH = sheet.offsetHeight;
 
-  // Horizontal: align left edge with pill, nudge left if it overflows
-  let left = pillRect.left;
+  // Vertical: above the pill preferred, fall back to below
+  let top;
+  if (r.top - cardH - MARGIN >= MARGIN) {
+    top = r.top - cardH - MARGIN;
+  } else {
+    top = r.bottom + MARGIN;
+  }
+
+  // Horizontal: right edge of card aligns with pill's right edge
+  // → card hangs to the left of the pill (11-o'clock feel)
+  let left = r.right - CARD_W;
+
+  // Clamp to viewport
   if (left + CARD_W + MARGIN > vw) left = vw - CARD_W - MARGIN;
   if (left < MARGIN) left = MARGIN;
-
-  // Vertical: prefer above, fall back to below
-  let top;
-  if (pillRect.top - cardH - MARGIN >= MARGIN) {
-    top = pillRect.top - cardH - MARGIN;        // above the pill
-  } else {
-    top = pillRect.bottom + MARGIN;              // below the pill
-  }
-  // Final clamp so the card never leaves the viewport
   if (top + cardH + MARGIN > vh) top = vh - cardH - MARGIN;
   if (top < MARGIN) top = MARGIN;
 
