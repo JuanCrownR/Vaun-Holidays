@@ -640,12 +640,25 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 }
 .table-row:last-child { border-bottom: none; }
 .table-row:hover { background: var(--surface2); }
-.grid-cleaning { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
-.grid-maintenance { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
-.grid-inspections { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
-.grid-operations { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
-.grid-compliance { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
-.grid-keys { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px; }
+.grid-cleaning { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
+.grid-maintenance { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
+.grid-inspections { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
+.grid-operations { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
+.grid-compliance { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
+.grid-keys { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
+
+.job-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.25;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: opacity 0.15s, background 0.15s;
+  line-height: 1;
+}
+.job-delete-btn:hover { opacity: 1; background: #fee2e2; }
 
 .badge {
   display: inline-flex; align-items: center; gap: 4px;
@@ -756,7 +769,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
     position: absolute;
     bottom: 4px; right: 4px;
   }
-  .table-header, .table-row { grid-template-columns: 1fr 1fr 80px !important; }
+  .table-header, .table-row { grid-template-columns: 1fr 1fr 80px 32px !important; }
   .table-row > *:nth-child(3),
   .table-row > *:nth-child(4) { display: none; }
 }
@@ -1199,6 +1212,52 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   align-items: center;
   margin-top: 16px;
 }
+
+/* ===== SECTION EXTRAS (optional notes + photos per section) ===== */
+.section-extras {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.section-extras-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+
+/* ===== NOTES TOGGLE (pencil icon → textarea) ===== */
+.notes-toggle {
+  margin-left: 34px;
+  margin-top: 6px;
+}
+.notes-toggle summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text3);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+.notes-toggle summary::-webkit-details-marker { display: none; }
+.notes-toggle summary::marker { display: none; }
+.notes-toggle summary:hover { background: var(--surface2); color: var(--text2); }
+.notes-toggle[open] summary { color: var(--text2); }
+.notes-toggle textarea.checklist-notes {
+  display: block;
+  margin-left: 0;
+  margin-top: 6px;
+  width: 100%;
+}
+/* Section-level version sits directly under section-extras (no extra left margin) */
+.section-extras .notes-toggle { margin-left: 0; }
 
 /* ===== PROPERTY SWITCHER ===== */
 .prop-switcher {
@@ -1864,7 +1923,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
         <div class="jobs-table">
           <div class="table-header grid-cleaning">
-            <span>Property</span><span>Assigned to</span><span>Date</span><span>Window</span><span>Status</span>
+            <span>Property</span><span>Assigned to</span><span>Date</span><span>Window</span><span>Status</span><span></span>
           </div>
           <div id="cleaning-jobs">
             <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
@@ -1885,7 +1944,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
         <div class="jobs-table">
           <div class="table-header grid-maintenance">
-            <span>Issue</span><span>Property</span><span>Reported</span><span>Assigned</span><span>Status</span>
+            <span>Issue</span><span>Property</span><span>Reported</span><span>Assigned</span><span>Status</span><span></span>
           </div>
           <div id="maintenance-jobs">
             <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
@@ -1906,7 +1965,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
         <div class="jobs-table">
           <div class="table-header grid-inspections">
-            <span>Property</span><span>Inspector</span><span>Date</span><span>Type</span><span>Status</span>
+            <span>Property</span><span>Inspector</span><span>Date</span><span>Type</span><span>Status</span><span></span>
           </div>
           <div id="inspection-jobs">
             <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
@@ -1927,7 +1986,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
         <div class="jobs-table">
           <div class="table-header grid-operations">
-            <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span>
+            <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span><span></span>
           </div>
           <div id="operations-jobs">
             <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
@@ -1948,7 +2007,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
         <div class="jobs-table">
           <div class="table-header grid-keys">
-            <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span>
+            <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span><span></span>
           </div>
           <div id="keys-jobs">
             <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
@@ -1969,7 +2028,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         </div>
         <div class="jobs-table">
           <div class="table-header grid-compliance">
-            <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span>
+            <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span><span></span>
           </div>
           <div id="compliance-jobs">
             <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
@@ -2275,6 +2334,21 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeDeletePropertyModal()">Cancel</button>
       <button class="btn btn-danger" onclick="deleteProperty()">Yes, remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE JOB MODAL -->
+<div class="modal-overlay confirm-modal" id="confirm-delete-job-modal">
+  <div class="modal">
+    <div class="modal-body" style="padding-top:32px;padding-bottom:8px;">
+      <div class="confirm-icon">🗑️</div>
+      <div class="confirm-title">Delete job?</div>
+      <div class="confirm-msg">This will permanently delete the job and cannot be undone.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeleteJobModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="deleteJob()">Yes, delete</button>
     </div>
   </div>
 </div>
@@ -2718,61 +2792,98 @@ async function saveJob() {
 }
 
 function renderAllDepts() {
-  renderDept('cleaning', 'cleaning-jobs', ['Property','Assigned to','Date','Window','Status'], j => `
+  renderDept('cleaning', 'cleaning-jobs', ['Property','Assigned to','Date','Window','Status',''], j => `
     <div class="table-row grid-cleaning" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:12px;color:var(--text2)">${j.time_window || '—'}</span>
       <span>${statusBadge(j.status)}</span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('maintenance', 'maintenance-jobs', ['Issue','Property','Reported','Assigned','Status'], j => `
+  renderDept('maintenance', 'maintenance-jobs', ['Issue','Property','Reported','Assigned','Status',''], j => `
     <div class="table-row grid-maintenance">
       <span style="font-size:13px;font-weight:500">${j.notes || 'Maintenance issue'}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span>${statusBadge(j.status)}</span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('inspections', 'inspection-jobs', ['Property','Inspector','Date','Type','Status'], j => `
+  renderDept('inspections', 'inspection-jobs', ['Property','Inspector','Date','Type','Status',''], j => `
     <div class="table-row grid-inspections" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:12px;color:var(--text2)">${j.notes || 'Ingoing Inspection'}</span>
       <span>${statusBadge(j.status)}</span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('operations', 'operations-jobs', ['Task','Property','Due','Assigned','Status'], j => `
+  renderDept('operations', 'operations-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
     <div class="table-row grid-operations">
       <span style="font-size:13px;font-weight:500">${j.notes || 'Operations task'}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span>${statusBadge(j.status)}</span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('compliance', 'compliance-jobs', ['Task','Property','Due','Assigned','Status'], j => `
+  renderDept('compliance', 'compliance-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
     <div class="table-row grid-compliance">
       <span style="font-size:13px;font-weight:500">${j.notes || 'Compliance task'}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span>${statusBadge(j.status)}</span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('keys', 'keys-jobs', ['Task','Property','Due','Assigned','Status'], j => `
+  renderDept('keys', 'keys-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
     <div class="table-row grid-keys" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml(j.notes || 'Keys task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span>${statusBadge(j.status)}</span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
   updateDeptBadges();
+}
+
+// ===== DELETE JOB =====
+let _pendingDeleteJobId = null;
+
+function confirmDeleteJob(id) {
+  _pendingDeleteJobId = id;
+  document.getElementById('confirm-delete-job-modal').classList.add('open');
+}
+
+function closeDeleteJobModal() {
+  _pendingDeleteJobId = null;
+  document.getElementById('confirm-delete-job-modal').classList.remove('open');
+}
+
+async function deleteJob() {
+  const id = _pendingDeleteJobId;
+  closeDeleteJobModal();
+  if (!id) return;
+  // Remove from Supabase
+  try {
+    await sb.from('jobs').delete().eq('id', id);
+  } catch (e) {
+    console.warn('Delete job failed', e);
+  }
+  // Remove from local state regardless of network result
+  const idx = jobs.findIndex(j => String(j.id) === String(id));
+  if (idx >= 0) jobs.splice(idx, 1);
+  renderAllDepts();
+  updateStats();
+  if (document.getElementById('view-calendar').classList.contains('active')) renderCalendar();
 }
 
 // Refresh the open-task counts shown in the sidebar next to each department.
@@ -3591,11 +3702,12 @@ function isJobLocked(job) {
 
 function ensureChecklistState(jobId) {
   if (!checklistState[jobId]) {
-    checklistState[jobId] = { items: {}, issues: [] };
+    checklistState[jobId] = { items: {}, issues: [], sections: {} };
   }
   // Defensive defaults so older saved rows still render cleanly
   if (!checklistState[jobId].items) checklistState[jobId].items = {};
   if (!Array.isArray(checklistState[jobId].issues)) checklistState[jobId].issues = [];
+  if (!checklistState[jobId].sections || typeof checklistState[jobId].sections !== 'object') checklistState[jobId].sections = {};
   return checklistState[jobId];
 }
 
@@ -3997,7 +4109,11 @@ function renderChecklistSections() {
           ${arr.map(n => `<button class="cl-pill ${Number(itemState.value) === n ? 'active' : ''}" onclick="updateChecklistValue('${item.key}', ${n}, true)">${n}</button>`).join('')}
         </div></div>`;
       }
-      const notes = `<textarea class="checklist-notes" placeholder="Notes (optional)…" oninput="updateChecklistNotes('${item.key}', this.value)">${escapeHtml(itemState.notes || '')}</textarea>`;
+      const notes = `
+        <details class="notes-toggle"${itemState.notes ? ' open' : ''}>
+          <summary>✏️ Notes</summary>
+          <textarea class="checklist-notes" placeholder="Notes (optional)…" oninput="updateChecklistNotes('${item.key}', this.value)">${escapeHtml(itemState.notes || '')}</textarea>
+        </details>`;
       return `<div class="checklist-item ${done ? 'done' : ''}">${labelRow}${body}${notes}</div>`;
     }).join('');
     const doneInSection = section.items.filter(it => isItemComplete(it, state.items[it.key])).length;
@@ -4006,7 +4122,9 @@ function renderChecklistSections() {
     // surface how many guest key sets the property actually has, so the
     // cleaner knows how many they should be returning to the pickup location.
     let infoBanner = '';
-    const isKeysSection = section.key === 'before-leave-keys' || (section.title || '').toLowerCase() === 'keys';
+    // Keys banner is only relevant for the Changeover Clean (not Ingoing Inspection)
+    const isKeysSection = currentTemplate === CHANGEOVER_CLEAN_TEMPLATE &&
+      (section.key === 'before-leave-keys' || (section.title || '').toLowerCase() === 'keys');
     if (isKeysSection && currentChecklistJob) {
       const prop = properties.find(p => p.id === currentChecklistJob.property);
       const guestKeys = prop && prop.keys_guest != null ? prop.keys_guest : null;
@@ -4024,6 +4142,40 @@ function renderChecklistSections() {
       `;
     }
 
+    // Section-level optional notes + photos
+    const secState = state.sections[section.key] || { notes: '', photos: [] };
+    const secPhotos = secState.photos || [];
+    const secExtrasHtml = `
+      <div class="section-extras">
+        <div class="section-extras-label">Section photos &amp; notes (optional)</div>
+        <details class="notes-toggle"${secState.notes ? ' open' : ''}>
+          <summary>✏️ Notes</summary>
+          <textarea class="checklist-notes" placeholder="Add any notes for this section…"
+            oninput="updateSectionNotes('${section.key}', this.value)">${escapeHtml(secState.notes || '')}</textarea>
+        </details>
+        <div class="checklist-photo-area" style="margin-left:0;margin-top:8px;">
+          <div class="checklist-photo-grid">
+            ${secPhotos.map((p, i) => {
+              const ts = photoTimestamp(p);
+              return `
+                <div class="checklist-photo">
+                  <img src="${photoDataUrl(p)}" alt="">
+                  ${ts ? `<div class="photo-timestamp">${escapeHtml(formatPhotoTime(ts))}</div>` : ''}
+                  <button class="checklist-photo-remove" onclick="removeSectionPhoto('${section.key}', ${i})">✕</button>
+                </div>`;
+            }).join('')}
+            <label class="checklist-photo-add" title="Take a photo for this section">
+              <span class="checklist-photo-add-icon">📷</span>Take photo
+              <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addSectionPhotos('${section.key}', this)">
+            </label>
+            <label class="checklist-photo-add" style="border-style:solid;" title="Upload photos for this section">
+              <span class="checklist-photo-add-icon">🖼</span>Upload
+              <input type="file" accept="image/*" multiple style="display:none" onchange="addSectionPhotos('${section.key}', this)">
+            </label>
+          </div>
+        </div>
+      </div>`;
+
     return `
       <div class="checklist-section-card">
         <div class="checklist-section-head">
@@ -4033,6 +4185,7 @@ function renderChecklistSections() {
         </div>
         ${infoBanner}
         ${itemsHtml}
+        ${secExtrasHtml}
       </div>
     `;
   }).join('');
@@ -4108,8 +4261,9 @@ function updateChecklistProgress() {
   document.getElementById('checklist-done-count').textContent = doneCount;
   document.getElementById('checklist-total-count').textContent = total;
   document.getElementById('checklist-progress-fill').style.width = (total ? (doneCount / total * 100) : 0) + '%';
-  const photoCount = Object.values(state.items).reduce((n, it) => n + ((it.photos || []).length), 0);
-  document.getElementById('checklist-photos-count').textContent = photoCount;
+  const itemPhotos = Object.values(state.items).reduce((n, it) => n + ((it.photos || []).length), 0);
+  const sectionPhotos = Object.values(state.sections || {}).reduce((n, s) => n + ((s.photos || []).length), 0);
+  document.getElementById('checklist-photos-count').textContent = itemPhotos + sectionPhotos;
   document.getElementById('checklist-issues-count').textContent = state.issues.length;
   refreshChecklistFooter();
 }
@@ -4221,6 +4375,43 @@ function removeChecklistIssue(idx) {
   renderChecklistIssues();
   updateChecklistProgress();
   saveChecklistState(currentChecklistJob.id);
+}
+
+// ===== SECTION-LEVEL OPTIONAL NOTES + PHOTOS =====
+function updateSectionNotes(sectionKey, value) {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  if (!state.sections[sectionKey]) state.sections[sectionKey] = { notes: '', photos: [] };
+  state.sections[sectionKey].notes = value;
+  saveChecklistState(currentChecklistJob.id);
+}
+
+async function addSectionPhotos(sectionKey, input) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const state = ensureChecklistState(currentChecklistJob.id);
+  if (!state.sections[sectionKey]) state.sections[sectionKey] = { notes: '', photos: [] };
+  try {
+    const items = await Promise.all(files.map(f => compressAndUpload(f, 'cleaning', currentChecklistJob.id, 'sec-' + sectionKey)));
+    state.sections[sectionKey].photos = (state.sections[sectionKey].photos || []).concat(items);
+    input.value = '';
+    renderChecklistSections();
+    updateChecklistProgress();
+    saveChecklistState(currentChecklistJob.id);
+  } catch (e) {
+    console.warn('Section photo upload failed', e);
+    alert('Photo upload failed: ' + (e.message || e));
+  }
+}
+
+function removeSectionPhoto(sectionKey, idx) {
+  const state = ensureChecklistState(currentChecklistJob.id);
+  const sec = state.sections[sectionKey];
+  if (!sec || !Array.isArray(sec.photos)) return;
+  const removed = sec.photos.splice(idx, 1)[0];
+  renderChecklistSections();
+  updateChecklistProgress();
+  saveChecklistState(currentChecklistJob.id);
+  if (removed) deleteStorageObject(removed);
 }
 
 // ===== TEMPLATES VIEW =====
