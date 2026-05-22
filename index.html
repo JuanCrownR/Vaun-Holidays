@@ -2093,6 +2093,20 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <div id="keys-job-body"></div>
       </div>
 
+      <!-- GENERAL TASK VIEW -->
+      <div class="view" id="view-general-task">
+        <div class="checklist-topbar">
+          <button class="checklist-back" onclick="closeGeneralTask()">← Back</button>
+          <div style="flex:1;">
+            <div class="checklist-title" id="gen-task-title">Task</div>
+            <div class="checklist-sub" id="gen-task-sub">—</div>
+          </div>
+          <div id="gen-task-status-pill" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);">PENDING</div>
+          <button class="btn btn-primary" id="gen-task-close-btn" onclick="toggleGeneralTaskStatus()" style="background:var(--operations);">Close task</button>
+        </div>
+        <div id="gen-task-body"></div>
+      </div>
+
       <!-- PROPERTIES -->
       <div class="view" id="view-properties">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -2392,6 +2406,10 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
           <option value="missing">Missing</option>
         </select>
       </div>
+      <div class="form-group" id="job-heading-group" style="display:none">
+        <label class="form-label">Heading</label>
+        <input type="text" class="form-input" id="job-heading" placeholder="Brief task title…">
+      </div>
       <div class="form-group">
         <label class="form-label">Property</label>
         <select class="form-select" id="job-property">
@@ -2422,8 +2440,8 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <input type="text" class="form-input" id="job-assign" placeholder="Cleaner name or staff member">
       </div>
       <div class="form-group">
-        <label class="form-label">Notes</label>
-        <textarea class="form-textarea" id="job-notes" placeholder="Any special instructions or context..."></textarea>
+        <label class="form-label" id="job-notes-label">Notes</label>
+        <textarea class="form-textarea" id="job-notes" placeholder="Any special instructions or context…"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -2557,7 +2575,7 @@ function showView(name, el) {
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property' };
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
   if (name === 'asset') renderAssetView();
@@ -2765,6 +2783,10 @@ async function saveJob() {
   const taskTypeVal = document.getElementById('job-task-type').value;
   if (taskTypeVal) meta.task_type = taskTypeVal;
 
+  // Store heading for general (non-template) tasks
+  const headingVal = document.getElementById('job-heading').value.trim();
+  if (headingVal) meta.heading = headingVal;
+
   if (dept === 'keys') {
     const keyType = document.getElementById('job-keys-type').value;
     meta.key_job_type = keyType;
@@ -2817,13 +2839,13 @@ function renderAllDepts() {
     </div>`);
 
   renderDept('maintenance', 'maintenance-jobs', ['Issue','Property','Reported','Assigned','Status',''], j => `
-    <div class="table-row grid-maintenance">
-      <span style="font-size:13px;font-weight:500">${j.notes || 'Maintenance issue'}</span>
+    <div class="table-row grid-maintenance" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
+      <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Maintenance issue')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span>${statusBadge(j.status)}</span>
-      <span><button class="job-delete-btn" title="Delete job" onclick="confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
   renderDept('inspections', 'inspection-jobs', ['Property','Inspector','Date','Type','Status',''], j => `
@@ -2837,23 +2859,23 @@ function renderAllDepts() {
     </div>`);
 
   renderDept('operations', 'operations-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
-    <div class="table-row grid-operations">
-      <span style="font-size:13px;font-weight:500">${j.notes || 'Operations task'}</span>
+    <div class="table-row grid-operations" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
+      <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Operations task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span>${statusBadge(j.status)}</span>
-      <span><button class="job-delete-btn" title="Delete job" onclick="confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
   renderDept('compliance', 'compliance-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
-    <div class="table-row grid-compliance">
-      <span style="font-size:13px;font-weight:500">${j.notes || 'Compliance task'}</span>
+    <div class="table-row grid-compliance" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
+      <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Compliance task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
       <span>${statusBadge(j.status)}</span>
-      <span><button class="job-delete-btn" title="Delete job" onclick="confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
+      <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
   renderDept('keys', 'keys-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
@@ -2887,6 +2909,10 @@ window.addEventListener('popstate', function(e) {
       const job = jobs.find(j => String(j.id) === String(state.jobId));
       if (job) openKeysJob(job);
       else showView('keys');
+    } else if (state.view === 'general-task') {
+      const job = jobs.find(j => String(j.id) === String(state.jobId));
+      if (job) openGeneralTask(job);
+      else showView('operations');
     } else if (state.view === 'asset') {
       selectProperty(state.propertyId);
     } else if (state.view) {
@@ -3064,6 +3090,8 @@ function renderCalendar() {
 function openNewJobModal() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('job-date').value = today;
+  document.getElementById('job-heading').value = '';
+  document.getElementById('job-notes').value = '';
   // Pre-select the currently scoped property (if any) so jobs from inside an
   // Asset View default to that property — user can still change via dropdown.
   const propSelect = document.getElementById('job-property');
@@ -3106,6 +3134,15 @@ function updateJobForm() {
     taskTypeGroup.style.display = 'none';
   }
 
+  // Show Heading field + switch Notes label for general (non-template) tasks
+  const selectedType = taskTypeSelect.value;
+  const isGeneral = selectedType && !templateForTaskType(selectedType);
+  document.getElementById('job-heading-group').style.display = isGeneral ? '' : 'none';
+  document.getElementById('job-notes-label').textContent = isGeneral ? 'Description' : 'Notes';
+  document.getElementById('job-notes').placeholder = isGeneral
+    ? 'Describe what needs to be done…'
+    : 'Any special instructions or context…';
+
   // Keys-specific sub-fields
   document.getElementById('job-keys-type-group').style.display = isKeys ? '' : 'none';
   const keysType = document.getElementById('job-keys-type').value;
@@ -3122,7 +3159,8 @@ function viewJob(job) {
     openKeysJob(job);
     return;
   }
-  alert(`Job: ${job.department.toUpperCase()}\nProperty: ${propNames[job.property]}\nDate: ${formatDate(job.date)}\nAssigned: ${job.assigned_to || 'Unassigned'}\nStatus: ${job.status}\nNotes: ${job.notes || 'None'}`);
+  // maintenance, operations, compliance → general task view
+  openGeneralTask(job);
 }
 
 // ===== HELPERS =====
@@ -3892,6 +3930,207 @@ function closeChecklist() {
   const dept = currentChecklistJob && currentChecklistJob.department === 'inspections' ? 'inspections' : 'cleaning';
   currentChecklistJob = null;
   showView(dept, document.querySelector(`.nav-item[onclick*="showView('${dept}'"]`));
+}
+
+// ===== GENERAL TASK DETAIL VIEW =====
+// Used by maintenance, operations, and compliance jobs. Stores task data in
+// job.meta.heading (title), job.notes (description), and meta.attachments (files).
+let currentGeneralTask = null;
+let _genTaskSaveTimer = null;
+
+function openGeneralTask(job) {
+  if (_historyPush) history.pushState({ view: 'general-task', jobId: job.id }, '', '#general-task');
+  const live = jobs.find(j => j.id === job.id) || job;
+  if (!live.meta || typeof live.meta !== 'object') live.meta = {};
+  if (!Array.isArray(live.meta.attachments)) live.meta.attachments = [];
+  currentGeneralTask = live;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-general-task').classList.add('active');
+  // Topbar
+  const deptColors = { maintenance:'var(--maintenance)', operations:'var(--operations)', compliance:'var(--compliance)' };
+  const btnColor = deptColors[live.department] || 'var(--accent)';
+  document.getElementById('gen-task-close-btn').style.background = btnColor;
+  document.getElementById('topbar-title').textContent = taskTypeLabel(live);
+  document.getElementById('gen-task-title').textContent =
+    (live.meta.heading) || taskTypeLabel(live);
+  const propName = propNames[live.property] || live.property;
+  document.getElementById('gen-task-sub').textContent =
+    `${propName} · Due ${formatDate(live.date)}${live.assigned_to ? ' · ' + live.assigned_to : ''}`;
+  // Status pill
+  const pill = document.getElementById('gen-task-status-pill');
+  const statusLabel = (live.status || 'pending').toUpperCase();
+  pill.textContent = statusLabel;
+  if (statusLabel === 'COMPLETE' || statusLabel === 'RESOLVED') {
+    pill.style.background = '#dcfce7'; pill.style.color = '#15803d';
+    document.getElementById('gen-task-close-btn').textContent = 'Reopen task';
+    document.getElementById('gen-task-close-btn').style.background = 'var(--text2)';
+  } else {
+    pill.style.background = 'var(--surface2)'; pill.style.color = 'var(--text2)';
+    document.getElementById('gen-task-close-btn').textContent = 'Close task';
+    document.getElementById('gen-task-close-btn').style.background = btnColor;
+  }
+  renderGeneralTask();
+}
+
+function closeGeneralTask() {
+  const dept = currentGeneralTask ? currentGeneralTask.department : 'operations';
+  currentGeneralTask = null;
+  const el = document.querySelector(`.nav-item[onclick*="showView('${dept}'"]`);
+  showView(dept, el || null);
+}
+
+function renderGeneralTask() {
+  const j = currentGeneralTask;
+  if (!j) return;
+  const body = document.getElementById('gen-task-body');
+  const locked = isJobLocked(j);
+  body.classList.toggle('is-locked', locked);
+  const lockBanner = locked ? `
+    <div class="lock-banner">
+      <div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes.</span></div>
+    </div>` : '';
+  const attachmentsHtml = `
+    <div class="checklist-section-card">
+      <div class="checklist-section-head">
+        <span class="checklist-section-title">Photos &amp; Files</span>
+        <span class="checklist-section-count">${(j.meta.attachments || []).length} attachment${(j.meta.attachments || []).length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="checklist-photo-area" style="margin-left:0;">
+        <div class="checklist-photo-grid">
+          ${(j.meta.attachments || []).map((a, i) => {
+            const url = photoDataUrl(a);
+            const isImage = (a.type && a.type.startsWith('image/')) || /\.(jpe?g|png|gif|webp|heic)$/i.test(a.name || '');
+            return `<div class="checklist-photo">
+              ${isImage && url
+                ? `<img src="${url}" alt="" style="cursor:pointer;" onclick="window.open('${url}','_blank')">`
+                : `<a href="${url || '#'}" target="_blank" rel="noopener" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--text2);text-align:center;padding:6px;text-decoration:none;gap:4px;"><span style="font-size:24px;">📄</span>${escapeHtml(a.name || 'File')}</a>`}
+              ${a.uploaded_at ? `<div class="photo-timestamp">${escapeHtml(formatPhotoTime(a.uploaded_at))}</div>` : ''}
+              <button class="checklist-photo-remove" onclick="removeGenTaskAttachment(${i})">✕</button>
+            </div>`;
+          }).join('')}
+          <label class="checklist-photo-add" title="Take a photo">
+            <span class="checklist-photo-add-icon">📷</span>Take photo
+            <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addGenTaskAttachments(this)">
+          </label>
+          <label class="checklist-photo-add" style="border-style:solid;" title="Upload photo or file">
+            <span class="checklist-photo-add-icon">📎</span>Upload file
+            <input type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" multiple style="display:none" onchange="addGenTaskAttachments(this)">
+          </label>
+        </div>
+      </div>
+    </div>`;
+  body.innerHTML = `
+    ${lockBanner}
+    <div class="checklist-section-card">
+      <div class="checklist-section-head">
+        <span class="checklist-section-title">Heading</span>
+      </div>
+      <input type="text" class="form-input" style="margin:0 16px 16px;" value="${escapeHtml(j.meta.heading || '')}"
+        placeholder="Brief task title…"
+        oninput="updateGenTaskField('heading', this.value)">
+    </div>
+    <div class="checklist-section-card">
+      <div class="checklist-section-head">
+        <span class="checklist-section-title">Description</span>
+      </div>
+      <textarea class="form-textarea" style="margin:0 16px 16px;min-height:100px;"
+        placeholder="Describe what needs to be done…"
+        oninput="updateGenTaskField('notes', this.value)">${escapeHtml(j.notes || '')}</textarea>
+    </div>
+    <div class="checklist-section-card">
+      <div class="checklist-section-head">
+        <span class="checklist-section-title">Assignment</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px;">
+        <div>
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Assigned to</div>
+          <input type="text" class="form-input" value="${escapeHtml(j.assigned_to || '')}"
+            placeholder="Team member…"
+            oninput="updateGenTaskField('assigned_to', this.value)">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Due date</div>
+          <input type="date" class="form-input" value="${j.date || ''}"
+            oninput="updateGenTaskField('date', this.value)">
+        </div>
+      </div>
+    </div>
+    ${attachmentsHtml}`;
+}
+
+function updateGenTaskField(field, value) {
+  const j = currentGeneralTask;
+  if (!j) return;
+  if (field === 'heading') { j.meta.heading = value; }
+  else if (field === 'notes') { j.notes = value; }
+  else if (field === 'assigned_to') { j.assigned_to = value; }
+  else if (field === 'date') { j.date = value; }
+  // Update topbar subtitle reactively
+  const propName = propNames[j.property] || j.property;
+  document.getElementById('gen-task-sub').textContent =
+    `${propName} · Due ${formatDate(j.date)}${j.assigned_to ? ' · ' + j.assigned_to : ''}`;
+  if (field === 'heading') {
+    document.getElementById('gen-task-title').textContent = value || taskTypeLabel(j);
+    document.getElementById('topbar-title').textContent = value || taskTypeLabel(j);
+  }
+  // Debounce DB write
+  clearTimeout(_genTaskSaveTimer);
+  _genTaskSaveTimer = setTimeout(async () => {
+    const update = { notes: j.notes, assigned_to: j.assigned_to, date: j.date, meta: j.meta };
+    try {
+      await sb.from('jobs').update(update).eq('id', j.id);
+      const idx = jobs.findIndex(jj => jj.id === j.id);
+      if (idx >= 0) Object.assign(jobs[idx], update);
+      renderAllDepts();
+      if (document.getElementById('view-calendar').classList.contains('active')) renderCalendar();
+    } catch(e) { console.warn('Gen task save failed', e); }
+  }, 600);
+}
+
+async function addGenTaskAttachments(input) {
+  const j = currentGeneralTask;
+  if (!j || !input.files) return;
+  for (const file of Array.from(input.files)) {
+    const path = `general/${j.id}/${Date.now()}_${file.name}`;
+    let url = '';
+    try {
+      const { data } = await sb.storage.from('task-photos').upload(path, file, { upsert: true });
+      if (data) {
+        const { data: urlData } = sb.storage.from('task-photos').getPublicUrl(path);
+        url = urlData.publicUrl;
+      }
+    } catch(e) { /* fall back to data URL */ }
+    if (!url) {
+      url = await new Promise(res => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result);
+        r.readAsDataURL(file);
+      });
+    }
+    j.meta.attachments.push({ name: file.name, type: file.type, url, path, uploaded_at: new Date().toISOString(), uploaded_by: currentUser?.email || '' });
+  }
+  input.value = '';
+  updateGenTaskField('_save', null); // trigger save
+  renderGeneralTask();
+}
+
+function removeGenTaskAttachment(idx) {
+  const j = currentGeneralTask;
+  if (!j) return;
+  j.meta.attachments.splice(idx, 1);
+  updateGenTaskField('_save', null);
+  renderGeneralTask();
+}
+
+async function toggleGeneralTaskStatus() {
+  const j = currentGeneralTask;
+  if (!j) return;
+  const newStatus = isJobLocked(j) ? 'pending' : 'complete';
+  j.status = newStatus;
+  try { await sb.from('jobs').update({ status: newStatus }).eq('id', j.id); } catch(e) {}
+  const idx = jobs.findIndex(jj => jj.id === j.id);
+  if (idx >= 0) jobs[idx].status = newStatus;
+  openGeneralTask(j); // re-open to refresh header + lock state
 }
 
 // ===== KEYS JOB DETAIL VIEW =====
