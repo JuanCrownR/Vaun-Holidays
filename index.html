@@ -643,6 +643,43 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   padding: 8px 14px 12px;
 }
 
+/* ===== NEW TEMPLATE MODAL ===== */
+.ntpl-section-card {
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 16px; margin-bottom: 12px;
+}
+.ntpl-section-label {
+  font-size: 11px; font-weight: 600; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.ntpl-attach-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; margin-top: 10px; }
+.ntpl-attach-thumb {
+  position: relative; width: 64px; height: 64px;
+  border-radius: 8px; overflow: hidden;
+  background: var(--surface2); border: 1px solid var(--border); flex-shrink: 0;
+}
+.ntpl-attach-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ntpl-attach-remove {
+  position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+  border-radius: 50%; background: rgba(0,0,0,0.65); color: white;
+  border: none; cursor: pointer; font-size: 10px;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.ntpl-add-attach {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 64px; height: 64px; border: 2px dashed var(--border2); border-radius: 8px;
+  cursor: pointer; font-size: 11px; color: var(--text2); text-align: center;
+  gap: 3px; flex-shrink: 0;
+}
+.ntpl-add-section-btn {
+  width: 100%; background: transparent; border: 2px dashed var(--border2);
+  border-radius: 12px; padding: 14px; font-size: 13px; font-weight: 500;
+  cursor: pointer; color: var(--text2); display: block; margin-top: 4px;
+  font-family: 'DM Sans', sans-serif;
+}
+.ntpl-add-section-btn:hover { background: var(--surface2); }
+
 /* Property legend */
 .prop-legend {
   display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
@@ -2098,7 +2135,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Templates</div>
             <div style="font-size:13px;color:var(--text2);margin-top:2px;">Reusable task templates for cleaning, inspections, and maintenance workflows.</div>
           </div>
-          <button class="btn btn-secondary" onclick="alert('Custom template creation coming soon. For now, the Changeover Clean template is bundled with the app.')">+ New template</button>
+          <button class="btn btn-primary" onclick="openNewTemplateModal()">+ New template</button>
         </div>
         <div id="templates-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
 
@@ -2433,6 +2470,51 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
     <div class="cal-preview-body" id="cal-preview-body"></div>
     <div class="cal-preview-footer">
       <button class="btn btn-primary" onclick="calPreviewGoToTask()" style="width:100%;background:var(--brand);">Go to task →</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW TEMPLATE MODAL -->
+<div class="modal-overlay" id="new-template-modal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <h3 class="modal-title">New Template</h3>
+      <button class="modal-close" onclick="closeNewTemplateModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <select class="form-select" id="ntpl-dept">
+            <option value="cleaning">🧹 Cleaning</option>
+            <option value="maintenance" selected>🔧 Maintenance</option>
+            <option value="inspections">🔍 Inspections</option>
+            <option value="operations">📋 Operations</option>
+            <option value="compliance">🛡 Compliance</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Default due</label>
+          <select class="form-select" id="ntpl-due">
+            <option value="0">Same day</option>
+            <option value="1">1 day</option>
+            <option value="3">3 days</option>
+            <option value="7" selected>1 week</option>
+            <option value="14">2 weeks</option>
+            <option value="30">1 month</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Template name</label>
+        <input type="text" class="form-input" id="ntpl-name" placeholder="e.g. Weekly HVAC Check">
+      </div>
+      <div id="ntpl-sections"></div>
+      <button type="button" class="ntpl-add-section-btn" id="ntpl-add-section-btn" onclick="ntplAddSection()">+ Add another section</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeNewTemplateModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewTemplate()">Save template</button>
     </div>
   </div>
 </div>
@@ -2853,6 +2935,22 @@ async function saveJob() {
   const taskTypeVal = document.getElementById('job-task-type').value;
   if (taskTypeVal) meta.task_type = taskTypeVal;
 
+  if (taskTypeVal && taskTypeVal.startsWith('custom-')) {
+    const _ctpl = TASK_TEMPLATES.find(t => t.key === taskTypeVal);
+    if (_ctpl) {
+      meta.heading = _ctpl.name;
+      // Pre-apply default due date
+      if (_ctpl.dueDays != null) {
+        const _due = new Date();
+        _due.setDate(_due.getDate() + _ctpl.dueDays);
+        const _dueStr = _due.toISOString().split('T')[0];
+        // Only override if user hasn't manually set a date yet
+        const _dateEl = document.getElementById('job-date');
+        if (_dateEl && !_dateEl.dataset.userEdited) _dateEl.value = _dueStr;
+      }
+    }
+  }
+
   // Store heading for general (non-template) tasks
   const headingVal = document.getElementById('job-heading').value.trim();
   if (headingVal) meta.heading = headingVal;
@@ -3221,6 +3319,8 @@ function updateJobForm() {
 }
 
 function viewJob(job) {
+  const taskType = job.meta && job.meta.task_type;
+  if (taskType && taskType.startsWith('custom-')) { openGeneralTask(job); return; }
   if (job.department === 'cleaning' || job.department === 'inspections') {
     openChecklist(job);
     return;
@@ -3837,6 +3937,8 @@ const DEPT_TASK_TYPES = {
 function templateForTaskType(taskType) {
   if (taskType === 'changeover-clean')   return CHANGEOVER_CLEAN_TEMPLATE;
   if (taskType === 'ingoing-inspection') return INGOING_INSPECTION_TEMPLATE;
+  if (taskType && taskType.startsWith('custom-'))
+    return TASK_TEMPLATES.find(t => t.key === taskType) || null;
   return null;
 }
 
@@ -4182,6 +4284,10 @@ function renderGeneralTask() {
   if (!j) return;
   const body = document.getElementById('gen-task-body');
   const locked = isJobLocked(j);
+  const _taskType = j.meta && j.meta.task_type;
+  const _customTpl = (_taskType && _taskType.startsWith('custom-'))
+    ? TASK_TEMPLATES.find(t => t.key === _taskType) : null;
+  if (_customTpl) { renderCustomTemplateSections(j, _customTpl, locked); return; }
   body.classList.toggle('is-locked', locked);
   const lockBanner = locked ? `
     <div class="lock-banner">
@@ -4254,6 +4360,92 @@ function renderGeneralTask() {
       </div>
     </div>
     ${attachmentsHtml}`;
+}
+
+function renderCustomTemplateSections(j, tpl, locked) {
+  const body = document.getElementById('gen-task-body');
+  body.classList.toggle('is-locked', locked);
+  if (!Array.isArray(j.meta.section_attachments)) j.meta.section_attachments = [];
+  while (j.meta.section_attachments.length < tpl.sections.length) j.meta.section_attachments.push([]);
+
+  const lockBanner = locked ? `<div class="lock-banner"><div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes.</span></div></div>` : '';
+
+  const sectionsHtml = tpl.sections.map((sec, si) => {
+    const secAttachments = j.meta.section_attachments[si] || [];
+    const refHtml = (sec.attachments || []).map(a => {
+      const isImg = a.type && a.type.startsWith('image/');
+      return `<div style="position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;background:var(--surface2);border:1px solid var(--border);flex-shrink:0;">
+        ${isImg ? `<img src="${escapeHtml(a.dataUrl)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" onclick="window.open(this.src,'_blank')">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:22px;">📄</div>`}
+        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:white;font-size:9px;padding:2px 4px;text-align:center;">Ref</div>
+      </div>`;
+    }).join('');
+    const workerHtml = secAttachments.map((a, ai) => {
+      const url = a.url || a.dataUrl || '';
+      const isImg = (a.type && a.type.startsWith('image/')) || /\.(jpe?g|png|gif|webp|heic)$/i.test(a.name||'');
+      return `<div class="checklist-photo">
+        ${isImg && url ? `<img src="${url}" alt="" style="cursor:pointer;" onclick="window.open('${url}','_blank')">` : `<a href="${url||'#'}" target="_blank" rel="noopener" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--text2);text-align:center;padding:6px;text-decoration:none;gap:4px;"><span style="font-size:24px;">📄</span>${escapeHtml(a.name||'File')}</a>`}
+        <button class="checklist-photo-remove" onclick="removeGenTaskSectionAttachment(${si},${ai})">✕</button>
+      </div>`;
+    }).join('');
+    return `<div class="checklist-section-card">
+      <div class="checklist-section-head">
+        <span class="checklist-section-title">${escapeHtml(sec.heading || 'Step ' + (si+1))}</span>
+      </div>
+      ${sec.description ? `<div style="padding:0 16px 12px;font-size:13px;color:var(--text2);line-height:1.6;">${escapeHtml(sec.description)}</div>` : ''}
+      ${refHtml ? `<div style="padding:0 16px 10px;display:flex;flex-wrap:wrap;gap:8px;">${refHtml}</div>` : ''}
+      <div class="checklist-photo-area" style="margin-left:0;">
+        <div class="checklist-photo-grid">
+          ${workerHtml}
+          <label class="checklist-photo-add" title="Take a photo"><span class="checklist-photo-add-icon">📷</span>Take photo<input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addGenTaskSectionAttachments(this,${si})"></label>
+          <label class="checklist-photo-add" style="border-style:solid;" title="Upload file"><span class="checklist-photo-add-icon">📎</span>Upload file<input type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt" multiple style="display:none" onchange="addGenTaskSectionAttachments(this,${si})"></label>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `${lockBanner}${sectionsHtml}
+    <div class="checklist-section-card">
+      <div class="checklist-section-head"><span class="checklist-section-title">Assignment</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px;">
+        <div>
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Assigned to</div>
+          <input type="text" class="form-input" value="${escapeHtml(j.assigned_to||'')}" placeholder="Team member…" oninput="updateGenTaskField('assigned_to',this.value)">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Due date</div>
+          <input type="date" class="form-input" value="${j.date||''}" oninput="updateGenTaskField('date',this.value)">
+        </div>
+      </div>
+    </div>`;
+}
+
+async function addGenTaskSectionAttachments(input, si) {
+  const j = currentGeneralTask;
+  if (!j || !input.files) return;
+  if (!Array.isArray(j.meta.section_attachments)) j.meta.section_attachments = [];
+  while (j.meta.section_attachments.length <= si) j.meta.section_attachments.push([]);
+  for (const file of Array.from(input.files)) {
+    const path = `general/${j.id}/sec${si}/${Date.now()}_${file.name}`;
+    let url = '';
+    try {
+      const { data } = await sb.storage.from('task-photos').upload(path, file, { upsert: true });
+      if (data) { const { data: ud } = sb.storage.from('task-photos').getPublicUrl(path); url = ud.publicUrl; }
+    } catch(e) {}
+    if (!url) url = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file); });
+    j.meta.section_attachments[si].push({ name: file.name, type: file.type, url, path, uploaded_at: new Date().toISOString() });
+  }
+  input.value = '';
+  updateGenTaskField('_save', null);
+  renderGeneralTask();
+}
+
+function removeGenTaskSectionAttachment(si, ai) {
+  const j = currentGeneralTask;
+  if (!j || !Array.isArray(j.meta.section_attachments)) return;
+  if (!Array.isArray(j.meta.section_attachments[si])) return;
+  j.meta.section_attachments[si].splice(ai, 1);
+  updateGenTaskField('_save', null);
+  renderGeneralTask();
 }
 
 function updateGenTaskField(field, value) {
@@ -4976,10 +5168,13 @@ function templateStats(t) {
 // and icon-background colour so each card on the Templates page looks
 // distinct (cleaning broom vs inspection magnifying glass etc.).
 function templateChrome(t) {
-  if (t.key === 'ingoing-inspection') {
-    return { icon: '🔍', color: 'var(--inspections)', bg: '#dbeafe' };
+  if (t.custom) {
+    const icons  = { cleaning:'🧹', maintenance:'🔧', inspections:'🔍', operations:'📋', compliance:'🛡', keys:'🔑' };
+    const colors = { cleaning:'var(--cleaning)', maintenance:'var(--maintenance)', inspections:'var(--inspections)', operations:'var(--operations)', compliance:'var(--compliance)', keys:'var(--keys)' };
+    const bgs    = { cleaning:'#dcfce7', maintenance:'#fee2e2', inspections:'#dbeafe', operations:'#fef9c3', compliance:'#ede9fe', keys:'#fef9c3' };
+    return { icon: icons[t.department]||'📋', color: colors[t.department]||'var(--text2)', bg: bgs[t.department]||'#f5f5f3' };
   }
-  // Default to cleaning
+  if (t.key === 'ingoing-inspection') return { icon: '🔍', color: 'var(--inspections)', bg: '#dbeafe' };
   return { icon: '🧹', color: 'var(--cleaning)', bg: '#dcfce7' };
 }
 
@@ -4988,8 +5183,34 @@ function renderTemplatesGrid() {
   if (!grid) return;
   document.getElementById('template-preview').style.display = 'none';
   grid.innerHTML = TASK_TEMPLATES.map(t => {
-    const s = templateStats(t);
     const c = templateChrome(t);
+    if (t.custom) {
+      const dueDaysLabel = t.dueDays === 0 ? 'Same day' : t.dueDays === 1 ? '1 day' : t.dueDays === 7 ? '1 week' : t.dueDays === 14 ? '2 weeks' : t.dueDays === 30 ? '1 month' : t.dueDays + ' days';
+      return `
+        <div class="card">
+          <div style="height:6px;background:${c.color}"></div>
+          <div class="card-body">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <div style="width:34px;height:34px;border-radius:8px;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:16px;">${c.icon}</div>
+              <div style="font-size:16px;font-weight:600;flex:1;">${escapeHtml(t.name)}</div>
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5;">${escapeHtml(t.department.charAt(0).toUpperCase() + t.department.slice(1))} · Custom template</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+              <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center;">
+                <div style="font-size:18px;font-weight:700;font-family:'Syne',sans-serif;">${(t.sections || []).length}</div>
+                <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Sections</div>
+              </div>
+              <div style="background:var(--surface2);border-radius:8px;padding:8px;text-align:center;">
+                <div style="font-size:15px;font-weight:700;font-family:'Syne',sans-serif;">${dueDaysLabel}</div>
+                <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Default due</div>
+              </div>
+            </div>
+            <button class="btn btn-secondary" style="width:100%;font-size:12px;padding:7px;" onclick="deleteCustomTemplate('${escapeHtml(t.key)}')">Delete template</button>
+          </div>
+        </div>
+      `;
+    }
+    const s = templateStats(t);
     return `
       <div class="card" style="cursor:pointer;" onclick="openTemplatePreview('${t.key}')">
         <div style="height:6px;background:${c.color}"></div>
@@ -5132,6 +5353,129 @@ function saveTemplatesToStorage() {
   } catch (e) { console.warn('localStorage save failed', e); }
 }
 
+// ===== CUSTOM TEMPLATE CREATOR =====
+let ntplSections = [];
+
+function openNewTemplateModal() {
+  ntplSections = [{ heading: '', description: '', attachments: [] }];
+  const nameEl = document.getElementById('ntpl-name');
+  if (nameEl) nameEl.value = '';
+  const deptEl = document.getElementById('ntpl-dept');
+  if (deptEl) deptEl.value = 'maintenance';
+  const dueEl = document.getElementById('ntpl-due');
+  if (dueEl) dueEl.value = '7';
+  renderNtplSections();
+  document.getElementById('new-template-modal').classList.add('open');
+}
+
+function closeNewTemplateModal() {
+  document.getElementById('new-template-modal').classList.remove('open');
+}
+
+function renderNtplSections() {
+  const container = document.getElementById('ntpl-sections');
+  if (!container) return;
+  container.innerHTML = ntplSections.map((s, i) => `
+    <div class="ntpl-section-card">
+      <div class="ntpl-section-label">
+        <span>${i === 0 ? 'Main section' : 'Section ' + (i + 1)}</span>
+        ${i > 0 ? `<button type="button" onclick="ntplRemoveSection(${i})" style="background:transparent;border:none;cursor:pointer;font-size:12px;color:#b91c1c;font-family:inherit;padding:0;">Remove</button>` : ''}
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label class="form-label">Heading</label>
+        <input type="text" class="form-input" placeholder="Section heading…" value="${escapeHtml(s.heading)}" oninput="ntplSections[${i}].heading = this.value">
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label class="form-label">Description / instructions</label>
+        <textarea class="form-textarea" placeholder="Describe what needs to be done…" oninput="ntplSections[${i}].description = this.value">${escapeHtml(s.description)}</textarea>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Reference photos / files</div>
+        <div class="ntpl-attach-grid">
+          ${s.attachments.map((a, ai) => {
+            const isImg = a.type && a.type.startsWith('image/');
+            return `<div class="ntpl-attach-thumb">
+              ${isImg ? `<img src="${escapeHtml(a.dataUrl)}" alt="">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:22px;">📄</div>`}
+              <button type="button" class="ntpl-attach-remove" onclick="ntplRemoveAttachment(${i},${ai})">✕</button>
+            </div>`;
+          }).join('')}
+          <label class="ntpl-add-attach">
+            <span style="font-size:18px;line-height:1;">+</span>
+            <span>Add</span>
+            <input type="file" multiple accept="image/*,application/pdf,.doc,.docx" style="display:none" onchange="ntplAddAttachments(this,${i})">
+          </label>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  const addBtn = document.getElementById('ntpl-add-section-btn');
+  if (addBtn) addBtn.style.display = ntplSections.length >= 10 ? 'none' : 'block';
+}
+
+function ntplAddSection() {
+  if (ntplSections.length >= 10) return;
+  ntplSections.push({ heading: '', description: '', attachments: [] });
+  renderNtplSections();
+}
+
+function ntplRemoveSection(i) {
+  ntplSections.splice(i, 1);
+  renderNtplSections();
+}
+
+async function ntplAddAttachments(input, si) {
+  const files = Array.from(input.files);
+  for (const file of files) {
+    const dataUrl = await new Promise(res => { const fr = new FileReader(); fr.onload = e => res(e.target.result); fr.readAsDataURL(file); });
+    ntplSections[si].attachments.push({ name: file.name, dataUrl, type: file.type });
+  }
+  input.value = '';
+  renderNtplSections();
+}
+
+function ntplRemoveAttachment(si, ai) {
+  ntplSections[si].attachments.splice(ai, 1);
+  renderNtplSections();
+}
+
+function saveNewTemplate() {
+  const name = (document.getElementById('ntpl-name').value || '').trim();
+  const dept = document.getElementById('ntpl-dept').value;
+  const dueDays = parseInt(document.getElementById('ntpl-due').value) || 0;
+  if (!name) { alert('Please enter a template name.'); return; }
+  const key = 'custom-' + Date.now();
+  const tpl = {
+    key, name, department: dept, dueDays, custom: true,
+    sections: ntplSections.map((s, i) => ({
+      key: key + '-sec-' + i,
+      heading: s.heading,
+      description: s.description,
+      attachments: s.attachments
+    }))
+  };
+  TASK_TEMPLATES.push(tpl);
+  if (!DEPT_TASK_TYPES[dept]) DEPT_TASK_TYPES[dept] = [];
+  DEPT_TASK_TYPES[dept].push({ value: key, label: name });
+  saveTemplatesToStorage();
+  closeNewTemplateModal();
+  renderTemplatesGrid();
+  addActivity(`Template "${name}" created`, dept);
+}
+
+function deleteCustomTemplate(key) {
+  if (!confirm('Delete this template? Jobs already created from it will not be affected.')) return;
+  const idx = TASK_TEMPLATES.findIndex(t => t.key === key);
+  if (idx < 0) return;
+  const tpl = TASK_TEMPLATES[idx];
+  TASK_TEMPLATES.splice(idx, 1);
+  if (DEPT_TASK_TYPES[tpl.department]) {
+    const di = DEPT_TASK_TYPES[tpl.department].findIndex(d => d.value === key);
+    if (di >= 0) DEPT_TASK_TYPES[tpl.department].splice(di, 1);
+  }
+  saveTemplatesToStorage();
+  renderTemplatesGrid();
+}
+
 function loadTemplatesFromStorage() {
   try {
     const raw = localStorage.getItem('vh_task_templates_v1');
@@ -5165,6 +5509,13 @@ function loadTemplatesFromStorage() {
       INGOING_INSPECTION_TEMPLATE.description = ig.description;
       INGOING_INSPECTION_TEMPLATE.sections = ig.sections;
     }
+    // Re-register any custom templates in DEPT_TASK_TYPES (in case page reloaded)
+    TASK_TEMPLATES.forEach(t => {
+      if (!t.custom) return;
+      if (!DEPT_TASK_TYPES[t.department]) DEPT_TASK_TYPES[t.department] = [];
+      if (!DEPT_TASK_TYPES[t.department].find(d => d.value === t.key))
+        DEPT_TASK_TYPES[t.department].push({ value: t.key, label: t.name });
+    });
   } catch (e) { console.warn('localStorage load failed', e); }
 }
 loadTemplatesFromStorage();
