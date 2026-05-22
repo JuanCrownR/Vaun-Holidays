@@ -680,6 +680,19 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 }
 .ntpl-add-section-btn:hover { background: var(--surface2); }
 
+/* ===== SEND SUPPLIER EMAIL MODAL ===== */
+.email-preview-frame {
+  width: 100%; min-height: 280px; border: 1.5px solid var(--border);
+  border-radius: 10px; background: #f9f9f7; padding: 0;
+  overflow: hidden; display: block;
+}
+.send-status-banner {
+  padding: 12px 16px; border-radius: 10px; font-size: 13px;
+  font-weight: 500; margin-bottom: 14px; display: none;
+}
+.send-status-banner.success { background: #dcfce7; color: #15803d; display: block; }
+.send-status-banner.error   { background: #fee2e2; color: #b91c1c; display: block; }
+
 /* Property legend */
 .prop-legend {
   display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
@@ -2474,6 +2487,46 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   </div>
 </div>
 
+<!-- SEND SUPPLIER EMAIL MODAL -->
+<div class="modal-overlay" id="send-supplier-modal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <h3 class="modal-title">📧 Send Work Order</h3>
+      <button class="modal-close" onclick="closeSendSupplierModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="send-status-banner" class="send-status-banner"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">To</label>
+          <input type="email" class="form-input" id="send-to" placeholder="supplier@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Template</label>
+          <select class="form-select" id="send-template" onchange="updateSendPreview()">
+            <option value="general-work-order">📋 General Work Order</option>
+            <option value="maintenance-request">🔧 Maintenance Request</option>
+            <option value="service-request">🛎 Service Request</option>
+            <option value="inspection-request">🔍 Inspection Request</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subject</label>
+        <input type="text" class="form-input" id="send-subject">
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="margin-bottom:8px;">Email preview</label>
+        <iframe class="email-preview-frame" id="send-preview-frame" srcdoc="" sandbox="allow-same-origin"></iframe>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSendSupplierModal()">Cancel</button>
+      <button class="btn btn-primary" id="send-email-btn" onclick="sendSupplierEmail()" style="background:var(--brand);min-width:140px;">Send email →</button>
+    </div>
+  </div>
+</div>
+
 <!-- NEW TEMPLATE MODAL -->
 <div class="modal-overlay" id="new-template-modal">
   <div class="modal" style="max-width:620px;">
@@ -3583,6 +3636,12 @@ function renderSupplierCard(job) {
           <input type="email" class="form-input" value="${escapeHtml(m.supplier_email||'')}" placeholder="supplier@example.com"
             oninput="updateSupplierField('supplier_email',this.value)">
         </div>
+        ${m.supplier_email ? `
+        <div style="grid-column:1/-1;margin-top:4px;">
+          <button class="btn btn-primary" onclick="openSendSupplierModal()" style="width:100%;background:var(--brand);">
+            📧 Send Work Order to Supplier
+          </button>
+        </div>` : ''}
       </div>
     </div>`;
 }
@@ -3602,6 +3661,299 @@ function updateSupplierField(field, value) {
       if (idx >= 0) jobs[idx].meta = j.meta;
     } catch(e) { console.warn('Supplier save failed', e); }
   }, 600);
+}
+
+// ===== SUPPLIER EMAIL / WORK ORDERS =====
+
+// Returns the job that's currently open in any task view
+function _currentOpenJob() {
+  return currentGeneralTask || currentKeysJob || currentChecklistJob || null;
+}
+
+// HTML email builder — shared header/footer wrapper
+function _emailWrap(bodyHtml, accentColor) {
+  accentColor = accentColor || '#0d0d0d';
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body { margin:0; padding:0; background:#f4f4f2; font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; }
+  .wrap { max-width:600px; margin:24px auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08); }
+  .header { background:${accentColor}; padding:28px 32px; }
+  .header h1 { margin:0; color:white; font-size:22px; font-weight:700; letter-spacing:-0.3px; }
+  .header p  { margin:6px 0 0; color:rgba(255,255,255,0.75); font-size:13px; }
+  .body { padding:28px 32px; }
+  .section { margin-bottom:24px; }
+  .section-title { font-size:11px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:10px; }
+  .field-row { display:flex; gap:8px; margin-bottom:8px; font-size:14px; line-height:1.5; }
+  .field-label { color:#666; min-width:130px; flex-shrink:0; }
+  .field-value { color:#111; font-weight:500; }
+  .desc-box { background:#f8f8f6; border-left:3px solid ${accentColor}; border-radius:4px; padding:14px 16px; font-size:14px; color:#333; line-height:1.6; margin-top:4px; white-space:pre-wrap; }
+  .divider { height:1px; background:#eee; margin:20px 0; }
+  .footer { background:#f8f8f6; padding:18px 32px; font-size:12px; color:#aaa; line-height:1.6; border-top:1px solid #eee; }
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; background:${accentColor}22; color:${accentColor}; }
+</style>
+</head><body>
+<div class="wrap">
+${bodyHtml}
+<div class="footer">
+  This is an automated message from <strong>Vaun Holidays Property Management</strong>.<br>
+  Please do not reply to this email. For queries contact your property manager directly.
+</div>
+</div>
+</body></html>`;
+}
+
+// Returns a field row HTML, skipping empty values
+function _fRow(label, value) {
+  if (!value) return '';
+  return `<div class="field-row"><span class="field-label">${label}</span><span class="field-value">${value}</span></div>`;
+}
+
+// Work order email templates. Each returns a { subject, html } object.
+const WORK_ORDER_TEMPLATES = {
+
+  'general-work-order': {
+    name: 'General Work Order',
+    color: '#0d0d0d',
+    build(job, props) {
+      const prop = props[job.property] || job.property || '—';
+      const dept = (job.department || '').charAt(0).toUpperCase() + (job.department || '').slice(1);
+      const m = job.meta || {};
+      const subject = `Work Order — ${prop} — ${formatDate(job.date)}`;
+      const html = _emailWrap(`
+        <div class="header">
+          <h1>Work Order</h1>
+          <p>Vaun Holidays Property Management</p>
+        </div>
+        <div class="body">
+          <div class="section">
+            <div class="section-title">Job Details</div>
+            ${_fRow('Property', prop)}
+            ${_fRow('Department', dept)}
+            ${_fRow('Task type', m.task_type || '—')}
+            ${_fRow('Date required', formatDate(job.date))}
+            ${_fRow('Time window', job.time_window || '—')}
+            ${_fRow('Assigned to', job.assigned_to || '—')}
+            ${m.heading ? _fRow('Heading', m.heading) : ''}
+          </div>
+          ${job.notes ? `<div class="section"><div class="section-title">Description / Scope of work</div><div class="desc-box">${escapeHtml(job.notes)}</div></div>` : ''}
+          <div class="divider"></div>
+          <div class="section">
+            <div class="section-title">Supplier Details</div>
+            ${_fRow('Company', m.supplier || '—')}
+            ${_fRow('Contact name', m.contact_name || '—')}
+            ${_fRow('Phone', m.supplier_phone || '—')}
+            ${_fRow('Email', m.supplier_email || '—')}
+          </div>
+        </div>`, '#0d0d0d');
+      return { subject, html };
+    }
+  },
+
+  'maintenance-request': {
+    name: 'Maintenance Request',
+    color: '#e74c3c',
+    build(job, props) {
+      const prop = props[job.property] || job.property || '—';
+      const m = job.meta || {};
+      const subject = `Maintenance Request — ${prop} — ${formatDate(job.date)}`;
+      const html = _emailWrap(`
+        <div class="header" style="background:#e74c3c">
+          <h1>🔧 Maintenance Request</h1>
+          <p>Vaun Holidays Property Management</p>
+        </div>
+        <div class="body">
+          <p style="font-size:15px;color:#333;margin:0 0 20px;">Hi${m.contact_name ? ' ' + escapeHtml(m.contact_name) : ''},</p>
+          <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
+            We have a maintenance job that requires your attention at the property below. Please review the details and confirm your availability.
+          </p>
+          <div class="section">
+            <div class="section-title">Job Details</div>
+            ${_fRow('Property', prop)}
+            ${_fRow('Date required', formatDate(job.date))}
+            ${_fRow('Time window', job.time_window || '—')}
+            ${m.heading ? _fRow('Issue', m.heading) : ''}
+          </div>
+          ${job.notes ? `<div class="section"><div class="section-title">Description</div><div class="desc-box">${escapeHtml(job.notes)}</div></div>` : ''}
+          <div class="divider"></div>
+          <p style="font-size:13px;color:#888;margin:0;">Please reply to confirm your attendance or call your property manager to discuss.</p>
+        </div>`, '#e74c3c');
+      return { subject, html };
+    }
+  },
+
+  'service-request': {
+    name: 'Service Request',
+    color: '#f39c12',
+    build(job, props) {
+      const prop = props[job.property] || job.property || '—';
+      const m = job.meta || {};
+      const subject = `Service Request — ${prop} — ${formatDate(job.date)}`;
+      const html = _emailWrap(`
+        <div class="header" style="background:#f39c12">
+          <h1>🛎 Service Request</h1>
+          <p>Vaun Holidays Property Management</p>
+        </div>
+        <div class="body">
+          <p style="font-size:15px;color:#333;margin:0 0 20px;">Hi${m.contact_name ? ' ' + escapeHtml(m.contact_name) : ''},</p>
+          <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
+            We are requesting your services for the property listed below. Please find the job details attached.
+          </p>
+          <div class="section">
+            <div class="section-title">Service Details</div>
+            ${_fRow('Property', prop)}
+            ${_fRow('Date required', formatDate(job.date))}
+            ${_fRow('Time window', job.time_window || '—')}
+            ${_fRow('Assigned contact', job.assigned_to || '—')}
+          </div>
+          ${job.notes ? `<div class="section"><div class="section-title">Scope of Work</div><div class="desc-box">${escapeHtml(job.notes)}</div></div>` : ''}
+          <div class="divider"></div>
+          <div class="section">
+            <div class="section-title">Your Details on File</div>
+            ${_fRow('Company', m.supplier || '—')}
+            ${_fRow('Contact', m.contact_name || '—')}
+          </div>
+        </div>`, '#f39c12');
+      return { subject, html };
+    }
+  },
+
+  'inspection-request': {
+    name: 'Inspection Request',
+    color: '#3498db',
+    build(job, props) {
+      const prop = props[job.property] || job.property || '—';
+      const m = job.meta || {};
+      const subject = `Inspection Request — ${prop} — ${formatDate(job.date)}`;
+      const html = _emailWrap(`
+        <div class="header" style="background:#3498db">
+          <h1>🔍 Inspection Request</h1>
+          <p>Vaun Holidays Property Management</p>
+        </div>
+        <div class="body">
+          <p style="font-size:15px;color:#333;margin:0 0 20px;">Hi${m.contact_name ? ' ' + escapeHtml(m.contact_name) : ''},</p>
+          <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
+            We require an inspection to be carried out at the property below. Please confirm your availability at the scheduled time.
+          </p>
+          <div class="section">
+            <div class="section-title">Inspection Details</div>
+            ${_fRow('Property', prop)}
+            ${_fRow('Date', formatDate(job.date))}
+            ${_fRow('Time window', job.time_window || '—')}
+          </div>
+          ${job.notes ? `<div class="section"><div class="section-title">Notes</div><div class="desc-box">${escapeHtml(job.notes)}</div></div>` : ''}
+          <div class="divider"></div>
+          <p style="font-size:13px;color:#888;margin:0;">Please bring appropriate documentation. Contact your property manager if you have any questions.</p>
+        </div>`, '#3498db');
+      return { subject, html };
+    }
+  }
+};
+
+// ---- UI functions ----
+
+let _sendSupplierJob = null;
+
+function openSendSupplierModal() {
+  const job = _currentOpenJob();
+  if (!job) return;
+  _sendSupplierJob = job;
+
+  // Pre-fill to address
+  const email = (job.meta && job.meta.supplier_email) || '';
+  document.getElementById('send-to').value = email;
+
+  // Pick best default template based on department
+  const deptMap = {
+    maintenance: 'maintenance-request',
+    inspections: 'inspection-request',
+    cleaning:    'service-request',
+    operations:  'service-request',
+    compliance:  'general-work-order',
+    keys:        'general-work-order'
+  };
+  const sel = document.getElementById('send-template');
+  sel.value = deptMap[job.department] || 'general-work-order';
+
+  // Clear status banner
+  const banner = document.getElementById('send-status-banner');
+  banner.className = 'send-status-banner';
+  banner.textContent = '';
+
+  // Reset button
+  const btn = document.getElementById('send-email-btn');
+  btn.disabled = false;
+  btn.textContent = 'Send email →';
+
+  updateSendPreview();
+  document.getElementById('send-supplier-modal').classList.add('open');
+}
+
+function closeSendSupplierModal() {
+  document.getElementById('send-supplier-modal').classList.remove('open');
+  _sendSupplierJob = null;
+}
+
+function updateSendPreview() {
+  const job = _sendSupplierJob;
+  if (!job) return;
+  const templateKey = document.getElementById('send-template').value;
+  const tpl = WORK_ORDER_TEMPLATES[templateKey];
+  if (!tpl) return;
+  const { subject, html } = tpl.build(job, propNames);
+  document.getElementById('send-subject').value = subject;
+  const frame = document.getElementById('send-preview-frame');
+  frame.srcdoc = html;
+}
+
+async function sendSupplierEmail() {
+  const job = _sendSupplierJob;
+  if (!job) return;
+
+  const to      = (document.getElementById('send-to').value || '').trim();
+  const subject = (document.getElementById('send-subject').value || '').trim();
+  const templateKey = document.getElementById('send-template').value;
+  const tpl = WORK_ORDER_TEMPLATES[templateKey];
+
+  if (!to)      { alert('Please enter a recipient email address.'); return; }
+  if (!subject) { alert('Please enter a subject line.'); return; }
+  if (!tpl)     { alert('Please select a template.'); return; }
+
+  const { html } = tpl.build(job, propNames);
+
+  const btn = document.getElementById('send-email-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const resp = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, html })
+    });
+    const result = await resp.json();
+
+    const banner = document.getElementById('send-status-banner');
+    if (resp.ok && result.success) {
+      banner.className = 'send-status-banner success';
+      banner.textContent = `✅ Work order sent to ${to}`;
+      btn.textContent = '✓ Sent';
+      // Log in meta
+      if (!job.meta) job.meta = {};
+      if (!Array.isArray(job.meta.emails_sent)) job.meta.emails_sent = [];
+      job.meta.emails_sent.push({ to, subject, template: templateKey, sent_at: new Date().toISOString() });
+      try { await sb.from('jobs').update({ meta: job.meta }).eq('id', job.id); } catch(e) {}
+      addActivity(`Work order emailed to ${to}`, job.department);
+    } else {
+      throw new Error(result.error || 'Unknown error');
+    }
+  } catch(err) {
+    const banner = document.getElementById('send-status-banner');
+    banner.className = 'send-status-banner error';
+    banner.textContent = `❌ Failed to send: ${err.message}`;
+    btn.disabled = false;
+    btn.textContent = 'Retry →';
+  }
 }
 
 function addActivity(text, dept) {
