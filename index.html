@@ -593,62 +593,54 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 /* ===== CALENDAR TASK PREVIEW SHEET ===== */
 #cal-preview-modal {
   display: none; position: fixed; inset: 0; z-index: 150;
-  background: rgba(0,0,0,0.45);
-  align-items: flex-end; justify-content: center;
 }
-#cal-preview-modal.open { display: flex; }
+#cal-preview-modal.open { display: block; }
 .cal-preview-sheet {
+  position: fixed;
   background: white;
-  border-radius: 20px 20px 0 0;
-  width: 100%; max-width: 600px;
-  padding-bottom: env(safe-area-inset-bottom, 16px);
-  box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
-  animation: calPreviewUp 0.2s ease;
+  border-radius: 14px;
+  width: 290px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+  animation: calPreviewPop 0.15s ease;
+  /* top / left set dynamically by JS */
 }
-@keyframes calPreviewUp {
-  from { transform: translateY(50px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
-.cal-preview-handle {
-  width: 40px; height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  margin: 12px auto 0;
+@keyframes calPreviewPop {
+  from { transform: scale(0.93); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
 }
 .cal-preview-header {
   display: flex; align-items: flex-start; justify-content: space-between;
-  padding: 14px 20px 12px;
+  padding: 12px 14px 10px;
   border-bottom: 1px solid var(--border);
-  gap: 12px;
+  gap: 10px;
 }
 .cal-preview-title {
-  font-size: 16px; font-weight: 700; color: var(--text);
+  font-size: 14px; font-weight: 700; color: var(--text);
   line-height: 1.3;
 }
 .cal-preview-body {
-  padding: 14px 20px;
-  display: flex; flex-direction: column; gap: 10px;
+  padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 8px;
 }
 .cal-preview-row {
-  display: flex; gap: 10px; align-items: baseline;
+  display: flex; gap: 8px; align-items: baseline;
 }
 .cal-preview-label {
-  font-size: 11px; font-weight: 600; color: var(--text2);
+  font-size: 10px; font-weight: 600; color: var(--text2);
   text-transform: uppercase; letter-spacing: 0.04em;
-  min-width: 78px; padding-top: 2px;
+  min-width: 68px; padding-top: 2px;
 }
 .cal-preview-value {
-  font-size: 14px; color: var(--text); font-weight: 500;
+  font-size: 13px; color: var(--text); font-weight: 500;
   flex: 1;
 }
 .cal-preview-badge {
   display: inline-flex; align-items: center;
-  padding: 3px 10px; border-radius: 20px;
-  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; font-weight: 600;
 }
 .cal-preview-footer {
-  padding: 10px 20px 18px;
-  display: flex; gap: 10px;
+  padding: 8px 14px 12px;
 }
 
 /* Property legend */
@@ -2430,19 +2422,17 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 
 <!-- CALENDAR TASK PREVIEW SHEET -->
 <div id="cal-preview-modal" onclick="if(event.target===this)closeCalPreview()">
-  <div class="cal-preview-sheet">
-    <div class="cal-preview-handle"></div>
+  <div class="cal-preview-sheet" id="cal-preview-sheet">
     <div class="cal-preview-header">
       <div style="flex:1;min-width:0;">
-        <div id="cal-preview-dept-tag" style="margin-bottom:6px;"></div>
+        <div id="cal-preview-dept-tag" style="margin-bottom:5px;"></div>
         <div class="cal-preview-title" id="cal-preview-title">—</div>
       </div>
-      <button class="modal-close" onclick="closeCalPreview()">✕</button>
+      <button class="modal-close" style="width:26px;height:26px;font-size:13px;flex-shrink:0;" onclick="closeCalPreview()">✕</button>
     </div>
     <div class="cal-preview-body" id="cal-preview-body"></div>
     <div class="cal-preview-footer">
-      <button class="btn btn-secondary" onclick="closeCalPreview()" style="flex:1;">Close</button>
-      <button class="btn btn-primary" id="cal-preview-goto-btn" onclick="calPreviewGoToTask()" style="flex:2;background:var(--brand);">Go to task →</button>
+      <button class="btn btn-primary" onclick="calPreviewGoToTask()" style="width:100%;background:var(--brand);">Go to task →</button>
     </div>
   </div>
 </div>
@@ -3246,7 +3236,7 @@ function viewJob(job) {
 // ===== CALENDAR TASK PREVIEW =====
 let _calPreviewJobId = null;
 
-function openCalPreview(jobId) {
+function openCalPreview(jobId, e) {
   const job = jobs.find(j => String(j.id) === String(jobId));
   if (!job) return;
   _calPreviewJobId = jobId;
@@ -3298,7 +3288,7 @@ function openCalPreview(jobId) {
   const notesRow = notes
     ? `<div class="cal-preview-row">
          <span class="cal-preview-label">Notes</span>
-         <span class="cal-preview-value" style="color:var(--text2);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${notes}</span>
+         <span class="cal-preview-value" style="color:var(--text2);font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${notes}</span>
        </div>`
     : '';
 
@@ -3322,7 +3312,37 @@ function openCalPreview(jobId) {
     ${notesRow}
   `;
 
-  document.getElementById('cal-preview-modal').classList.add('open');
+  // Show first so we can measure the sheet height
+  const modal = document.getElementById('cal-preview-modal');
+  const sheet = document.getElementById('cal-preview-sheet');
+  modal.classList.add('open');
+
+  // Position the card near the clicked pill
+  const CARD_W = 290;
+  const MARGIN = 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const pillRect = e.currentTarget.getBoundingClientRect();
+  const cardH = sheet.offsetHeight;
+
+  // Horizontal: align left edge with pill, nudge left if it overflows
+  let left = pillRect.left;
+  if (left + CARD_W + MARGIN > vw) left = vw - CARD_W - MARGIN;
+  if (left < MARGIN) left = MARGIN;
+
+  // Vertical: prefer above, fall back to below
+  let top;
+  if (pillRect.top - cardH - MARGIN >= MARGIN) {
+    top = pillRect.top - cardH - MARGIN;        // above the pill
+  } else {
+    top = pillRect.bottom + MARGIN;              // below the pill
+  }
+  // Final clamp so the card never leaves the viewport
+  if (top + cardH + MARGIN > vh) top = vh - cardH - MARGIN;
+  if (top < MARGIN) top = MARGIN;
+
+  sheet.style.left = left + 'px';
+  sheet.style.top  = top  + 'px';
 }
 
 function closeCalPreview() {
