@@ -1105,6 +1105,21 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   pointer-events: none;
 }
 
+/* ===== ISSUE DEPT PILLS ===== */
+.issue-dept-pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.issue-dept-pill:hover { filter: brightness(.95); }
+.issue-dept-pill.active { color: white; }
+
 /* ===== CLEANING CHECKLIST ===== */
 .checklist-topbar {
   display: flex;
@@ -2228,7 +2243,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
               <div class="checklist-progress-bar"><div class="checklist-progress-fill" id="checklist-progress-fill" style="width:0"></div></div>
             </div>
           </div>
-          <button class="btn btn-primary" style="background:var(--maintenance);" onclick="openReportIssue()">+ Report issue</button>
+          <button class="btn btn-secondary" style="background:#f97316;color:white;border-color:#f97316;" onclick="openReportIssue(currentChecklistJob)">⚠️ Report Issue</button>
         </div>
         <div id="checklist-issues-container"></div>
         <div id="checklist-sections-container"></div>
@@ -2250,6 +2265,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="checklist-sub" id="keys-job-sub">—</div>
           </div>
           <div id="keys-job-status-pill" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);">PENDING</div>
+          <button class="btn btn-secondary" onclick="openReportIssue(currentKeysJob)" style="background:#f97316;color:white;border-color:#f97316;">⚠️ Report Issue</button>
           <button class="btn btn-primary" id="keys-job-close-btn" onclick="completeKeysJob()" style="background:var(--cleaning);">Close task</button>
         </div>
         <div id="keys-job-body"></div>
@@ -2264,6 +2280,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="checklist-sub" id="gen-task-sub">—</div>
           </div>
           <div id="gen-task-status-pill" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);">PENDING</div>
+          <button class="btn btn-secondary" onclick="openReportIssue(currentGeneralTask)" style="background:#f97316;color:white;border-color:#f97316;">⚠️ Report Issue</button>
           <button class="btn btn-primary" id="gen-task-close-btn" onclick="toggleGeneralTaskStatus()" style="background:var(--operations);">Close task</button>
         </div>
         <div id="gen-task-body"></div>
@@ -2473,49 +2490,57 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 
 <!-- REPORT ISSUE MODAL -->
 <div class="modal-overlay" id="report-issue-modal">
-  <div class="modal">
+  <div class="modal" style="max-width:520px;">
     <div class="modal-header">
-      <h3 class="modal-title">Report an issue</h3>
+      <h3 class="modal-title">⚠️ Report an Issue</h3>
       <button class="modal-close" onclick="closeReportIssue()">✕</button>
     </div>
     <div class="modal-body">
+      <!-- Department selector -->
       <div class="form-group">
-        <label class="form-label">Issue title</label>
-        <input type="text" class="form-input" id="issue-title" placeholder="Stained bedsheet, broken kettle, missing remote…">
+        <label class="form-label">Assign to department</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="issue-dept-pills">
+          <button type="button" class="issue-dept-pill" data-dept="cleaning"    onclick="selectIssueDept('cleaning')"   >🧹 Cleaning</button>
+          <button type="button" class="issue-dept-pill" data-dept="operations"  onclick="selectIssueDept('operations')" >⚙️ Operations</button>
+          <button type="button" class="issue-dept-pill" data-dept="maintenance" onclick="selectIssueDept('maintenance')">🔧 Maintenance</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Issue title <span style="color:var(--maintenance)">*</span></label>
+        <input type="text" class="form-input" id="issue-title" placeholder="e.g. Stained bedsheet, broken kettle, missing remote…">
       </div>
       <div class="form-group">
         <label class="form-label">Description</label>
-        <textarea class="form-textarea" id="issue-desc" placeholder="Describe what you found, where, and any context the manager needs."></textarea>
+        <textarea class="form-textarea" id="issue-desc" rows="3" placeholder="Describe what you found, where it is, and any context the manager needs."></textarea>
       </div>
       <div class="form-group">
         <label class="form-label">Severity</label>
         <select class="form-select" id="issue-severity">
-          <option value="low">Low — informational</option>
-          <option value="medium" selected>Medium — needs attention</option>
-          <option value="high">High — blocks check-in</option>
+          <option value="low">Low — informational only</option>
+          <option value="medium" selected>Medium — needs attention soon</option>
+          <option value="high">High — blocks check-in / urgent</option>
         </select>
       </div>
+      <!-- Multi-photo upload -->
       <div class="form-group">
-        <label class="form-label">Photo (optional)</label>
+        <label class="form-label">Photos (optional — up to 10)</label>
         <div style="display:flex;gap:8px;">
           <label class="btn btn-secondary" style="flex:1;cursor:pointer;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
             📷 Take photo
-            <input type="file" accept="image/*" capture="environment" id="issue-photo-camera" style="display:none">
+            <input type="file" accept="image/*" capture="environment" multiple id="issue-photo-camera" style="display:none">
           </label>
           <label class="btn btn-secondary" style="flex:1;cursor:pointer;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-            🖼 Upload
-            <input type="file" accept="image/*" id="issue-photo-upload" style="display:none">
+            🖼 Upload files
+            <input type="file" accept="image/*" multiple id="issue-photo-upload" style="display:none">
           </label>
         </div>
-        <div id="issue-photo-preview" style="margin-top:8px;"></div>
-        <!-- Hidden legacy element kept for backwards compatibility with any older handler -->
-        <input type="hidden" id="issue-photo">
+        <div id="issue-photo-preview"></div>
       </div>
       <div class="login-error" id="issue-error"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeReportIssue()">Cancel</button>
-      <button class="btn btn-primary" style="background:var(--maintenance);" onclick="submitReportIssue()">Submit issue</button>
+      <button class="btn btn-primary" id="issue-submit-btn" style="background:var(--maintenance);" onclick="submitReportIssue()">Submit issue</button>
     </div>
   </div>
 </div>
@@ -4720,10 +4745,13 @@ const INGOING_INSPECTION_TEMPLATE = {
 // the New Job modal and in job-row "Type" columns.
 // Keys uses its own key-type/reason flow so its array stays empty here.
 const DEPT_TASK_TYPES = {
-  cleaning:    [{ value: 'changeover-clean',    label: 'Changeover Clean' }],
-  maintenance: [{ value: 'general-maintenance', label: 'General Maintenance' }],
+  cleaning:    [{ value: 'changeover-clean',    label: 'Changeover Clean' },
+                { value: 'issue-report',         label: 'Issue Report' }],
+  maintenance: [{ value: 'general-maintenance', label: 'General Maintenance' },
+                { value: 'issue-report',         label: 'Issue Report' }],
   inspections: [{ value: 'ingoing-inspection',  label: 'Ingoing Inspection' }],
-  operations:  [{ value: 'general-operations',  label: 'General Task' }],
+  operations:  [{ value: 'general-operations',  label: 'General Task' },
+                { value: 'issue-report',         label: 'Issue Report' }],
   compliance:  [{ value: 'general-compliance',  label: 'General Task' }],
   keys:        []
 };
@@ -5842,83 +5870,202 @@ function renderChecklistIssues() {
   `;
 }
 
-function openReportIssue() {
+// ===== REPORT AN ISSUE =====
+// Files staged in memory; only uploaded to Storage when submitted.
+let _pendingIssueFiles = [];
+let _reportIssueSourceJob = null;
+let _selectedIssueDept = 'maintenance';
+
+const _ISSUE_DEPT_COLORS = {
+  cleaning:    'var(--cleaning)',
+  operations:  'var(--operations)',
+  maintenance: 'var(--maintenance)'
+};
+
+function selectIssueDept(dept) {
+  _selectedIssueDept = dept;
+  document.querySelectorAll('#issue-dept-pills .issue-dept-pill').forEach(p => {
+    const active = p.dataset.dept === dept;
+    p.style.background   = active ? (_ISSUE_DEPT_COLORS[p.dataset.dept] || '#333') : 'var(--surface2)';
+    p.style.color        = active ? 'white' : 'var(--text)';
+    p.style.borderColor  = active ? (_ISSUE_DEPT_COLORS[p.dataset.dept] || '#333') : 'var(--border)';
+    p.classList.toggle('active', active);
+  });
+  // Tint the submit button to match selected dept
+  const btn = document.getElementById('issue-submit-btn');
+  if (btn) btn.style.background = _ISSUE_DEPT_COLORS[dept] || 'var(--maintenance)';
+}
+
+function openReportIssue(sourceJob) {
+  _reportIssueSourceJob = sourceJob || currentChecklistJob || currentGeneralTask || currentKeysJob || null;
+  _pendingIssueFiles = [];
   document.getElementById('issue-title').value = '';
   document.getElementById('issue-desc').value = '';
   document.getElementById('issue-severity').value = 'medium';
-  const cam = document.getElementById('issue-photo-camera');
-  const up = document.getElementById('issue-photo-upload');
-  const hidden = document.getElementById('issue-photo');
-  if (cam) cam.value = '';
-  if (up) up.value = '';
-  if (hidden) { hidden.value = ''; delete hidden.dataset.url; }
-  _pendingIssueFile = null;
   document.getElementById('issue-photo-preview').innerHTML = '';
   document.getElementById('issue-error').style.display = 'none';
+  const cam = document.getElementById('issue-photo-camera');
+  const up  = document.getElementById('issue-photo-upload');
+  if (cam) cam.value = '';
+  if (up)  up.value  = '';
+  // Smart default: if reporting from cleaning → suggest Maintenance; otherwise keep source dept if valid
+  const srcDept = _reportIssueSourceJob?.department;
+  const defaultDept = (srcDept === 'cleaning' || srcDept === 'operations' || srcDept === 'maintenance')
+    ? (srcDept === 'cleaning' ? 'maintenance' : srcDept)
+    : 'maintenance';
+  selectIssueDept(defaultDept);
   document.getElementById('report-issue-modal').classList.add('open');
 }
+
 function closeReportIssue() {
-  _pendingIssueFile = null;
+  _pendingIssueFiles = [];
+  _reportIssueSourceJob = null;
   document.getElementById('report-issue-modal').classList.remove('open');
 }
-// Stage the picked file in memory; we only upload to Storage when the
-// issue is actually submitted (so canceled drafts don't litter the bucket).
-let _pendingIssueFile = null;
-function handleIssuePhotoChange(input) {
-  const f = input.files && input.files[0];
-  if (!f) return;
-  _pendingIssueFile = f;
-  // Quick local preview from the file itself (no upload yet)
-  const r = new FileReader();
-  r.onload = () => {
-    document.getElementById('issue-photo-preview').innerHTML =
-      `<img src="${r.result}" style="max-width:140px;border-radius:8px;border:1px solid var(--border);">`;
-  };
-  r.readAsDataURL(f);
+
+function _renderIssuePhotoPreviews() {
+  const container = document.getElementById('issue-photo-preview');
+  if (!_pendingIssueFiles.length) { container.innerHTML = ''; return; }
+  container.innerHTML =
+    `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">` +
+    _pendingIssueFiles.map((f, i) => {
+      const url = URL.createObjectURL(f);
+      return `<div style="position:relative;width:76px;height:76px;border-radius:10px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;">
+        <img src="${url}" style="width:100%;height:100%;object-fit:cover;">
+        <button type="button" onclick="removeIssuePhoto(${i})"
+          style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.65);border:none;color:white;font-size:10px;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:20px;padding:0;font-weight:700;">✕</button>
+      </div>`;
+    }).join('') +
+    `</div><div style="font-size:11px;color:var(--text3);margin-top:6px;">${_pendingIssueFiles.length} photo${_pendingIssueFiles.length > 1 ? 's' : ''} attached</div>`;
 }
+
+function removeIssuePhoto(idx) {
+  _pendingIssueFiles.splice(idx, 1);
+  _renderIssuePhotoPreviews();
+}
+
+function handleIssuePhotoChange(input) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const remaining = 10 - _pendingIssueFiles.length;
+  files.slice(0, remaining).forEach(f => _pendingIssueFiles.push(f));
+  input.value = '';
+  _renderIssuePhotoPreviews();
+}
+
 document.getElementById('issue-photo-camera').addEventListener('change', function() { handleIssuePhotoChange(this); });
-document.getElementById('issue-photo-upload').addEventListener('change', function() { handleIssuePhotoChange(this); });
+document.getElementById('issue-photo-upload').addEventListener('change',  function() { handleIssuePhotoChange(this); });
+
 async function submitReportIssue() {
-  const title = document.getElementById('issue-title').value.trim();
-  const desc = document.getElementById('issue-desc').value.trim();
+  const title    = document.getElementById('issue-title').value.trim();
+  const desc     = document.getElementById('issue-desc').value.trim();
   const severity = document.getElementById('issue-severity').value;
-  const err = document.getElementById('issue-error');
-  if (!title) { err.textContent = 'Please give the issue a short title.'; err.style.display = 'block'; return; }
-  // Upload the staged photo file (if any) to Storage. Keep `photo` as either
-  // an object {url, path, ...} or null. PDF + render code handles both.
-  let photo = null;
-  if (_pendingIssueFile) {
+  const dept     = _selectedIssueDept;
+  const err      = document.getElementById('issue-error');
+  err.style.display = 'none';
+
+  if (!title) {
+    err.textContent = 'Please give the issue a title.';
+    err.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('issue-submit-btn');
+  if (btn) { btn.textContent = 'Submitting…'; btn.disabled = true; }
+
+  // Upload all staged photos before creating the job
+  const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID() : ('issue-' + Date.now());
+  const attachments = [];
+  for (const f of _pendingIssueFiles) {
     try {
-      photo = await compressAndUpload(_pendingIssueFile, 'issues', currentChecklistJob.id, 'issue');
+      const obj = await compressAndUpload(f, 'issues', tempId, 'issue');
+      attachments.push(obj);
     } catch (e) {
-      err.textContent = 'Could not upload the photo: ' + (e.message || e);
-      err.style.display = 'block';
-      return;
+      console.warn('Issue photo upload failed:', e);
+      // Continue — we still create the job, skip failed photo
     }
   }
-  _pendingIssueFile = null;
-  const state = ensureChecklistState(currentChecklistJob.id);
-  state.issues.push({ title, desc, severity, photo, ts: Date.now() });
-  closeReportIssue();
-  renderChecklistIssues();
-  updateChecklistProgress();
-  saveChecklistState(currentChecklistJob.id);
-  // Create a maintenance job mirroring the reported issue (so it shows up in the global Maintenance tab too)
-  const linkedJob = {
-    department: 'maintenance',
-    property: currentChecklistJob.property,
-    date: new Date().toISOString().split('T')[0],
-    notes: `[Cleaning issue] ${title}${desc ? ' — ' + desc : ''}`,
+
+  const sourceJob = _reportIssueSourceJob;
+  const now = new Date().toISOString();
+
+  // Build the new task that will appear in the chosen department
+  const newJobRow = {
+    department:  dept,
+    property:    sourceJob?.property || null,
+    date:        now.split('T')[0],
+    notes:       desc || title,
     assigned_to: '',
-    status: 'pending',
-    created_by: currentUser?.id
+    status:      'pending',
+    created_by:  currentUser?.id || null,
+    meta: {
+      task_type:              'issue-report',
+      heading:                `Issue: ${title}`,
+      severity,
+      attachments,
+      reported_from_job_id:   sourceJob?.id   || null,
+      reported_from_dept:     sourceJob?.department || null,
+      created_by_name:        currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown',
+      created_at:             now
+    }
   };
-  sb.from('jobs').insert([linkedJob]).select().then(({ data, error }) => {
-    if (!error && data) jobs.push(data[0]);
-    else { linkedJob.id = Date.now(); jobs.push(linkedJob); }
-    renderAllDepts();
-    updateStats();
-  }).catch(() => {});
+
+  let savedJob = null;
+  try {
+    const { data, error } = await sb.from('jobs').insert([newJobRow]).select();
+    if (!error && data && data[0]) {
+      savedJob = data[0];
+    } else {
+      throw new Error(error?.message || 'Insert failed');
+    }
+  } catch (e) {
+    // Fallback: keep locally so UI still updates
+    savedJob = { ...newJobRow, id: 'local-' + Date.now() };
+    console.warn('Issue job insert error (using local fallback):', e);
+  }
+  jobs.push(savedJob);
+
+  // If we're inside a checklist, also log in local state so the "X issues" counter increments
+  if (sourceJob && currentChecklistJob && sourceJob.id === currentChecklistJob.id) {
+    const state = ensureChecklistState(sourceJob.id);
+    state.issues.push({ title, desc, severity, photo: attachments[0] || null, ts: Date.now() });
+    saveChecklistState(sourceJob.id);
+    renderChecklistIssues();
+    updateChecklistProgress();
+  }
+
+  renderAllDepts();
+  updateStats();
+
+  _pendingIssueFiles = [];
+  _reportIssueSourceJob = null;
+  document.getElementById('report-issue-modal').classList.remove('open');
+
+  if (btn) { btn.textContent = 'Submit issue'; btn.disabled = false; }
+
+  // Toast confirmation
+  const deptLabel = { cleaning: 'Cleaning', operations: 'Operations', maintenance: 'Maintenance' }[dept] || dept;
+  const severityIcon = { high: '🔴', medium: '🟡', low: '🟢' }[severity] || '';
+  showToast(`${severityIcon} Issue reported → ${deptLabel} task created`, 'success');
+}
+
+// Simple toast notification (used by report-issue and other actions)
+function showToast(msg, type) {
+  const bg = type === 'success' ? '#166534' : '#991b1b';
+  const toast = document.createElement('div');
+  toast.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:${bg};color:white;padding:12px 22px;border-radius:999px;font-size:14px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .2s,transform .2s;`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+  });
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(10px)';
+    setTimeout(() => toast.remove(), 250);
+  }, 3200);
 }
 
 function removeChecklistIssue(idx) {
