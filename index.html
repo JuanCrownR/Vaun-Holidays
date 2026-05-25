@@ -1457,16 +1457,92 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .section-extras .notes-toggle { margin-left: 0; }
 
 /* ===== PROPERTY SWITCHER ===== */
-.prop-switcher {
-  display: flex;
-  gap: 8px;
-  padding: 16px 24px 0 24px;
-  flex-wrap: wrap;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 0;
-  background: var(--surface);
+/* prop-switcher hidden — replaced by Today's Briefing */
+.prop-switcher { display: none; }
+
+/* ===== GLOBAL SEARCH ===== */
+.topbar-search {
+  position: relative;
+  flex: 1;
+  max-width: 340px;
+  margin: 0 16px;
 }
+.topbar-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px 8px 34px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--surface2);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s;
+}
+.topbar-search-input:focus { border-color: var(--text3); background: white; }
+.topbar-search-icon {
+  position: absolute;
+  left: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; color: var(--text3); pointer-events: none;
+}
+.search-results-dropdown {
+  position: absolute;
+  top: calc(100% + 6px); left: 0; right: 0;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.12);
+  z-index: 500;
+  max-height: 420px;
+  overflow-y: auto;
+  display: none;
+}
+.search-results-section {
+  padding: 8px 12px 4px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text3);
+  border-top: 1px solid var(--border);
+}
+.search-results-section:first-child { border-top: none; }
+.search-result-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; cursor: pointer; font-size: 13px;
+  transition: background .1s;
+}
+.search-result-row:hover { background: var(--surface2); }
+
+/* ===== TODAY'S BRIEFING ===== */
+.briefing-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.briefing-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 160px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.briefing-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.briefing-card.urgent { border-color: #fca5a5; }
+.briefing-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.briefing-count { font-size: 26px; font-weight: 800; line-height: 1; }
+.briefing-label { font-size: 12px; font-weight: 600; color: var(--text2); margin-top: 2px; }
+.briefing-sub { font-size: 11px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
 .prop-pill {
   display: inline-flex;
   align-items: center;
@@ -2211,6 +2287,15 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   <div class="main">
     <div class="topbar">
       <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-search">
+        <span class="topbar-search-icon">🔍</span>
+        <input id="global-search" class="topbar-search-input" type="text"
+          placeholder="Search tasks, properties, guests…"
+          oninput="onGlobalSearch(this.value)"
+          onfocus="onGlobalSearch(this.value)"
+          autocomplete="off">
+        <div id="search-results-dropdown" class="search-results-dropdown"></div>
+      </div>
       <div class="topbar-actions">
         <button class="btn btn-primary" onclick="openNewJobModal()">+ New Job</button>
       </div>
@@ -2221,6 +2306,9 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 
       <!-- OVERVIEW -->
       <div class="view active" id="view-overview">
+        <!-- Today's Briefing -->
+        <div class="briefing-strip" id="today-briefing"></div>
+
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-label">Active Properties</div>
@@ -4312,6 +4400,127 @@ function statusBadge(status) {
   return `<span class="badge ${map[status] || 'badge-pending'}">${labels[status] || status}</span>`;
 }
 
+// ===== TODAY'S BRIEFING =====
+function renderTodayBriefing() {
+  const el = document.getElementById('today-briefing');
+  if (!el) return;
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const checkIns  = bookings.filter(b => b.check_in  === todayStr && b.status !== 'cancelled');
+  const checkOuts = bookings.filter(b => b.check_out === todayStr && b.status !== 'cancelled');
+  const cleans    = jobs.filter(j => j.department === 'cleaning' && j.date === todayStr && j.status !== 'complete' && j.status !== 'resolved');
+  const overdue   = jobs.filter(j => j.date && j.date < todayStr && j.status !== 'complete' && j.status !== 'resolved');
+
+  const navTo = (view) => `showView('${view}', document.querySelector(".nav-item[onclick*=\\"showView('${view}'\\"]"))`;
+
+  const card = ({ icon, bg, borderColor, count, label, sub, onclick, urgent }) => `
+    <div class="briefing-card${urgent && count > 0 ? ' urgent' : ''}" onclick="${onclick}">
+      <div class="briefing-icon" style="background:${bg};">${icon}</div>
+      <div style="min-width:0;">
+        <div class="briefing-count" style="color:${count > 0 ? 'var(--text)' : 'var(--text3)'};">${count}</div>
+        <div class="briefing-label">${label}</div>
+        <div class="briefing-sub">${sub}</div>
+      </div>
+    </div>`;
+
+  const propList = (arr, keyFn) => arr.length
+    ? arr.slice(0, 2).map(keyFn).join(', ') + (arr.length > 2 ? ` +${arr.length - 2} more` : '')
+    : 'None today';
+
+  el.innerHTML = [
+    card({ icon:'🛎', bg:'#dbeafe', count: checkIns.length,  label:'Check-ins today',   sub: propList(checkIns,  b => propNames[b.property] || b.property || 'Unknown'), onclick: navTo('reservations') }),
+    card({ icon:'🚪', bg:'#ede9fe', count: checkOuts.length, label:'Check-outs today',  sub: propList(checkOuts, b => propNames[b.property] || b.property || 'Unknown'), onclick: navTo('reservations') }),
+    card({ icon:'🧹', bg:'#dcfce7', count: cleans.length,    label:'Cleans scheduled',  sub: cleans.length ? propList(cleans, j => propNames[j.property] || j.property || 'Unknown') : 'No cleans scheduled', onclick: "goToDept('cleaning')" }),
+    card({ icon:'⚠️', bg:'#fee2e2', count: overdue.length,   label:'Overdue tasks',     sub: overdue.length ? `${overdue.length} task${overdue.length !== 1 ? 's' : ''} past due date` : '✓ All up to date', onclick: navTo('alltasks'), urgent: true }),
+  ].join('');
+}
+
+// ===== GLOBAL SEARCH =====
+function onGlobalSearch(val) {
+  const dd = document.getElementById('search-results-dropdown');
+  if (!dd) return;
+  const q = (val || '').trim().toLowerCase();
+  if (!q) { dd.style.display = 'none'; return; }
+
+  const DEPT_COLORS = { cleaning:'#2ecc71', maintenance:'#e74c3c', inspections:'#3498db', operations:'#f39c12', compliance:'#8b5cf6', keys:'#ca8a04' };
+  const DEPT_BGS    = { cleaning:'#dcfce7', maintenance:'#fee2e2', inspections:'#dbeafe', operations:'#fef3c7', compliance:'#ede9fe', keys:'#fef9c3' };
+
+  // Match jobs
+  const jobHits = jobs.filter(j =>
+    _taskLabel(j).toLowerCase().includes(q) ||
+    (j.assigned_to || '').toLowerCase().includes(q) ||
+    (j.department || '').toLowerCase().includes(q) ||
+    (propNames[j.property] || j.property || '').toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  // Match bookings
+  const bkgHits = bookings.filter(b =>
+    (b.guest_name || '').toLowerCase().includes(q) ||
+    (propNames[b.property] || b.property || '').toLowerCase().includes(q)
+  ).slice(0, 4);
+
+  // Match properties
+  const propHits = properties.filter(p =>
+    (p.name || '').toLowerCase().includes(q) ||
+    (p.address || '').toLowerCase().includes(q)
+  ).slice(0, 4);
+
+  let html = '';
+
+  if (propHits.length) {
+    html += `<div class="search-results-section">Properties</div>`;
+    html += propHits.map(p => `
+      <div class="search-result-row" onclick="selectProperty('${p.id}');closeGlobalSearch()">
+        <span style="width:10px;height:10px;border-radius:50%;background:${p.color};flex-shrink:0;"></span>
+        <span>${escapeHtml(p.name)}</span>
+      </div>`).join('');
+  }
+
+  if (jobHits.length) {
+    html += `<div class="search-results-section">Tasks</div>`;
+    html += jobHits.map(j => `
+      <div class="search-result-row" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')});closeGlobalSearch()">
+        <span style="padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;background:${DEPT_BGS[j.department]||'#f1f5f9'};color:${DEPT_COLORS[j.department]||'#888'};flex-shrink:0;">${j.department||''}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(_taskLabel(j))}</span>
+        <span style="font-size:11px;color:var(--text3);flex-shrink:0;">${escapeHtml(propNames[j.property] || j.property || '')}</span>
+      </div>`).join('');
+  }
+
+  if (bkgHits.length) {
+    html += `<div class="search-results-section">Bookings</div>`;
+    html += bkgHits.map(b => `
+      <div class="search-result-row" onclick="showView('reservations',document.querySelector('.nav-item[onclick*=\\'reservations\\']'));closeGlobalSearch()">
+        <span style="font-size:14px;">🛎</span>
+        <span style="flex:1">${escapeHtml(b.guest_name || 'Guest')}</span>
+        <span style="font-size:11px;color:var(--text3)">${escapeHtml(propNames[b.property] || b.property || '')} · ${formatDate(b.check_in)}</span>
+      </div>`).join('');
+  }
+
+  if (!html) {
+    html = `<div style="padding:20px;text-align:center;font-size:13px;color:var(--text3);">No results for "<strong>${escapeHtml(val)}</strong>"</div>`;
+  }
+
+  dd.innerHTML = html;
+  dd.style.display = 'block';
+}
+
+function closeGlobalSearch() {
+  const dd = document.getElementById('search-results-dropdown');
+  if (dd) dd.style.display = 'none';
+  const inp = document.getElementById('global-search');
+  if (inp) inp.value = '';
+}
+
+// Close search on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.topbar-search')) closeGlobalSearch();
+});
+
+// Close on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeGlobalSearch();
+});
+
 function updateStats() {
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
@@ -4327,6 +4536,7 @@ function updateStats() {
     document.getElementById('stat-next-prop').textContent = propNames[next.property];
   }
   renderDeptOpenCounts();
+  renderTodayBriefing();
 }
 
 // Renders the dashboard "open tasks per department" row.
@@ -8359,6 +8569,7 @@ async function loadBookings() {
     } else {
       bookings = [];
     }
+    renderTodayBriefing();
   } catch (e) {
     bookings = [];
   }
