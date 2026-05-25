@@ -806,6 +806,12 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .grid-operations { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
 .grid-compliance { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
 .grid-keys { grid-template-columns: 2fr 1.5fr 1fr 1fr 80px 32px; }
+.grid-alltasks { grid-template-columns: 120px 2fr 1.5fr 1fr 1fr 80px 32px; }
+.dept-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  white-space: nowrap;
+}
 
 .job-delete-btn {
   background: none;
@@ -2151,6 +2157,10 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       </div>
 
       <div class="nav-section-label">Departments</div>
+      <div class="nav-item" onclick="showView('alltasks',this)">
+        <span class="nav-icon">☰</span> All Tasks
+        <span class="nav-badge" id="alltasks-badge" style="display:none">0</span>
+      </div>
       <div class="nav-item" onclick="showView('cleaning',this)">
         <span class="nav-icon">🧹</span> Cleaning
         <span class="nav-badge" id="cleaning-badge" style="display:none">0</span>
@@ -2507,6 +2517,26 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
               No compliance tasks. Click "+ New Job" to add one.
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALL TASKS -->
+      <div class="view" id="view-alltasks">
+        <div class="dept-header">
+          <div class="dept-icon" style="background:#f1f5f9">☰</div>
+          <div>
+            <div class="dept-title">All Tasks</div>
+            <div class="dept-sub">Every task across all departments in one view</div>
+          </div>
+        </div>
+        <div id="alltasks-filter-bar"></div>
+        <div class="jobs-table">
+          <div class="table-header grid-alltasks">
+            <span>Department</span><span>Task</span><span>Property</span><span>Assigned</span><span>Date</span><span>Status</span><span></span>
+          </div>
+          <div id="alltasks-jobs">
+            <div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">Loading tasks…</div>
           </div>
         </div>
       </div>
@@ -3203,7 +3233,7 @@ let selectedPropertyId = null;   // null = "All Properties"
 let bookings = [];
 let assetActiveTab = 'calendar';
 let assetTaskFilters = { dept: 'all', status: 'all', assignedTo: 'all', sort: 'due-asc' };
-const DEPT_FILTER_DEFAULT = { assignment: [], status: [], property: [], createdBy: [], sort: 'created-desc' };
+const DEPT_FILTER_DEFAULT = { assignment: [], status: [], property: [], createdBy: [], department: [], sort: 'created-desc' };
 let deptFilters = { ...DEPT_FILTER_DEFAULT };
 let _openDeptFilter = null;      // which pill dropdown is currently open
 let _deptDropdownType = '';       // type currently shown in shared dropdown
@@ -3435,7 +3465,7 @@ function showView(name, el) {
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', reservations: 'Reservations', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts' };
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', reservations: 'Reservations', alltasks: 'All Tasks', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
   if (name === 'contacts') { loadContacts(); }
@@ -3445,7 +3475,7 @@ function showView(name, el) {
   if (name === 'templates') renderTemplatesGrid();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
   // Re-render dept tables so filter scoping picks up; reset filters to default
-  if (['cleaning','maintenance','inspections','operations','compliance','keys'].includes(name)) {
+  if (['cleaning','maintenance','inspections','operations','compliance','keys','alltasks'].includes(name)) {
     deptFilters = { ...DEPT_FILTER_DEFAULT };
     renderAllDepts();
   }
@@ -3782,7 +3812,95 @@ function renderAllDepts() {
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
+  renderAllTasks();
   updateDeptBadges();
+}
+
+function renderAllTasks() {
+  const barEl   = document.getElementById('alltasks-filter-bar');
+  const container = document.getElementById('alltasks-jobs');
+  if (!barEl || !container) return;
+
+  const DEPT_META = {
+    cleaning:    { label: 'Cleaning',    color: '#2ecc71', bg: '#dcfce7' },
+    maintenance: { label: 'Maintenance', color: '#e74c3c', bg: '#fee2e2' },
+    inspections: { label: 'Inspections', color: '#3498db', bg: '#dbeafe' },
+    operations:  { label: 'Operations',  color: '#f39c12', bg: '#fef3c7' },
+    compliance:  { label: 'Compliance',  color: '#8b5cf6', bg: '#ede9fe' },
+    keys:        { label: 'Keys',        color: '#ca8a04', bg: '#fef9c3' }
+  };
+
+  // ── Filter pill bar ───────────────────────────────────────────
+  const f = deptFilters;
+  const hasFilters = f.assignment.length || f.status.length || f.property.length || f.createdBy.length || f.department.length;
+
+  const pill = (label, type) => {
+    const count = (f[type] || []).length;
+    const active = count > 0;
+    return `<button class="dept-fpill${active ? ' has-filter' : ''}" data-ftype="${type}"
+      onclick="openDeptFilterDropdown('${type}',this)">
+      ${label}${active ? `<span class="dept-fpill-badge">${count}</span>` : ''}
+      <span style="font-size:9px;opacity:.7;">▾</span>
+    </button>`;
+  };
+
+  const sortOpts = [['created-desc','Newest first'],['created-asc','Oldest first'],['due-asc','Due date ↑'],['due-desc','Due date ↓'],['completed-desc','Completed ↓'],['completed-asc','Completed ↑']]
+    .map(([v,l]) => `<option value="${v}" ${f.sort===v?'selected':''}>${l}</option>`).join('');
+
+  barEl.innerHTML = `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 0 14px;">
+      ${pill('Department', 'department')}
+      ${pill('Assignment', 'assignment')}
+      ${pill('Task Status', 'status')}
+      ${pill('Property', 'property')}
+      ${pill('Created by', 'createdBy')}
+      <div style="display:flex;gap:6px;align-items:center;margin-left:auto;">
+        ${hasFilters ? `<button class="dept-clear-all-btn" onclick="clearDeptFilters()">✕ Clear all</button>` : ''}
+        <select class="dept-filter-sort" onchange="setDeptFilter('sort',this.value)">${sortOpts}</select>
+      </div>
+    </div>`;
+
+  // ── Apply filters & sort ──────────────────────────────────────
+  let allJobs = [...jobs];
+  if (selectedPropertyId)   allJobs = allJobs.filter(j => j.property === selectedPropertyId);
+  if (f.department.length)  allJobs = allJobs.filter(j => f.department.includes(j.department));
+  if (f.status.length)      allJobs = allJobs.filter(j => f.status.includes(j.status || 'pending'));
+  if (f.property.length)    allJobs = allJobs.filter(j => f.property.includes(j.property));
+  if (f.assignment.length)  allJobs = allJobs.filter(j => f.assignment.includes(j.assigned_to || '__unassigned__'));
+  if (f.createdBy.length)   allJobs = allJobs.filter(j => f.createdBy.includes(j.meta?.created_by_name || ''));
+
+  allJobs.sort((a, b) => {
+    switch (f.sort) {
+      case 'created-desc':   return (b.created_at || '').localeCompare(a.created_at || '');
+      case 'created-asc':    return (a.created_at || '').localeCompare(b.created_at || '');
+      case 'due-asc':        return (a.date || '').localeCompare(b.date || '');
+      case 'due-desc':       return (b.date || '').localeCompare(a.date || '');
+      case 'completed-desc': return ((b.meta?.completed_at)||'').localeCompare((a.meta?.completed_at)||'');
+      case 'completed-asc':  return ((a.meta?.completed_at)||'').localeCompare((b.meta?.completed_at)||'');
+      default: return 0;
+    }
+  });
+
+  if (allJobs.length === 0) {
+    container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
+      ${hasFilters ? 'No tasks match the current filters.' : 'No tasks yet. Create one from a department view.'}
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = allJobs.map(j => {
+    const dm = DEPT_META[j.department] || { label: j.department, color: '#888', bg: '#f1f5f9' };
+    const taskLabel = escapeHtml((j.meta && j.meta.heading) || j.notes || j.title || dm.label + ' task');
+    return `<div class="table-row grid-alltasks" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
+      <span><span class="dept-chip" style="background:${dm.bg};color:${dm.color};">${dm.label}</span></span>
+      <span style="font-size:13px;font-weight:500">${taskLabel}</span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property] || j.property || '—'}</div></span>
+      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;">${formatDate(j.date)}</span>
+      <span>${statusBadge(j.status)}</span>
+      <span><button class="job-delete-btn" title="Delete" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
+    </div>`;
+  }).join('');
 }
 
 // ===== HISTORY / BACK-BUTTON NAVIGATION =====
@@ -3859,6 +3977,10 @@ function updateDeptBadges() {
     el.textContent = count;
     el.style.display = count > 0 ? 'inline' : 'none';
   });
+  // All Tasks badge = total open across all depts
+  const totalOpen = jobs.filter(j => j.status !== 'complete' && j.status !== 'resolved').length;
+  const atEl = document.getElementById('alltasks-badge');
+  if (atEl) { atEl.textContent = totalOpen; atEl.style.display = totalOpen > 0 ? 'inline' : 'none'; }
 }
 
 // ── Dept filter helpers ───────────────────────────────────────────
@@ -3890,12 +4012,21 @@ function _buildDeptDropdownOptions(type) {
   } else if (type === 'createdBy') {
     const vals = [...new Set(allJobs.map(j => j.meta?.created_by_name).filter(Boolean))].sort();
     return vals.map(v => ({ value: v, label: v }));
+  } else if (type === 'department') {
+    return [
+      { value: 'cleaning',    label: 'Cleaning' },
+      { value: 'maintenance', label: 'Maintenance' },
+      { value: 'inspections', label: 'Inspections' },
+      { value: 'operations',  label: 'Operations' },
+      { value: 'compliance',  label: 'Compliance' },
+      { value: 'keys',        label: 'Keys Management' }
+    ];
   }
   return [];
 }
 
 function _renderDeptDropdownInner(type, query) {
-  const titles = { assignment: 'Assignment', status: 'Task Status', property: 'Property', createdBy: 'Created by' };
+  const titles = { assignment: 'Assignment', status: 'Task Status', property: 'Property', createdBy: 'Created by', department: 'Department' };
   const allOpts = _deptDropdownAllOptions;
   const q = (query || '').toLowerCase();
   const filtered = q ? allOpts.filter(o => o.label.toLowerCase().includes(q)) : allOpts;
