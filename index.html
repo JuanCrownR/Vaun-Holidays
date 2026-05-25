@@ -2994,6 +2994,7 @@ let calYear, calMonth, activeFilter = 'all';
 let selectedPropertyId = null;   // null = "All Properties"
 let bookings = [];
 let assetActiveTab = 'calendar';
+let assetTaskFilters = { dept: 'all', status: 'all', assignedTo: 'all', sort: 'due-asc' };
 
 // Default properties — used as fallback if Supabase properties table is unavailable.
 // Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
@@ -7735,8 +7736,9 @@ function selectProperty(id) {
     else history.pushState({ view: 'asset', propertyId: id }, '', '#asset');
   }
   selectedPropertyId = id;
-  // Reset asset tab when changing property
+  // Reset asset tab and task filters when changing property
   assetActiveTab = 'calendar';
+  assetTaskFilters = { dept: 'all', status: 'all', assignedTo: 'all', sort: 'due-asc' };
   renderPropertySwitcher();
   renderSidebarProperties();
   if (id === null) {
@@ -7916,45 +7918,129 @@ function renderAssetCalendar() {
   `;
 }
 
+function setAssetTaskFilter(key, value) {
+  assetTaskFilters[key] = value;
+  renderAssetPanel();
+}
+
 function renderAssetTasks() {
-  let myJobs = jobs.filter(j => j.property === selectedPropertyId);
-  if (myJobs.length === 0) {
-    return `<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No tasks for this property yet. Use "+ New Job" to add one.</div>`;
+  const allJobs = jobs.filter(j => j.property === selectedPropertyId);
+
+  // Build dynamic assigned-to list for the dropdown
+  const assignees = [...new Set(allJobs.map(j => j.assigned_to).filter(Boolean))].sort();
+
+  // ── Filter bar ────────────────────────────────────────────────
+  const deptOptions = [
+    ['all','All Departments'],
+    ['cleaning','🧹 Cleaning'],['maintenance','🔧 Maintenance'],
+    ['inspections','🔍 Inspections'],['operations','📋 Operations'],
+    ['compliance','🛡 Compliance'],['keys','🔑 Keys']
+  ].map(([v,l]) => `<option value="${v}" ${assetTaskFilters.dept===v?'selected':''}>${l}</option>`).join('');
+
+  const statusOptions = [
+    ['all','All Statuses'],['pending','Pending'],['in_progress','In Progress'],
+    ['complete','Complete'],['resolved','Resolved']
+  ].map(([v,l]) => `<option value="${v}" ${assetTaskFilters.status===v?'selected':''}>${l}</option>`).join('');
+
+  const assigneeOptions = [
+    `<option value="all" ${assetTaskFilters.assignedTo==='all'?'selected':''}>All Staff</option>`,
+    `<option value="unassigned" ${assetTaskFilters.assignedTo==='unassigned'?'selected':''}>Unassigned</option>`,
+    ...assignees.map(a => `<option value="${escapeHtml(a)}" ${assetTaskFilters.assignedTo===a?'selected':''}>${escapeHtml(a)}</option>`)
+  ].join('');
+
+  const sortOptions = [
+    ['due-asc','Due Date ↑'],['due-desc','Due Date ↓'],
+    ['completed-desc','Completed (newest)'],['completed-asc','Completed (oldest)'],
+    ['created-desc','Created (newest)'],['created-asc','Created (oldest)']
+  ].map(([v,l]) => `<option value="${v}" ${assetTaskFilters.sort===v?'selected':''}>${l}</option>`).join('');
+
+  const filterBar = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:14px 16px 10px;border-bottom:1px solid var(--border);background:var(--surface2);border-radius:10px 10px 0 0;">
+      <select class="form-select" style="flex:1;min-width:140px;padding:7px 10px;font-size:12px;" onchange="setAssetTaskFilter('dept',this.value)">${deptOptions}</select>
+      <select class="form-select" style="flex:1;min-width:120px;padding:7px 10px;font-size:12px;" onchange="setAssetTaskFilter('status',this.value)">${statusOptions}</select>
+      <select class="form-select" style="flex:1;min-width:130px;padding:7px 10px;font-size:12px;" onchange="setAssetTaskFilter('assignedTo',this.value)">${assigneeOptions}</select>
+      <select class="form-select" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;" onchange="setAssetTaskFilter('sort',this.value)">${sortOptions}</select>
+    </div>`;
+
+  // ── Apply filters ─────────────────────────────────────────────
+  let filtered = [...allJobs];
+  if (assetTaskFilters.dept !== 'all') filtered = filtered.filter(j => j.department === assetTaskFilters.dept);
+  if (assetTaskFilters.status !== 'all') filtered = filtered.filter(j => (j.status || 'pending') === assetTaskFilters.status);
+  if (assetTaskFilters.assignedTo === 'unassigned') filtered = filtered.filter(j => !j.assigned_to);
+  else if (assetTaskFilters.assignedTo !== 'all') filtered = filtered.filter(j => j.assigned_to === assetTaskFilters.assignedTo);
+
+  // ── Apply sort ────────────────────────────────────────────────
+  filtered.sort((a, b) => {
+    switch (assetTaskFilters.sort) {
+      case 'due-asc':        return (a.date || '').localeCompare(b.date || '');
+      case 'due-desc':       return (b.date || '').localeCompare(a.date || '');
+      case 'completed-desc': return ((b.meta?.completed_at) || '').localeCompare((a.meta?.completed_at) || '');
+      case 'completed-asc':  return ((a.meta?.completed_at) || '').localeCompare((b.meta?.completed_at) || '');
+      case 'created-desc':   return (b.created_at || '').localeCompare(a.created_at || '');
+      case 'created-asc':    return (a.created_at || '').localeCompare(b.created_at || '');
+      default: return 0;
+    }
+  });
+
+  if (allJobs.length === 0) {
+    return `${filterBar}<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No tasks for this property yet.</div>`;
   }
-  const depts = ['cleaning', 'maintenance', 'inspections', 'operations', 'compliance', 'keys'];
-  const groups = depts.map(d => {
-    const list = myJobs.filter(j => j.department === d)
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    if (list.length === 0) return '';
-    const di = deptIcon(d);
-    const rows = list.map(j => {
-      const title = escapeHtml(
-        (j.meta && j.meta.heading) ||
-        j.notes ||
-        taskTypeLabel(j) ||
-        (d.charAt(0).toUpperCase() + d.slice(1)) + ' task'
-      );
-      return `
-      <div class="asset-task-row" style="cursor:pointer;" onclick="viewJobById('${j.id}')">
-        <div class="asset-task-icon" style="background:${di.bg}">${di.icon}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
-          <div style="font-size:11px;color:var(--text3);">${escapeHtml(j.assigned_to || 'Unassigned')}</div>
-        </div>
-        <div style="font-size:12px;color:var(--text2);white-space:nowrap;">${formatDate(j.date)}</div>
-        <div>${statusBadge(j.status)}</div>
-        <div style="font-size:16px;color:var(--text3);padding-left:4px;">›</div>
+  if (filtered.length === 0) {
+    return `${filterBar}<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No tasks match the current filters.</div>`;
+  }
+
+  // ── Render rows ───────────────────────────────────────────────
+  // Group by dept only when showing all depts; flat list when filtered to one dept
+  const showGroups = assetTaskFilters.dept === 'all';
+  const deptLabels = { cleaning:'Cleaning', maintenance:'Maintenance', inspections:'Inspections', operations:'Operations', compliance:'Compliance', keys:'Keys Management' };
+
+  let body;
+  if (showGroups) {
+    const depts = ['cleaning','maintenance','inspections','operations','compliance','keys'];
+    body = depts.map(d => {
+      const list = filtered.filter(j => j.department === d);
+      if (!list.length) return '';
+      const di = deptIcon(d);
+      return `<div class="asset-task-group">
+        <div class="asset-task-group-title">${di.icon} ${deptLabels[d] || d}</div>
+        ${list.map(j => assetTaskRow(j)).join('')}
+      </div>`;
+    }).filter(Boolean).join('');
+  } else {
+    body = `<div style="padding:8px 0;">${filtered.map(j => assetTaskRow(j)).join('')}</div>`;
+  }
+
+  // ── Summary badge ─────────────────────────────────────────────
+  const total = filtered.length;
+  const activeFilters = [assetTaskFilters.dept, assetTaskFilters.status, assetTaskFilters.assignedTo].some(v => v !== 'all');
+  const summary = activeFilters
+    ? `<div style="padding:8px 16px 4px;font-size:11px;color:var(--text3);">${total} task${total!==1?'s':''} shown</div>`
+    : '';
+
+  return filterBar + summary + body;
+}
+
+function assetTaskRow(j) {
+  const d = j.department || 'operations';
+  const di = deptIcon(d);
+  const title = escapeHtml(
+    (j.meta && j.meta.heading) || j.notes || taskTypeLabel(j) ||
+    (d.charAt(0).toUpperCase() + d.slice(1)) + ' task'
+  );
+  const completedAt = (j.status === 'complete' || j.status === 'resolved') && j.meta?.completed_at
+    ? `<div style="font-size:10px;color:var(--text3);">✓ ${formatDate(j.meta.completed_at)}</div>` : '';
+  return `
+    <div class="asset-task-row" style="cursor:pointer;" onclick="viewJobById('${j.id}')">
+      <div class="asset-task-icon" style="background:${di.bg}">${di.icon}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
+        <div style="font-size:11px;color:var(--text3);">${escapeHtml(j.assigned_to || 'Unassigned')}</div>
+        ${completedAt}
       </div>
-    `;}).join('');
-    const dLabel = { cleaning:'Cleaning', maintenance:'Maintenance', inspections:'Inspections', operations:'Operations', compliance:'Compliance', keys:'Keys Management' }[d] || (d.charAt(0).toUpperCase()+d.slice(1));
-    return `
-      <div class="asset-task-group">
-        <div class="asset-task-group-title">${di.icon} ${dLabel}</div>
-        ${rows}
-      </div>
-    `;
-  }).filter(Boolean).join('');
-  return groups || `<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No tasks yet.</div>`;
+      <div style="font-size:12px;color:var(--text2);white-space:nowrap;">${formatDate(j.date)}</div>
+      <div>${statusBadge(j.status)}</div>
+      <div style="font-size:16px;color:var(--text3);padding-left:4px;">›</div>
+    </div>`;
 }
 
 // Navigate to any job by its ID — used by property task list rows
