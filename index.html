@@ -1836,7 +1836,10 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       </div>
       <button class="login-btn" id="login-submit" onclick="handleLogin()">Sign in</button>
       <div class="login-error" id="login-error"></div>
-      <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+      <div style="text-align:center;margin-top:10px;">
+        <button onclick="showForgotPassword()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px;">Forgot password?</button>
+      </div>
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
         <p style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Don't have an account?</p>
         <button class="login-btn" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);" onclick="showSignup()">Create account</button>
       </div>
@@ -1891,6 +1894,54 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeSignup()">Cancel</button>
       <button class="btn btn-primary" onclick="handleSignup()">Create account</button>
+    </div>
+  </div>
+</div>
+
+<!-- SET NEW PASSWORD MODAL (shown after clicking reset link in email) -->
+<div class="modal-overlay" id="set-password-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Set new password</h3>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px;">Choose a new password for your account.</p>
+      <div class="form-group">
+        <label class="form-label">New password</label>
+        <input type="password" class="form-input" id="new-password" placeholder="Min. 8 characters" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm new password</label>
+        <input type="password" class="form-input" id="confirm-new-password" placeholder="Repeat password" autocomplete="new-password">
+      </div>
+      <div class="login-error" id="set-password-error"></div>
+      <div class="login-error" id="set-password-success" style="display:none;background:#dcfce7;color:#166534;border-color:#86efac;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="set-password-btn" onclick="handleSetNewPassword()">Update password</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD MODAL -->
+<div class="modal-overlay" id="forgot-password-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Reset password</h3>
+      <button class="modal-close" onclick="closeForgotPassword()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px;">Enter the email address for your account and we'll send you a link to reset your password.</p>
+      <div class="form-group">
+        <label class="form-label">Email address</label>
+        <input type="email" class="form-input" id="forgot-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="login-error" id="forgot-error"></div>
+      <div class="login-error" id="forgot-success" style="display:none;background:#dcfce7;color:#166534;border-color:#86efac;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeForgotPassword()">Cancel</button>
+      <button class="btn btn-primary" id="forgot-submit-btn" onclick="handleForgotPassword()">Send reset link</button>
     </div>
   </div>
 </div>
@@ -2965,11 +3016,71 @@ async function handleLogin() {
   const btn = document.getElementById('login-submit');
   const err = document.getElementById('login-error');
   err.style.display = 'none';
+  if (!email || !pass) { err.textContent = 'Please enter your email and password.'; err.style.display = 'block'; return; }
   btn.textContent = 'Signing in...'; btn.classList.add('loading');
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  btn.textContent = 'Sign in'; btn.classList.remove('loading');
-  if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
-  loadApp(data.user);
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    btn.textContent = 'Sign in'; btn.classList.remove('loading');
+    if (error) {
+      // Make Supabase error messages more human-readable
+      const msg = error.message || '';
+      if (msg.includes('Invalid login credentials') || msg.includes('invalid_credentials')) {
+        err.textContent = 'Incorrect email or password. Use "Forgot password?" if you need to reset it.';
+      } else if (msg.includes('Email not confirmed')) {
+        err.textContent = 'Please confirm your email address first — check your inbox for a verification link.';
+      } else if (msg.includes('Too many requests') || msg.includes('rate limit')) {
+        err.textContent = 'Too many attempts. Please wait a few minutes before trying again.';
+      } else {
+        err.textContent = msg || 'Sign in failed. Please try again.';
+      }
+      err.style.display = 'block';
+      return;
+    }
+    loadApp(data.user);
+  } catch(e) {
+    btn.textContent = 'Sign in'; btn.classList.remove('loading');
+    err.textContent = 'Connection error — please check your internet and try again.';
+    err.style.display = 'block';
+  }
+}
+
+function showForgotPassword() {
+  const emailField = document.getElementById('login-email');
+  if (emailField && emailField.value) {
+    document.getElementById('forgot-email').value = emailField.value;
+  }
+  document.getElementById('forgot-error').style.display = 'none';
+  document.getElementById('forgot-success').style.display = 'none';
+  document.getElementById('forgot-password-modal').classList.add('open');
+}
+
+function closeForgotPassword() {
+  document.getElementById('forgot-password-modal').classList.remove('open');
+}
+
+async function handleForgotPassword() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const err = document.getElementById('forgot-error');
+  const suc = document.getElementById('forgot-success');
+  const btn = document.getElementById('forgot-submit-btn');
+  err.style.display = 'none';
+  suc.style.display = 'none';
+  if (!email) { err.textContent = 'Please enter your email address.'; err.style.display = 'block'; return; }
+  btn.textContent = 'Sending...'; btn.disabled = true;
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    btn.textContent = 'Send reset link'; btn.disabled = false;
+    if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
+    suc.textContent = 'Reset link sent! Check your inbox (and spam folder) for an email from Vaun Holidays.';
+    suc.style.display = 'block';
+    document.getElementById('forgot-email').value = '';
+  } catch(e) {
+    btn.textContent = 'Send reset link'; btn.disabled = false;
+    err.textContent = 'Failed to send reset email. Please try again.';
+    err.style.display = 'block';
+  }
 }
 
 async function handleSignup() {
@@ -3022,6 +3133,47 @@ async function loadApp(user) {
 sb.auth.getSession().then(({ data }) => {
   if (data.session) loadApp(data.session.user);
 });
+
+// Handle password recovery redirect (user clicked reset link in email)
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('set-password-error').style.display = 'none';
+    document.getElementById('set-password-success').style.display = 'none';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-new-password').value = '';
+    document.getElementById('set-password-modal').classList.add('open');
+  }
+});
+
+async function handleSetNewPassword() {
+  const pass1 = document.getElementById('new-password').value;
+  const pass2 = document.getElementById('confirm-new-password').value;
+  const err = document.getElementById('set-password-error');
+  const suc = document.getElementById('set-password-success');
+  const btn = document.getElementById('set-password-btn');
+  err.style.display = 'none'; suc.style.display = 'none';
+  if (!pass1 || pass1.length < 8) { err.textContent = 'Password must be at least 8 characters.'; err.style.display = 'block'; return; }
+  if (pass1 !== pass2) { err.textContent = 'Passwords do not match.'; err.style.display = 'block'; return; }
+  btn.textContent = 'Updating...'; btn.disabled = true;
+  try {
+    const { data, error } = await sb.auth.updateUser({ password: pass1 });
+    btn.textContent = 'Update password'; btn.disabled = false;
+    if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
+    suc.textContent = 'Password updated! Signing you in…';
+    suc.style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('set-password-modal').classList.remove('open');
+      if (data.user) loadApp(data.user);
+      else { document.getElementById('login-page').style.display = 'flex'; }
+    }, 1800);
+  } catch(e) {
+    btn.textContent = 'Update password'; btn.disabled = false;
+    err.textContent = 'Failed to update password. Please try again.';
+    err.style.display = 'block';
+  }
+}
 
 // Keyboard enter on login
 document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
