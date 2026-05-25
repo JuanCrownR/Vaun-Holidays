@@ -1024,6 +1024,22 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .lock-banner-text strong { font-weight: 600; }
 .lock-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
+/* Pause banner */
+.pause-banner {
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pause-banner-text { font-size: 13px; color: #1e40af; display: flex; align-items: center; gap: 8px; }
+.pause-banner-text strong { font-weight: 600; }
+
 /* Locked state: disable all interactive elements visually + via pointer-events */
 .is-locked .checklist-item-head,
 .is-locked .checklist-checkbox,
@@ -2243,6 +2259,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
               <div class="checklist-progress-bar"><div class="checklist-progress-fill" id="checklist-progress-fill" style="width:0"></div></div>
             </div>
           </div>
+          <button class="btn btn-secondary" id="checklist-pause-btn" onclick="togglePauseCurrentTask()" style="display:none;">⏸ Pause Task</button>
           <button class="btn btn-secondary" style="background:#f97316;color:white;border-color:#f97316;" onclick="openReportIssue(currentChecklistJob)">⚠️ Report Issue</button>
         </div>
         <div id="checklist-issues-container"></div>
@@ -2265,6 +2282,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="checklist-sub" id="keys-job-sub">—</div>
           </div>
           <div id="keys-job-status-pill" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);">PENDING</div>
+          <button class="btn btn-secondary" id="keys-job-pause-btn" onclick="togglePauseCurrentTask()" style="display:none;">⏸ Pause Task</button>
           <button class="btn btn-secondary" onclick="openReportIssue(currentKeysJob)" style="background:#f97316;color:white;border-color:#f97316;">⚠️ Report Issue</button>
           <button class="btn btn-primary" id="keys-job-close-btn" onclick="completeKeysJob()" style="background:var(--cleaning);">Close task</button>
         </div>
@@ -2280,6 +2298,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="checklist-sub" id="gen-task-sub">—</div>
           </div>
           <div id="gen-task-status-pill" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);">PENDING</div>
+          <button class="btn btn-secondary" id="gen-task-pause-btn" onclick="togglePauseCurrentTask()" style="display:none;">⏸ Pause Task</button>
           <button class="btn btn-secondary" onclick="openReportIssue(currentGeneralTask)" style="background:#f97316;color:white;border-color:#f97316;">⚠️ Report Issue</button>
           <button class="btn btn-primary" id="gen-task-close-btn" onclick="toggleGeneralTaskStatus()" style="background:var(--operations);">Close task</button>
         </div>
@@ -3821,7 +3840,7 @@ function openTaskSummary(job) {
   // History
   const started   = !!m.started_at;
   const completed = s === 'complete' || s === 'resolved';
-  const dur = formatDuration(m.started_at, m.completed_at);
+  const dur = formatDuration(m.started_at, m.completed_at, m.pauses);
 
   document.getElementById('ts-created-at').textContent  = formatDateTime(j.created_at) || '—';
   document.getElementById('ts-created-by').textContent  = m.created_by_name || '—';
@@ -3888,11 +3907,23 @@ async function startTask(job) {
   openTaskDetail(j);
 }
 
-function formatDuration(startIso, endIso) {
+function formatDuration(startIso, endIso, pauses) {
   if (!startIso || !endIso) return null;
   const ms = new Date(endIso) - new Date(startIso);
   if (isNaN(ms) || ms < 0) return null;
-  const totalMins = Math.floor(ms / 60000);
+  // Subtract time spent paused so duration = active working time only
+  let pausedMs = 0;
+  if (Array.isArray(pauses)) {
+    pauses.forEach(p => {
+      if (p.paused_at) {
+        const pStart = new Date(p.paused_at);
+        const pEnd   = p.resumed_at ? new Date(p.resumed_at) : new Date(endIso);
+        const diff   = pEnd - pStart;
+        if (diff > 0) pausedMs += diff;
+      }
+    });
+  }
+  const totalMins = Math.floor((ms - pausedMs) / 60000);
   if (totalMins < 1) return 'Under 1 min';
   if (totalMins < 60) return `${totalMins} min${totalMins !== 1 ? 's' : ''}`;
   const hrs  = Math.floor(totalMins / 60);
@@ -3928,7 +3959,7 @@ function renderAuditCard(job) {
   const isComplete = job.status === 'complete' || job.status === 'resolved';
   const completedAt = isComplete ? formatDateTime(m.completed_at)     : '—';
   const completedBy = isComplete ? escapeHtml(m.completed_by || '—') : '—';
-  const dur        = isComplete ? (formatDuration(m.started_at, m.completed_at) || '—') : '—';
+  const dur        = isComplete ? (formatDuration(m.started_at, m.completed_at, m.pauses) || '—') : '—';
   const doneColor  = isComplete    ? 'color:#15803d;'     : 'color:var(--text3);';
   const startColor = m.started_at  ? ''                   : 'color:var(--text3);';
   return `
@@ -5287,25 +5318,37 @@ function openGeneralTask(job) {
   const propName = propNames[live.property] || live.property;
   document.getElementById('gen-task-sub').textContent =
     `${propName} · Due ${formatDate(live.date)}${live.assigned_to ? ' · ' + live.assigned_to : ''}`;
-  // Status pill + action button (3-state)
-  const pill = document.getElementById('gen-task-status-pill');
-  const btn  = document.getElementById('gen-task-close-btn');
-  const s    = live.status || 'pending';
+  // Status pill + action button (3-state) + pause button
+  const pill     = document.getElementById('gen-task-status-pill');
+  const btn      = document.getElementById('gen-task-close-btn');
+  const pauseBtn = document.getElementById('gen-task-pause-btn');
+  const s        = live.status || 'pending';
+  const paused   = !!(live.meta && live.meta.is_paused);
   if (s === 'complete' || s === 'resolved') {
     pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#15803d;';
     pill.textContent   = 'COMPLETE';
     btn.textContent    = 'Reopen task';
     btn.style.background = 'var(--text2)';
+    btn.style.display  = '';
+    pauseBtn.style.display = 'none';
   } else if (s === 'in_progress') {
-    pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:#dbeafe;color:#1e40af;';
-    pill.textContent   = 'IN PROGRESS';
+    pill.style.cssText = `font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:${paused?'#eff6ff':'#dbeafe'};color:${paused?'#1e40af':'#1e40af'};`;
+    pill.textContent   = paused ? 'PAUSED' : 'IN PROGRESS';
+    pauseBtn.style.display  = '';
+    pauseBtn.textContent    = paused ? '▶ Resume Task' : '⏸ Pause Task';
+    pauseBtn.style.background    = paused ? '#16a34a' : '';
+    pauseBtn.style.color         = paused ? 'white'  : '';
+    pauseBtn.style.borderColor   = paused ? '#16a34a': '';
     btn.textContent    = 'Close task';
     btn.style.background = btnColor;
+    btn.style.display  = paused ? 'none' : '';
   } else {
     pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);';
     pill.textContent   = 'PENDING';
     btn.textContent    = 'Start task';
     btn.style.background = '#16a34a';
+    btn.style.display  = '';
+    pauseBtn.style.display = 'none';
   }
   renderGeneralTask();
 }
@@ -5327,9 +5370,15 @@ function renderGeneralTask() {
     ? TASK_TEMPLATES.find(t => t.key === _taskType) : null;
   if (_customTpl) { renderCustomTemplateSections(j, _customTpl, locked); return; }
   body.classList.toggle('is-locked', locked);
+  const paused = !!(j.meta && j.meta.is_paused);
   const lockBanner = locked ? `
     <div class="lock-banner">
       <div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes.</span></div>
+    </div>` : '';
+  const pauseBanner = (!locked && paused) ? `
+    <div class="pause-banner">
+      <div class="pause-banner-text">⏸ <span><strong>Task paused.</strong> Resume when you're ready to continue.</span></div>
+      <button class="btn btn-primary" onclick="togglePauseCurrentTask()" style="background:#16a34a;flex-shrink:0;">▶ Resume Task</button>
     </div>` : '';
   const attachmentsHtml = `
     <div class="checklist-section-card">
@@ -5362,7 +5411,7 @@ function renderGeneralTask() {
       </div>
     </div>`;
   body.innerHTML = `
-    ${lockBanner}
+    ${lockBanner}${pauseBanner}
     <div class="checklist-section-card">
       <div class="checklist-section-head">
         <span class="checklist-section-title">Heading</span>
@@ -5613,24 +5662,36 @@ function openKeysJob(job) {
   document.getElementById('keys-job-title').textContent = isOrder ? 'Key Order' : 'Key Expiry';
   const propName = propNames[live.property] || live.property;
   document.getElementById('keys-job-sub').textContent = `${propName} · Due ${formatDate(live.date)}${live.assigned_to ? ' · ' + live.assigned_to : ''}`;
-  const pill  = document.getElementById('keys-job-status-pill');
-  const kbtn  = document.getElementById('keys-job-close-btn');
-  const ks    = live.status || 'pending';
+  const pill     = document.getElementById('keys-job-status-pill');
+  const kbtn     = document.getElementById('keys-job-close-btn');
+  const kpause   = document.getElementById('keys-job-pause-btn');
+  const ks       = live.status || 'pending';
+  const kpaused  = !!(live.meta && live.meta.is_paused);
   if (ks === 'complete' || ks === 'resolved') {
     pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#15803d;';
     pill.textContent   = 'COMPLETE';
     kbtn.textContent   = 'Reopen task';
     kbtn.style.background = 'var(--text2)';
+    kbtn.style.display  = '';
+    kpause.style.display = 'none';
   } else if (ks === 'in_progress') {
     pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:#dbeafe;color:#1e40af;';
-    pill.textContent   = 'IN PROGRESS';
-    kbtn.textContent   = 'Close task';
+    pill.textContent   = kpaused ? 'PAUSED' : 'IN PROGRESS';
+    kpause.style.display    = '';
+    kpause.textContent      = kpaused ? '▶ Resume Task' : '⏸ Pause Task';
+    kpause.style.background = kpaused ? '#16a34a' : '';
+    kpause.style.color      = kpaused ? 'white'   : '';
+    kpause.style.borderColor= kpaused ? '#16a34a' : '';
+    kbtn.textContent    = 'Close task';
     kbtn.style.background = 'var(--cleaning)';
+    kbtn.style.display  = kpaused ? 'none' : '';
   } else {
     pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);';
     pill.textContent   = 'PENDING';
     kbtn.textContent   = 'Start task';
     kbtn.style.background = '#16a34a';
+    kbtn.style.display  = '';
+    kpause.style.display = 'none';
   }
   renderKeysJob();
 }
@@ -5649,7 +5710,9 @@ function renderKeysJob() {
   body.classList.toggle('is-locked', isJobLocked(j));
   const m = j.meta;
   const isOrder = m.key_job_type === 'order';
-  const lockBanner = isJobLocked(j) ? `
+  const locked  = isJobLocked(j);
+  const kpaused = !!(m.is_paused);
+  const lockBanner = locked ? `
     <div class="lock-banner">
       <div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes.</span></div>
       <div class="lock-banner-actions">
@@ -5657,6 +5720,11 @@ function renderKeysJob() {
       </div>
     </div>
   ` : '';
+  const pauseBannerK = (!locked && kpaused) ? `
+    <div class="pause-banner">
+      <div class="pause-banner-text">⏸ <span><strong>Task paused.</strong> Resume when you're ready to continue.</span></div>
+      <button class="btn btn-primary" onclick="togglePauseCurrentTask()" style="background:#16a34a;flex-shrink:0;">▶ Resume Task</button>
+    </div>` : '';
   const attachmentsHtml = `
     <div class="checklist-section-card">
       <div class="checklist-section-head">
@@ -5692,7 +5760,7 @@ function renderKeysJob() {
   `;
   if (isOrder) {
     body.innerHTML = `
-      ${lockBanner}
+      ${lockBanner}${pauseBannerK}
       <div class="checklist-section-card">
         <div class="checklist-section-head">
           <span class="checklist-section-title">Order details</span>
@@ -5735,7 +5803,7 @@ function renderKeysJob() {
     // Expiry
     const noteSeed = (m.expiry_notes || j.notes || '').replace(/\s*\[fid:[^\]]+\]\s*$/, '');
     body.innerHTML = `
-      ${lockBanner}
+      ${lockBanner}${pauseBannerK}
       <div class="checklist-section-card">
         <div class="checklist-section-head">
           <span class="checklist-section-title">Description</span>
@@ -5866,7 +5934,8 @@ function completeKeysJob() {
 function renderChecklistSections() {
   const container = document.getElementById('checklist-sections-container');
   const state = ensureChecklistState(currentChecklistJob.id);
-  const locked = isJobLocked(currentChecklistJob);
+  const locked  = isJobLocked(currentChecklistJob);
+  const clPaused = !!(currentChecklistJob.meta && currentChecklistJob.meta.is_paused);
   container.classList.toggle('is-locked', locked);
   const tpl = currentTemplate || CHANGEOVER_CLEAN_TEMPLATE;
   const lockBanner = locked ? `
@@ -5878,7 +5947,12 @@ function renderChecklistSections() {
       </div>
     </div>
   ` : '';
-  container.innerHTML = lockBanner + tpl.sections.map(section => {
+  const pauseBannerCl = (!locked && clPaused) ? `
+    <div class="pause-banner">
+      <div class="pause-banner-text">⏸ <span><strong>Task paused.</strong> Resume when you're ready to continue.</span></div>
+      <button class="btn btn-primary" onclick="togglePauseCurrentTask()" style="background:#16a34a;flex-shrink:0;">▶ Resume Task</button>
+    </div>` : '';
+  container.innerHTML = lockBanner + pauseBannerCl + tpl.sections.map(section => {
     const itemsHtml = section.items.map(item => {
       const itemState = state.items[item.key] || { done: false, photos: [], notes: '', value: null };
       const done = isItemComplete(item, itemState);
@@ -7102,6 +7176,9 @@ async function downloadKeysJobPDF() {
 }
 
 function completeChecklist() {
+  if (currentChecklistJob.meta && currentChecklistJob.meta.is_paused) {
+    showToast('Resume the task before marking it complete', 'error'); return;
+  }
   const state = ensureChecklistState(currentChecklistJob.id);
   const tpl = currentTemplate || CHANGEOVER_CLEAN_TEMPLATE;
   const allItems = tpl.sections.flatMap(s => s.items);
@@ -7167,25 +7244,82 @@ async function startChecklistTask() {
   showToast('▶ Task started — timer running', 'success');
 }
 
-// Keep the footer button label + PDF button visibility in sync with 3-state status.
+// ===== PAUSE / RESUME =====
+function togglePauseCurrentTask() {
+  const j = currentGeneralTask || currentKeysJob || currentChecklistJob;
+  if (!j) return;
+  if (j.meta && j.meta.is_paused) resumeCurrentTask(); else pauseCurrentTask();
+}
+
+async function pauseCurrentTask() {
+  const j = currentGeneralTask || currentKeysJob || currentChecklistJob;
+  if (!j) return;
+  if (!j.meta) j.meta = {};
+  if (j.status !== 'in_progress') return;
+  const now = new Date().toISOString();
+  j.meta.is_paused = true;
+  if (!Array.isArray(j.meta.pauses)) j.meta.pauses = [];
+  j.meta.pauses.push({ paused_at: now, resumed_at: null });
+  try { await sb.from('jobs').update({ meta: j.meta }).eq('id', j.id); } catch(e) {}
+  const live = jobs.find(jj => String(jj.id) === String(j.id));
+  if (live) live.meta = { ...j.meta };
+  renderAllDepts();
+  _refreshCurrentTaskView(j);
+  showToast('⏸ Task paused — timer stopped', 'success');
+}
+
+async function resumeCurrentTask() {
+  const j = currentGeneralTask || currentKeysJob || currentChecklistJob;
+  if (!j) return;
+  if (!j.meta) j.meta = {};
+  const now = new Date().toISOString();
+  j.meta.is_paused = false;
+  if (Array.isArray(j.meta.pauses) && j.meta.pauses.length > 0) {
+    const last = j.meta.pauses[j.meta.pauses.length - 1];
+    if (!last.resumed_at) last.resumed_at = now;
+  }
+  try { await sb.from('jobs').update({ meta: j.meta }).eq('id', j.id); } catch(e) {}
+  const live = jobs.find(jj => String(jj.id) === String(j.id));
+  if (live) live.meta = { ...j.meta };
+  renderAllDepts();
+  _refreshCurrentTaskView(j);
+  showToast('▶ Task resumed — timer running', 'success');
+}
+
+function _refreshCurrentTaskView(j) {
+  if (currentGeneralTask && currentGeneralTask.id === j.id) openGeneralTask(j);
+  else if (currentKeysJob && currentKeysJob.id === j.id) openKeysJob(j);
+  else if (currentChecklistJob && currentChecklistJob.id === j.id) {
+    renderChecklistSections(); refreshChecklistFooter(); updateChecklistProgress();
+  }
+}
+
+// Keep the footer button label + PDF button visibility in sync with 3-state status + pause.
 function refreshChecklistFooter() {
-  const btn = document.getElementById('checklist-complete-btn');
-  const pdf = document.getElementById('checklist-pdf-btn');
+  const btn  = document.getElementById('checklist-complete-btn');
+  const pdf  = document.getElementById('checklist-pdf-btn');
+  const pbtn = document.getElementById('checklist-pause-btn');
   if (!btn || !currentChecklistJob) return;
-  const s = currentChecklistJob.status || 'pending';
-  const isInspection = currentChecklistJob.department === 'inspections';
+  const s        = currentChecklistJob.status || 'pending';
+  const paused   = !!(currentChecklistJob.meta && currentChecklistJob.meta.is_paused);
+  const isInspec = currentChecklistJob.department === 'inspections';
   if (s === 'complete' || s === 'resolved') {
-    btn.textContent = 'Reopen task';
-    btn.style.background = 'var(--text2)';
+    btn.textContent = 'Reopen task'; btn.style.background = 'var(--text2)';
     if (pdf) pdf.style.display = '';
+    if (pbtn) pbtn.style.display = 'none';
+  } else if (s === 'in_progress' && paused) {
+    btn.textContent = '▶ Resume Task'; btn.style.background = '#16a34a';
+    if (pdf) pdf.style.display = 'none';
+    if (pbtn) { pbtn.textContent = '▶ Resume Task'; pbtn.style.background = '#16a34a'; pbtn.style.color = 'white'; pbtn.style.borderColor = '#16a34a'; pbtn.style.display = ''; }
   } else if (s === 'in_progress') {
-    btn.textContent = isInspection ? 'Mark inspection complete' : 'Mark cleaning complete';
+    btn.textContent = isInspec ? 'Mark inspection complete' : 'Mark cleaning complete';
     btn.style.background = '';
     if (pdf) pdf.style.display = 'none';
+    if (pbtn) { pbtn.textContent = '⏸ Pause Task'; pbtn.style.background = ''; pbtn.style.color = ''; pbtn.style.borderColor = ''; pbtn.style.display = ''; }
   } else {
-    btn.textContent = 'Start task';
-    btn.style.background = '#16a34a';
+    btn.textContent = 'Start task'; btn.style.background = '#16a34a';
     if (pdf) pdf.style.display = 'none';
+    if (pbtn) pbtn.style.display = 'none';
   }
 }
 
