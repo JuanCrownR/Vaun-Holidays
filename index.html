@@ -1824,25 +1824,46 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   </div>
   <div class="login-right">
     <div class="login-card">
-      <h2 class="login-card-title">Welcome back</h2>
-      <p class="login-card-sub">Sign in to your account</p>
-      <div class="form-group">
-        <label class="form-label">Email address</label>
-        <input type="email" class="form-input" id="login-email" placeholder="you@example.com" autocomplete="email">
+
+      <!-- SIGN IN FORM -->
+      <div id="login-form-panel">
+        <h2 class="login-card-title">Welcome back</h2>
+        <p class="login-card-sub">Sign in to your account</p>
+        <div class="form-group">
+          <label class="form-label">Email address</label>
+          <input type="email" class="form-input" id="login-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="login-password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="login-btn" id="login-submit" onclick="handleLogin()">Sign in</button>
+        <div class="login-error" id="login-error"></div>
+        <div style="text-align:center;margin-top:10px;">
+          <button onclick="showForgotPanel()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px;">Forgot password?</button>
+        </div>
+        <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+          <p style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Don't have an account?</p>
+          <button class="login-btn" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);" onclick="showSignup()">Create account</button>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Password</label>
-        <input type="password" class="form-input" id="login-password" placeholder="••••••••" autocomplete="current-password">
+
+      <!-- RESET PASSWORD FORM (swaps in place of sign-in form) -->
+      <div id="reset-form-panel" style="display:none;">
+        <button onclick="hideForgotPanel()" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;display:flex;align-items:center;gap:6px;">← Back to sign in</button>
+        <h2 class="login-card-title">Reset password</h2>
+        <p class="login-card-sub" style="margin-bottom:20px;">Enter your email and we'll send you a reset link.</p>
+        <div class="form-group">
+          <label class="form-label">Email address</label>
+          <input type="email" class="form-input" id="reset-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <button class="login-btn" id="reset-submit-btn" onclick="handleSendReset()">Send reset link</button>
+        <div class="login-error" id="reset-error" style="margin-top:10px;"></div>
+        <div id="reset-success" style="display:none;margin-top:12px;padding:12px 14px;background:#dcfce7;color:#166534;border-radius:8px;font-size:13px;line-height:1.5;">
+          ✅ Reset link sent! Check your inbox (and spam folder).
+        </div>
       </div>
-      <button class="login-btn" id="login-submit" onclick="handleLogin()">Sign in</button>
-      <div class="login-error" id="login-error"></div>
-      <div style="text-align:center;margin-top:10px;">
-        <button onclick="showForgotPassword()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px;">Forgot password?</button>
-      </div>
-      <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
-        <p style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Don't have an account?</p>
-        <button class="login-btn" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);" onclick="showSignup()">Create account</button>
-      </div>
+
     </div>
   </div>
 </div>
@@ -3044,44 +3065,51 @@ async function handleLogin() {
   }
 }
 
-function showForgotPassword() {
+function showForgotPanel() {
   const emailField = document.getElementById('login-email');
-  if (emailField && emailField.value) {
-    document.getElementById('forgot-email').value = emailField.value;
-  }
-  document.getElementById('forgot-error').style.display = 'none';
-  document.getElementById('forgot-success').style.display = 'none';
-  document.getElementById('forgot-password-modal').classList.add('open');
+  if (emailField && emailField.value) document.getElementById('reset-email').value = emailField.value;
+  document.getElementById('reset-error').style.display = 'none';
+  document.getElementById('reset-success').style.display = 'none';
+  document.getElementById('reset-submit-btn').textContent = 'Send reset link';
+  document.getElementById('reset-submit-btn').disabled = false;
+  document.getElementById('login-form-panel').style.display = 'none';
+  document.getElementById('reset-form-panel').style.display = 'block';
 }
 
-function closeForgotPassword() {
-  document.getElementById('forgot-password-modal').classList.remove('open');
+function hideForgotPanel() {
+  document.getElementById('login-form-panel').style.display = 'block';
+  document.getElementById('reset-form-panel').style.display = 'none';
 }
 
-async function handleForgotPassword() {
-  const email = document.getElementById('forgot-email').value.trim();
-  const err = document.getElementById('forgot-error');
-  const suc = document.getElementById('forgot-success');
-  const btn = document.getElementById('forgot-submit-btn');
+// Keep old name as alias so any lingering onclick="showForgotPassword()" still works
+function showForgotPassword() { showForgotPanel(); }
+function closeForgotPassword() { hideForgotPanel(); }
+
+async function handleSendReset() {
+  const email = document.getElementById('reset-email').value.trim();
+  const err = document.getElementById('reset-error');
+  const btn = document.getElementById('reset-submit-btn');
   err.style.display = 'none';
-  suc.style.display = 'none';
+  document.getElementById('reset-success').style.display = 'none';
   if (!email) { err.textContent = 'Please enter your email address.'; err.style.display = 'block'; return; }
-  btn.textContent = 'Sending...'; btn.disabled = true;
+  btn.textContent = 'Sending…'; btn.disabled = true;
   try {
     const { error } = await sb.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + window.location.pathname
     });
     btn.textContent = 'Send reset link'; btn.disabled = false;
     if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
-    suc.textContent = 'Reset link sent! Check your inbox (and spam folder) for an email from Vaun Holidays.';
-    suc.style.display = 'block';
-    document.getElementById('forgot-email').value = '';
+    document.getElementById('reset-success').style.display = 'block';
+    document.getElementById('reset-email').value = '';
   } catch(e) {
     btn.textContent = 'Send reset link'; btn.disabled = false;
-    err.textContent = 'Failed to send reset email. Please try again.';
+    err.textContent = 'Connection error — please try again.';
     err.style.display = 'block';
   }
 }
+
+// Legacy alias
+async function handleForgotPassword() { handleSendReset(); }
 
 async function handleSignup() {
   const name = document.getElementById('signup-name').value.trim();
