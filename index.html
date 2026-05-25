@@ -7430,7 +7430,8 @@ async function downloadGeneralTaskPDF() {
   const tpl = (taskType && taskType.startsWith('custom-'))
     ? TASK_TEMPLATES.find(t => t.key === taskType) : null;
   if (tpl && Array.isArray(tpl.sections)) {
-    tpl.sections.forEach((sec, si) => {
+    for (let si = 0; si < tpl.sections.length; si++) {
+      const sec = tpl.sections[si];
       ensureSpace(12);
       doc.setFontSize(11); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
       doc.text(sec.heading || `Step ${si + 1}`, marginX, y); y += 5;
@@ -7443,7 +7444,7 @@ async function downloadGeneralTaskPDF() {
       const secAtts = (m.section_attachments && m.section_attachments[si]) || [];
       const imgs = secAtts.filter(a => (a.type && a.type.startsWith('image/')) || /\.(jpe?g|png|gif|webp)$/i.test(a.name || ''));
       if (imgs.length) { y = await _pdfImageBoxes(doc, imgs, y); }
-    });
+    }
     y += 2;
   }
 
