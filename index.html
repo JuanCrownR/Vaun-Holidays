@@ -1779,6 +1779,94 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   color: var(--text2);
 }
 
+/* ===== RESERVATIONS VIEW ===== */
+.res-topbar {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+.res-search-wrap {
+  flex: 1; min-width: 220px; max-width: 400px; position: relative;
+}
+.res-search-wrap::before {
+  content: '🔍'; position: absolute; left: 12px; top: 50%;
+  transform: translateY(-50%); font-size: 13px; pointer-events: none;
+}
+.res-search {
+  width: 100%; padding: 9px 12px 9px 34px;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  background: var(--surface2); color: var(--text); outline: none;
+}
+.res-search:focus { border-color: var(--accent2); background: white; }
+.res-filter-row {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.res-date-tabs { display: flex; gap: 0; }
+.res-date-tab {
+  padding: 8px 16px; font-size: 13px; font-weight: 500;
+  background: none; border: none; cursor: pointer; color: var(--text2);
+  border-bottom: 2.5px solid transparent; margin-bottom: -13px;
+  transition: color .15s, border-color .15s;
+}
+.res-date-tab:hover { color: var(--text); }
+.res-date-tab.active { color: var(--text); border-bottom-color: var(--text); }
+.res-divider { width: 1px; height: 20px; background: var(--border); }
+.res-status-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.res-pill {
+  padding: 5px 12px; border-radius: 999px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-size: 12px; font-weight: 500; cursor: pointer; color: var(--text2);
+  transition: all .15s;
+}
+.res-pill:hover { border-color: var(--text2); color: var(--text); }
+.res-pill.active { background: var(--text); color: white; border-color: var(--text); }
+.res-count { font-size: 12px; color: var(--text3); margin-left: auto; white-space: nowrap; }
+.res-table { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.res-table-header {
+  display: grid;
+  grid-template-columns: 180px 140px 60px 140px 120px 1fr 100px;
+  padding: 10px 16px; background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--text3); gap: 8px;
+}
+.res-row {
+  display: grid;
+  grid-template-columns: 180px 140px 60px 140px 120px 1fr 100px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  gap: 8px; align-items: center; cursor: default;
+  transition: background .12s;
+}
+.res-row:last-child { border-bottom: none; }
+.res-row:hover { background: var(--surface2); }
+.res-guest-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.res-guest-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.res-date-main { font-size: 13px; color: var(--text); }
+.res-date-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.res-nights { font-size: 15px; font-weight: 700; color: var(--text); }
+.res-prop-name { font-size: 13px; font-weight: 500; color: var(--text); }
+.res-prop-addr { font-size: 11px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res-prop-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; flex-shrink: 0; }
+.res-channel-tag {
+  display: inline-flex; align-items: center; padding: 3px 8px;
+  border-radius: 6px; font-size: 11px; font-weight: 500;
+  background: var(--surface2); color: var(--text2); border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.res-empty {
+  padding: 64px 32px; text-align: center; color: var(--text3); font-size: 14px;
+}
+@media (max-width: 900px) {
+  .res-table-header { grid-template-columns: 1fr 100px 40px 90px; }
+  .res-table-header > *:nth-child(5),
+  .res-table-header > *:nth-child(6) { display: none; }
+  .res-row { grid-template-columns: 1fr 100px 40px 90px; }
+  .res-row > *:nth-child(5),
+  .res-row > *:nth-child(6) { display: none; }
+}
+
 /* Asset details */
 .asset-details-grid {
   display: grid;
@@ -1983,6 +2071,9 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       <div class="nav-item" onclick="showView('calendar',this)">
         <span class="nav-icon">📅</span> Calendar
       </div>
+      <div class="nav-item" onclick="showView('reservations',this)">
+        <span class="nav-icon">🛎</span> Reservations
+      </div>
       <div class="nav-item" onclick="showView('templates',this)">
         <span class="nav-icon">📑</span> Templates
       </div>
@@ -2174,6 +2265,45 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="cal-header-cell">Sun</div>
           </div>
           <div class="cal-body" id="cal-body"></div>
+        </div>
+      </div>
+
+      <!-- RESERVATIONS -->
+      <div class="view" id="view-reservations">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Reservations</div>
+          </div>
+          <div class="res-search-wrap">
+            <input type="text" class="res-search" id="res-search" placeholder="Search by guest name…" oninput="renderReservations()">
+          </div>
+        </div>
+        <div class="res-filter-row">
+          <div class="res-date-tabs">
+            <button class="res-date-tab active" data-tab="today" onclick="setResDateTab('today',this)">Today</button>
+            <button class="res-date-tab" data-tab="tomorrow" onclick="setResDateTab('tomorrow',this)">Tomorrow</button>
+            <button class="res-date-tab" data-tab="week" onclick="setResDateTab('week',this)">This Week</button>
+            <button class="res-date-tab" data-tab="all" onclick="setResDateTab('all',this)">All</button>
+          </div>
+          <div class="res-divider"></div>
+          <div class="res-status-pills">
+            <button class="res-pill" data-pill="checkin" onclick="toggleResPill('checkin',this)">Check-in</button>
+            <button class="res-pill" data-pill="checkout" onclick="toggleResPill('checkout',this)">Checkout</button>
+            <button class="res-pill" data-pill="occupied" onclick="toggleResPill('occupied',this)">Occupied</button>
+          </div>
+          <span class="res-count" id="res-count"></span>
+        </div>
+        <div class="res-table">
+          <div class="res-table-header">
+            <span>Guest</span>
+            <span>Arrival</span>
+            <span>Nights</span>
+            <span>Departure</span>
+            <span>Channel</span>
+            <span>Property</span>
+            <span>Status</span>
+          </div>
+          <div id="res-rows"></div>
         </div>
       </div>
 
@@ -3223,10 +3353,11 @@ function showView(name, el) {
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts' };
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', reservations: 'Reservations', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
   if (name === 'contacts') { loadContacts(); }
+  if (name === 'reservations') { resFilters = { dateTab: 'today', pills: [], search: '' }; renderReservations(); }
   if (name === 'asset') renderAssetView();
   if (name === 'properties') renderPropertiesGrid();
   if (name === 'templates') renderTemplatesGrid();
@@ -8102,6 +8233,133 @@ function assetTaskRow(j) {
       <div>${statusBadge(j.status)}</div>
       <div style="font-size:16px;color:var(--text3);padding-left:4px;">›</div>
     </div>`;
+}
+
+// ===== RESERVATIONS =====
+let resFilters = { dateTab: 'today', pills: [], search: '' };
+
+function setResDateTab(tab, el) {
+  resFilters.dateTab = tab;
+  resFilters.pills = [];
+  document.querySelectorAll('.res-date-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.res-pill').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderReservations();
+}
+
+function toggleResPill(pill, el) {
+  const idx = resFilters.pills.indexOf(pill);
+  if (idx >= 0) { resFilters.pills.splice(idx, 1); el.classList.remove('active'); }
+  else { resFilters.pills.push(pill); el.classList.add('active'); }
+  renderReservations();
+}
+
+function renderReservations() {
+  const searchEl = document.getElementById('res-search');
+  const search = (searchEl ? searchEl.value : '').toLowerCase().trim();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = today.toISOString().split('T')[0];
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7);
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+  let filtered = [...bookings];
+
+  // Date tab filter
+  const tab = resFilters.dateTab;
+  if (tab === 'today') {
+    filtered = filtered.filter(b => b.check_in <= todayStr && b.check_out > todayStr || b.check_in === todayStr || b.check_out === todayStr);
+  } else if (tab === 'tomorrow') {
+    filtered = filtered.filter(b => b.check_in <= tomorrowStr && b.check_out > tomorrowStr || b.check_in === tomorrowStr || b.check_out === tomorrowStr);
+  } else if (tab === 'week') {
+    filtered = filtered.filter(b => b.check_in <= weekEndStr && b.check_out >= todayStr);
+  }
+  // 'all' = no date filter
+
+  // Status pill filter (OR logic — any matching pill)
+  if (resFilters.pills.length > 0) {
+    filtered = filtered.filter(b => {
+      const refDate = tab === 'tomorrow' ? tomorrowStr : todayStr;
+      return resFilters.pills.some(pill => {
+        if (pill === 'checkin')  return b.check_in === refDate;
+        if (pill === 'checkout') return b.check_out === refDate;
+        if (pill === 'occupied') return b.check_in < refDate && b.check_out > refDate;
+        return false;
+      });
+    });
+  }
+
+  // Search filter
+  if (search) {
+    filtered = filtered.filter(b => (b.guest_name || '').toLowerCase().includes(search) || (b.notes || '').toLowerCase().includes(search));
+  }
+
+  // Sort by check_in
+  filtered.sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
+
+  // Update count
+  const countEl = document.getElementById('res-count');
+  if (countEl) countEl.textContent = filtered.length + ' reservation' + (filtered.length !== 1 ? 's' : '');
+
+  const container = document.getElementById('res-rows');
+  if (!container) return;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="res-empty">No reservations match the current filters.</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(b => {
+    const prop = properties.find(p => p.id === b.property) || { name: b.property || '—', color: '#ccc', address: '' };
+    const nights = b.check_in && b.check_out ? Math.round((new Date(b.check_out) - new Date(b.check_in)) / 86400000) : '—';
+    const checkinDate = b.check_in ? formatDate(b.check_in) : '—';
+    const checkoutDate = b.check_out ? formatDate(b.check_out) : '—';
+
+    // Determine status label
+    const today2Str = new Date().toISOString().split('T')[0];
+    let statusLabel = ''; let statusColor = '';
+    if (b.check_in === today2Str) { statusLabel = 'Arriving'; statusColor = '#16a34a'; }
+    else if (b.check_out === today2Str) { statusLabel = 'Departing'; statusColor = '#dc2626'; }
+    else if (b.check_in < today2Str && b.check_out > today2Str) { statusLabel = 'Occupied'; statusColor = '#2563eb'; }
+    else if (b.check_in > today2Str) { statusLabel = 'Upcoming'; statusColor = '#7c3aed'; }
+    else { statusLabel = b.status || 'Confirmed'; statusColor = '#6b7280'; }
+
+    const channelColors = { airbnb: '#FF5A5F', 'booking.com': '#003580', vrbo: '#3d5a80', direct: '#166534', owner: '#92400e' };
+    const ch = (b.channel || '').toLowerCase();
+    const chColor = channelColors[ch] || '#6b7280';
+    const chLabel = b.channel ? escapeHtml(b.channel.charAt(0).toUpperCase() + b.channel.slice(1)) : '—';
+
+    return `
+    <div class="res-row">
+      <div>
+        <div class="res-guest-name">${escapeHtml(b.guest_name || 'Guest')}</div>
+        <div class="res-guest-sub">${b.guests ? b.guests + ' guest' + (b.guests > 1 ? 's' : '') : ''}${b.notes ? (b.guests ? ' · ' : '') + escapeHtml(b.notes.substring(0,40)) : ''}</div>
+      </div>
+      <div>
+        <div class="res-date-main">${checkinDate}</div>
+        <div class="res-date-sub">Check-in 2:00pm</div>
+      </div>
+      <div class="res-nights">${nights}</div>
+      <div>
+        <div class="res-date-main">${checkoutDate}</div>
+        <div class="res-date-sub">Check-out 10:00am</div>
+      </div>
+      <div>
+        ${b.channel ? `<span class="res-channel-tag" style="background:${chColor}15;color:${chColor};border-color:${chColor}30;">${chLabel}</span>` : '<span style="color:var(--text3);font-size:12px;">—</span>'}
+      </div>
+      <div style="min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="res-prop-dot" style="background:${prop.color}"></span>
+          <span class="res-prop-name">${escapeHtml(prop.name)}</span>
+        </div>
+        <div class="res-prop-addr">${escapeHtml(prop.address || '')}</div>
+      </div>
+      <div>
+        <span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;background:${statusColor}18;color:${statusColor};">${escapeHtml(statusLabel)}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // Navigate to any job by its ID — used by property task list rows
