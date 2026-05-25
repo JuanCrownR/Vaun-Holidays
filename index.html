@@ -3205,7 +3205,10 @@ let assetActiveTab = 'calendar';
 let assetTaskFilters = { dept: 'all', status: 'all', assignedTo: 'all', sort: 'due-asc' };
 const DEPT_FILTER_DEFAULT = { assignment: [], status: [], property: [], createdBy: [], sort: 'created-desc' };
 let deptFilters = { ...DEPT_FILTER_DEFAULT };
-let _openDeptFilter = null; // which pill dropdown is currently open
+let _openDeptFilter = null;      // which pill dropdown is currently open
+let _deptDropdownType = '';       // type currently shown in shared dropdown
+let _deptDropdownAllOptions = []; // full unfiltered option list for current dropdown
+let _deptDropdownSearch = '';     // current search query inside dropdown
 
 // Default properties — used as fallback if Supabase properties table is unavailable.
 // Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
@@ -3869,51 +3872,73 @@ function _activeDept() {
     .find(d => document.getElementById('view-' + d)?.classList.contains('active')) || null;
 }
 
-function openDeptFilterDropdown(type, btnEl) {
-  if (_openDeptFilter === type) { closeDeptFilterDropdown(); return; }
-  _openDeptFilter = type;
-
+function _buildDeptDropdownOptions(type) {
   const dept = _activeDept();
   const allJobs = dept ? jobs.filter(j => j.department === dept) : jobs;
-
-  // Build option lists dynamically
-  const STATUS_OPTS = [
-    { value: 'pending',     label: 'Pending' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'complete',    label: 'Complete' },
-    { value: 'resolved',    label: 'Resolved' }
-  ];
-  let options = [];
-  const titles = { assignment:'Assignment', status:'Task Status', property:'Property', createdBy:'Created by' };
-
   if (type === 'status') {
-    options = STATUS_OPTS;
+    return [
+      { value: 'pending',     label: 'Pending' },
+      { value: 'in_progress', label: 'In Progress' },
+      { value: 'complete',    label: 'Complete' },
+      { value: 'resolved',    label: 'Resolved' }
+    ];
   } else if (type === 'assignment') {
     const vals = [...new Set(allJobs.map(j => j.assigned_to).filter(Boolean))].sort();
-    options = [{ value: '__unassigned__', label: 'Unassigned' }, ...vals.map(v => ({ value: v, label: v }))];
+    return [{ value: '__unassigned__', label: 'Unassigned' }, ...vals.map(v => ({ value: v, label: v }))];
   } else if (type === 'property') {
-    options = properties.map(p => ({ value: p.id, label: p.name }));
+    return properties.map(p => ({ value: p.id, label: p.name }));
   } else if (type === 'createdBy') {
     const vals = [...new Set(allJobs.map(j => j.meta?.created_by_name).filter(Boolean))].sort();
-    options = vals.map(v => ({ value: v, label: v }));
+    return vals.map(v => ({ value: v, label: v }));
   }
+  return [];
+}
 
+function _renderDeptDropdownInner(type, query) {
+  const titles = { assignment: 'Assignment', status: 'Task Status', property: 'Property', createdBy: 'Created by' };
+  const allOpts = _deptDropdownAllOptions;
+  const q = (query || '').toLowerCase();
+  const filtered = q ? allOpts.filter(o => o.label.toLowerCase().includes(q)) : allOpts;
   const selected = deptFilters[type] || [];
   const inner = document.getElementById('dept-filter-dropdown-inner');
 
   inner.innerHTML = `
     <div class="dept-filter-dd-title">${titles[type] || type}</div>
-    ${options.length === 0
-      ? `<div style="padding:16px 14px;font-size:13px;color:var(--text3);">No options available</div>`
-      : options.map(o => `
-        <div class="dept-filter-opt${selected.includes(o.value) ? ' checked' : ''}"
-             onclick="toggleDeptFilterValue('${type}','${o.value.replace(/'/g,"\\'")}')">
-          <div class="dept-filter-check">${selected.includes(o.value) ? '✓' : ''}</div>
-          ${escapeHtml(o.label)}
-        </div>`).join('')
-    }
+    <div style="padding:6px 10px 8px;border-bottom:1px solid var(--border);">
+      <input class="dept-dd-search" type="text" placeholder="Search…"
+        value="${escapeHtml(query || '')}"
+        oninput="filterDeptDropdownSearch(this.value)"
+        style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--text);outline:none;background:var(--surface2);">
+    </div>
+    <div id="dept-dd-opts" style="overflow-y:auto;max-height:220px;">
+      ${filtered.length === 0
+        ? `<div style="padding:14px;font-size:13px;color:var(--text3);text-align:center;">No matches</div>`
+        : filtered.map(o => `
+          <div class="dept-filter-opt${selected.includes(o.value) ? ' checked' : ''}"
+               onclick="toggleDeptFilterValue('${type}','${o.value.replace(/'/g,"\\'")}')">
+            <div class="dept-filter-check">${selected.includes(o.value) ? '✓' : ''}</div>
+            ${escapeHtml(o.label)}
+          </div>`).join('')}
+    </div>
     ${selected.length ? `<div class="dept-filter-dd-footer"><button class="dept-clear-link" onclick="clearDeptFilterType('${type}')">Clear</button></div>` : ''}
   `;
+}
+
+function filterDeptDropdownSearch(val) {
+  _deptDropdownSearch = val;
+  _renderDeptDropdownInner(_deptDropdownType, val);
+  const inp = document.querySelector('#dept-filter-dropdown .dept-dd-search');
+  if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+}
+
+function openDeptFilterDropdown(type, btnEl) {
+  if (_openDeptFilter === type) { closeDeptFilterDropdown(); return; }
+  _openDeptFilter = type;
+  _deptDropdownType = type;
+  _deptDropdownSearch = '';
+  _deptDropdownAllOptions = _buildDeptDropdownOptions(type);
+
+  _renderDeptDropdownInner(type, '');
 
   const dd = document.getElementById('dept-filter-dropdown');
   const rect = btnEl.getBoundingClientRect();
@@ -3932,11 +3957,23 @@ function toggleDeptFilterValue(type, value) {
   const idx = arr.indexOf(value);
   if (idx >= 0) arr.splice(idx, 1); else arr.push(value);
   renderAllDepts();
-  // Re-open the dropdown on the refreshed button
-  const dept = _activeDept();
-  if (dept && _openDeptFilter) {
-    const btn = document.querySelector(`#${dept}-filter-bar button[data-ftype="${_openDeptFilter}"]`);
-    if (btn) openDeptFilterDropdown(_openDeptFilter, btn);
+  // Refresh dropdown in-place, preserving search query and focus
+  if (_openDeptFilter === type) {
+    _renderDeptDropdownInner(type, _deptDropdownSearch);
+    // Reposition relative to the (now re-rendered) pill button
+    const dept = _activeDept();
+    if (dept) {
+      const btn = document.querySelector(`#${dept}-filter-bar button[data-ftype="${type}"]`);
+      if (btn) {
+        const dd = document.getElementById('dept-filter-dropdown');
+        const rect = btn.getBoundingClientRect();
+        dd.style.top  = (rect.bottom + 6) + 'px';
+        dd.style.left = Math.min(rect.left, window.innerWidth - 230) + 'px';
+      }
+    }
+    // Restore focus to search input
+    const inp = document.querySelector('#dept-filter-dropdown .dept-dd-search');
+    if (inp) inp.focus();
   }
 }
 
