@@ -7198,25 +7198,40 @@ function renderAssetTasks() {
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     if (list.length === 0) return '';
     const di = deptIcon(d);
-    const rows = list.map(j => `
-      <div class="asset-task-row">
+    const rows = list.map(j => {
+      const title = escapeHtml(
+        (j.meta && j.meta.heading) ||
+        j.notes ||
+        taskTypeLabel(j) ||
+        (d.charAt(0).toUpperCase() + d.slice(1)) + ' task'
+      );
+      return `
+      <div class="asset-task-row" style="cursor:pointer;" onclick="viewJobById('${j.id}')">
         <div class="asset-task-icon" style="background:${di.bg}">${di.icon}</div>
-        <div>
-          <div style="font-size:13px;font-weight:500;">${escapeHtml(j.notes || (d.charAt(0).toUpperCase() + d.slice(1)) + ' task')}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
           <div style="font-size:11px;color:var(--text3);">${escapeHtml(j.assigned_to || 'Unassigned')}</div>
         </div>
-        <div style="font-size:12px;color:var(--text2);">${formatDate(j.date)}</div>
+        <div style="font-size:12px;color:var(--text2);white-space:nowrap;">${formatDate(j.date)}</div>
         <div>${statusBadge(j.status)}</div>
+        <div style="font-size:16px;color:var(--text3);padding-left:4px;">›</div>
       </div>
-    `).join('');
+    `;}).join('');
+    const dLabel = { cleaning:'Cleaning', maintenance:'Maintenance', inspections:'Inspections', operations:'Operations', compliance:'Compliance', keys:'Keys Management' }[d] || (d.charAt(0).toUpperCase()+d.slice(1));
     return `
       <div class="asset-task-group">
-        <div class="asset-task-group-title">${di.icon} ${d}</div>
+        <div class="asset-task-group-title">${di.icon} ${dLabel}</div>
         ${rows}
       </div>
     `;
   }).filter(Boolean).join('');
   return groups || `<div style="padding:48px;text-align:center;color:var(--text3);font-size:14px;">No tasks yet.</div>`;
+}
+
+// Navigate to any job by its ID — used by property task list rows
+function viewJobById(id) {
+  const j = jobs.find(j => String(j.id) === String(id));
+  if (j) viewJob(j);
 }
 
 function renderAssetBookings() {
