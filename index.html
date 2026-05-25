@@ -3752,7 +3752,14 @@ async function saveJob() {
 }
 
 function renderAllDepts() {
-  renderDept('cleaning', 'cleaning-jobs', ['Property','Task type','Assigned to','Date','Status',''], j => `
+  renderDept('cleaning', 'cleaning-jobs', [
+    {label:'Property',    sortKey:'property'},
+    {label:'Task type',   sortKey:'task'},
+    {label:'Assigned to', sortKey:'assigned'},
+    {label:'Date',        sortKey:'due'},
+    {label:'Status',      sortKey:'status'},
+    {label:'',            sortKey:null}
+  ], j => `
     <div class="table-row grid-cleaning" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:12px;color:var(--text2)">${taskTypeLabel(j)}</span>
@@ -3762,7 +3769,14 @@ function renderAllDepts() {
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('maintenance', 'maintenance-jobs', ['Issue','Property','Reported','Assigned','Status',''], j => `
+  renderDept('maintenance', 'maintenance-jobs', [
+    {label:'Issue',    sortKey:'task'},
+    {label:'Property', sortKey:'property'},
+    {label:'Reported', sortKey:'due'},
+    {label:'Assigned', sortKey:'assigned'},
+    {label:'Status',   sortKey:'status'},
+    {label:'',         sortKey:null}
+  ], j => `
     <div class="table-row grid-maintenance" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Maintenance issue')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
@@ -3772,7 +3786,14 @@ function renderAllDepts() {
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('inspections', 'inspection-jobs', ['Property','Inspector','Date','Type','Status',''], j => `
+  renderDept('inspections', 'inspection-jobs', [
+    {label:'Property',  sortKey:'property'},
+    {label:'Inspector', sortKey:'assigned'},
+    {label:'Date',      sortKey:'due'},
+    {label:'Type',      sortKey:'task'},
+    {label:'Status',    sortKey:'status'},
+    {label:'',          sortKey:null}
+  ], j => `
     <div class="table-row grid-inspections" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
@@ -3782,7 +3803,14 @@ function renderAllDepts() {
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('operations', 'operations-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
+  renderDept('operations', 'operations-jobs', [
+    {label:'Task',     sortKey:'task'},
+    {label:'Property', sortKey:'property'},
+    {label:'Due',      sortKey:'due'},
+    {label:'Assigned', sortKey:'assigned'},
+    {label:'Status',   sortKey:'status'},
+    {label:'',         sortKey:null}
+  ], j => `
     <div class="table-row grid-operations" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Operations task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
@@ -3792,7 +3820,14 @@ function renderAllDepts() {
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('compliance', 'compliance-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
+  renderDept('compliance', 'compliance-jobs', [
+    {label:'Task',     sortKey:'task'},
+    {label:'Property', sortKey:'property'},
+    {label:'Due',      sortKey:'due'},
+    {label:'Assigned', sortKey:'assigned'},
+    {label:'Status',   sortKey:'status'},
+    {label:'',         sortKey:null}
+  ], j => `
     <div class="table-row grid-compliance" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Compliance task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
@@ -3802,7 +3837,14 @@ function renderAllDepts() {
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
 
-  renderDept('keys', 'keys-jobs', ['Task','Property','Due','Assigned','Status',''], j => `
+  renderDept('keys', 'keys-jobs', [
+    {label:'Task',     sortKey:'task'},
+    {label:'Property', sortKey:'property'},
+    {label:'Due',      sortKey:'due'},
+    {label:'Assigned', sortKey:'assigned'},
+    {label:'Status',   sortKey:'status'},
+    {label:'',         sortKey:null}
+  ], j => `
     <div class="table-row grid-keys" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml(j.notes || 'Keys task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
@@ -3870,16 +3912,43 @@ function renderAllTasks() {
   if (f.createdBy.length)   allJobs = allJobs.filter(j => f.createdBy.includes(j.meta?.created_by_name || ''));
 
   allJobs.sort((a, b) => {
+    const pn = j => (propNames[j.property] || j.property || '').toLowerCase();
     switch (f.sort) {
-      case 'created-desc':   return (b.created_at || '').localeCompare(a.created_at || '');
-      case 'created-asc':    return (a.created_at || '').localeCompare(b.created_at || '');
-      case 'due-asc':        return (a.date || '').localeCompare(b.date || '');
-      case 'due-desc':       return (b.date || '').localeCompare(a.date || '');
-      case 'completed-desc': return ((b.meta?.completed_at)||'').localeCompare((a.meta?.completed_at)||'');
-      case 'completed-asc':  return ((a.meta?.completed_at)||'').localeCompare((b.meta?.completed_at)||'');
+      case 'created-desc':    return (b.created_at || '').localeCompare(a.created_at || '');
+      case 'created-asc':     return (a.created_at || '').localeCompare(b.created_at || '');
+      case 'due-asc':         return (a.date || '').localeCompare(b.date || '');
+      case 'due-desc':        return (b.date || '').localeCompare(a.date || '');
+      case 'completed-desc':  return ((b.meta?.completed_at)||'').localeCompare((a.meta?.completed_at)||'');
+      case 'completed-asc':   return ((a.meta?.completed_at)||'').localeCompare((b.meta?.completed_at)||'');
+      case 'department-asc':  return (a.department||'').localeCompare(b.department||'');
+      case 'department-desc': return (b.department||'').localeCompare(a.department||'');
+      case 'property-asc':    return pn(a).localeCompare(pn(b));
+      case 'property-desc':   return pn(b).localeCompare(pn(a));
+      case 'assigned-asc':    return (a.assigned_to||'').localeCompare(b.assigned_to||'');
+      case 'assigned-desc':   return (b.assigned_to||'').localeCompare(a.assigned_to||'');
+      case 'status-asc':      return (a.status||'').localeCompare(b.status||'');
+      case 'status-desc':     return (b.status||'').localeCompare(a.status||'');
+      case 'task-asc':        return _taskLabel(a).toLowerCase().localeCompare(_taskLabel(b).toLowerCase());
+      case 'task-desc':       return _taskLabel(b).toLowerCase().localeCompare(_taskLabel(a).toLowerCase());
       default: return 0;
     }
   });
+
+  // Update clickable column headers
+  const atContainer = document.getElementById('alltasks-jobs');
+  const atHeaderEl  = atContainer?.previousElementSibling;
+  if (atHeaderEl && atHeaderEl.classList.contains('table-header')) {
+    const atHeaders = [
+      {label:'Department', sortKey:'department'},
+      {label:'Task',       sortKey:'task'},
+      {label:'Property',   sortKey:'property'},
+      {label:'Assigned',   sortKey:'assigned'},
+      {label:'Date',       sortKey:'due'},
+      {label:'Status',     sortKey:'status'},
+      {label:'',           sortKey:null}
+    ];
+    atHeaderEl.innerHTML = atHeaders.map(h => _sortHeader(h.label, h.sortKey, f.sort)).join('');
+  }
 
   if (allJobs.length === 0) {
     container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
@@ -4128,6 +4197,30 @@ document.addEventListener('click', e => {
   }
 });
 
+// Returns the best human-readable task label for any job across all depts
+function _taskLabel(j) {
+  return (j.meta && j.meta.heading) || j.notes || j.title || ((j.department || '') + ' task');
+}
+
+// Toggle sort: first click = asc, second click on same column = desc
+function toggleDeptSort(base) {
+  deptFilters.sort = deptFilters.sort === base + '-asc' ? base + '-desc' : base + '-asc';
+  renderAllDepts();
+}
+
+// Render a single clickable table-header span with sort indicator
+function _sortHeader(label, sortKey, currentSort) {
+  if (!sortKey) return `<span></span>`;
+  const isAsc  = currentSort === sortKey + '-asc';
+  const isDesc = currentSort === sortKey + '-desc';
+  const active = isAsc || isDesc;
+  const icon   = isAsc ? '▲' : isDesc ? '▼' : '⇅';
+  return `<span onclick="toggleDeptSort('${sortKey}')"
+    style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:3px;${active ? 'color:var(--text);font-weight:700;' : ''}">
+    ${label}<span style="font-size:8px;opacity:${active ? '1' : '0.3'};">${icon}</span>
+  </span>`;
+}
+
 function renderDept(dept, containerId, headers, rowFn) {
   // ── Filter pill bar ───────────────────────────────────────────
   const barEl = document.getElementById(dept + '-filter-bar');
@@ -4174,18 +4267,34 @@ function renderDept(dept, containerId, headers, rowFn) {
     f.createdBy.includes(j.meta?.created_by_name || ''));
 
   deptJobs.sort((a, b) => {
+    const pn = j => (propNames[j.property] || j.property || '').toLowerCase();
     switch (f.sort) {
-      case 'created-desc':   return (b.created_at || '').localeCompare(a.created_at || '');
-      case 'created-asc':    return (a.created_at || '').localeCompare(b.created_at || '');
-      case 'due-asc':        return (a.date || '').localeCompare(b.date || '');
-      case 'due-desc':       return (b.date || '').localeCompare(a.date || '');
-      case 'completed-desc': return ((b.meta?.completed_at)||'').localeCompare((a.meta?.completed_at)||'');
-      case 'completed-asc':  return ((a.meta?.completed_at)||'').localeCompare((b.meta?.completed_at)||'');
+      case 'created-desc':    return (b.created_at || '').localeCompare(a.created_at || '');
+      case 'created-asc':     return (a.created_at || '').localeCompare(b.created_at || '');
+      case 'due-asc':         return (a.date || '').localeCompare(b.date || '');
+      case 'due-desc':        return (b.date || '').localeCompare(a.date || '');
+      case 'completed-desc':  return ((b.meta?.completed_at)||'').localeCompare((a.meta?.completed_at)||'');
+      case 'completed-asc':   return ((a.meta?.completed_at)||'').localeCompare((b.meta?.completed_at)||'');
+      case 'property-asc':    return pn(a).localeCompare(pn(b));
+      case 'property-desc':   return pn(b).localeCompare(pn(a));
+      case 'assigned-asc':    return (a.assigned_to||'').localeCompare(b.assigned_to||'');
+      case 'assigned-desc':   return (b.assigned_to||'').localeCompare(a.assigned_to||'');
+      case 'status-asc':      return (a.status||'').localeCompare(b.status||'');
+      case 'status-desc':     return (b.status||'').localeCompare(a.status||'');
+      case 'task-asc':        return _taskLabel(a).toLowerCase().localeCompare(_taskLabel(b).toLowerCase());
+      case 'task-desc':       return _taskLabel(b).toLowerCase().localeCompare(_taskLabel(a).toLowerCase());
       default: return 0;
     }
   });
 
   const container = document.getElementById(containerId);
+
+  // Update clickable column headers
+  const headerEl = container.previousElementSibling;
+  if (headerEl && headerEl.classList.contains('table-header')) {
+    headerEl.innerHTML = headers.map(h => _sortHeader(h.label, h.sortKey, f.sort)).join('');
+  }
+
   const hasActiveFilters = f.assignment.length || f.status.length || f.property.length || f.createdBy.length;
   if (deptJobs.length === 0) {
     const scope = selectedPropertyId ? ` for ${propNames[selectedPropertyId] || 'this property'}` : '';
