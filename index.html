@@ -604,6 +604,9 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   animation: calPreviewPop 0.15s ease;
   /* top / left set dynamically by JS */
 }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 @keyframes calPreviewPop {
   from { transform: scale(0.93); opacity: 0; }
   to   { transform: scale(1);    opacity: 1; }
@@ -1898,7 +1901,13 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 <body>
 
 <!-- LOGIN PAGE -->
-<div id="login-page">
+<!-- AUTH SPLASH — shown during session check, hidden once resolved -->
+<div id="auth-splash" style="position:fixed;inset:0;background:var(--brand);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;">
+  <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:white;letter-spacing:.02em;">Vaun Holidays</div>
+  <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;"></div>
+</div>
+
+<div id="login-page" style="display:none;">
   <div class="login-left">
     <div class="login-brand">Vaun Holidays · PMS</div>
     <h1 class="login-headline">Property<br>Management<br><span>Platform</span></h1>
@@ -3296,9 +3305,15 @@ async function loadApp(user) {
   history.replaceState({ view: 'overview' }, '', '#overview');
 }
 
-// Check session on load
+// Check session on load — hide splash then show app or login
 sb.auth.getSession().then(({ data }) => {
-  if (data.session) loadApp(data.session.user);
+  const splash = document.getElementById('auth-splash');
+  if (data.session) {
+    loadApp(data.session.user);
+  } else {
+    document.getElementById('login-page').style.display = 'flex';
+  }
+  if (splash) splash.style.display = 'none';
 });
 
 // Handle password recovery redirect (user clicked reset link in email)
