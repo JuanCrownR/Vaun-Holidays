@@ -3640,7 +3640,7 @@ function updateDeptBadges() {
 function renderDept(dept, containerId, headers, rowFn) {
   let deptJobs = jobs.filter(j => j.department === dept);
   if (selectedPropertyId) deptJobs = deptJobs.filter(j => j.property === selectedPropertyId);
-  deptJobs.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  deptJobs.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   const container = document.getElementById(containerId);
   if (deptJobs.length === 0) {
     const scope = selectedPropertyId ? ` for ${propNames[selectedPropertyId] || 'this property'}` : '';
