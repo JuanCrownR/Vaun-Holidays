@@ -2488,6 +2488,64 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   </div>
 </div>
 
+<!-- TASK SUMMARY MODAL -->
+<div class="modal-overlay" id="task-summary-modal">
+  <div class="modal" style="max-width:480px;padding:0;overflow:hidden;">
+    <div id="ts-dept-strip" style="height:5px;background:var(--text2);"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 20px 10px;border-bottom:1px solid var(--border);">
+      <span id="ts-dept-chip" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);letter-spacing:.03em;"></span>
+      <span id="ts-status-badge"></span>
+      <div style="flex:1;"></div>
+      <button class="modal-close" onclick="closeTaskSummary()" style="position:relative;top:0;right:0;">✕</button>
+    </div>
+    <div style="padding:18px 20px 14px;">
+      <div id="ts-title" style="font-size:19px;font-weight:700;line-height:1.3;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+        <span style="font-size:13px;color:var(--text2);">📍 <span id="ts-property">—</span></span>
+        <span style="font-size:13px;color:var(--text2);">📅 <span id="ts-due">—</span></span>
+        <span style="font-size:13px;color:var(--text2);">👤 <span id="ts-assigned">—</span></span>
+      </div>
+      <div id="ts-desc-row" style="display:none;font-size:13px;color:var(--text2);margin-bottom:12px;padding:10px 12px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--border);white-space:pre-line;"></div>
+      <div id="ts-severity-row" style="display:none;margin-bottom:12px;"></div>
+      <!-- Task history -->
+      <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:10px;">Task History</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;">
+          <div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Created</div>
+            <div style="font-size:12px;font-weight:500;" id="ts-created-at">—</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Created by</div>
+            <div style="font-size:12px;font-weight:500;" id="ts-created-by">—</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Started</div>
+            <div style="font-size:12px;font-weight:500;" id="ts-started-at">—</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Started by</div>
+            <div style="font-size:12px;font-weight:500;" id="ts-started-by">—</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Completed</div>
+            <div style="font-size:12px;font-weight:500;" id="ts-completed-at">—</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Completed by</div>
+            <div style="font-size:12px;font-weight:500;" id="ts-completed-by">—</div>
+          </div>
+          <div style="grid-column:1/-1;padding-top:4px;border-top:1px solid var(--border);margin-top:2px;">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">Duration</div>
+            <div style="font-size:16px;font-weight:700;" id="ts-duration">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:12px 20px;gap:8px;" id="ts-footer"></div>
+  </div>
+</div>
+
 <!-- REPORT ISSUE MODAL -->
 <div class="modal-overlay" id="report-issue-modal">
   <div class="modal" style="max-width:520px;">
@@ -3392,8 +3450,8 @@ function renderDept(dept, containerId, headers, rowFn) {
 }
 
 function statusBadge(status) {
-  const map = { pending: 'badge-pending', inprogress: 'badge-inprogress', complete: 'badge-complete', open: 'badge-open', resolved: 'badge-resolved', scheduled: 'badge-scheduled' };
-  const labels = { pending: 'Pending', inprogress: 'In Progress', complete: 'Complete', open: 'Open', resolved: 'Resolved', scheduled: 'Scheduled' };
+  const map = { pending: 'badge-pending', inprogress: 'badge-inprogress', in_progress: 'badge-inprogress', complete: 'badge-complete', open: 'badge-open', resolved: 'badge-resolved', scheduled: 'badge-scheduled' };
+  const labels = { pending: 'Pending', inprogress: 'In Progress', in_progress: 'In Progress', complete: 'Complete', open: 'Open', resolved: 'Resolved', scheduled: 'Scheduled' };
   return `<span class="badge ${map[status] || 'badge-pending'}">${labels[status] || status}</span>`;
 }
 
@@ -3567,17 +3625,15 @@ function updateJobForm() {
 }
 
 function viewJob(job) {
+  openTaskSummary(job);
+}
+
+// Direct routing — bypasses summary (used internally after start/reopen)
+function openTaskDetail(job) {
   const taskType = job.meta && job.meta.task_type;
   if (taskType && taskType.startsWith('custom-')) { openGeneralTask(job); return; }
-  if (job.department === 'cleaning' || job.department === 'inspections') {
-    openChecklist(job);
-    return;
-  }
-  if (job.department === 'keys') {
-    openKeysJob(job);
-    return;
-  }
-  // maintenance, operations, compliance → general task view
+  if (job.department === 'cleaning' || job.department === 'inspections') { openChecklist(job); return; }
+  if (job.department === 'keys') { openKeysJob(job); return; }
   openGeneralTask(job);
 }
 
@@ -3709,6 +3765,141 @@ function calPreviewGoToTask() {
   viewJob(job);
 }
 
+// ===== TASK SUMMARY MODAL =====
+let _taskSummaryJob = null;
+const _DEPT_META = {
+  cleaning:    { color: '#2ecc71', label: '🧹 Cleaning' },
+  maintenance: { color: '#e74c3c', label: '🔧 Maintenance' },
+  inspections: { color: '#3498db', label: '🔍 Inspections' },
+  operations:  { color: '#f39c12', label: '⚙️ Operations' },
+  compliance:  { color: '#8b5cf6', label: '🛡 Compliance' },
+  keys:        { color: '#ca8a04', label: '🔑 Keys' },
+};
+
+function openTaskSummary(job) {
+  const j = jobs.find(jj => String(jj.id) === String(job.id)) || job;
+  if (!j.meta) j.meta = {};
+  _taskSummaryJob = j;
+
+  const dept = j.department || 'operations';
+  const dm   = _DEPT_META[dept] || { color: '#888', label: dept };
+  const m    = j.meta;
+  const s    = j.status || 'pending';
+
+  // Dept strip + chip
+  document.getElementById('ts-dept-strip').style.background = dm.color;
+  const chip = document.getElementById('ts-dept-chip');
+  chip.textContent = dm.label;
+  chip.style.background = dm.color + '22';
+  chip.style.color = dm.color;
+
+  // Status badge
+  document.getElementById('ts-status-badge').innerHTML = statusBadge(s);
+
+  // Core fields
+  const title = m.heading || j.notes || taskTypeLabel(j) || 'Task';
+  document.getElementById('ts-title').textContent = title;
+  document.getElementById('ts-property').textContent = propNames[j.property] || j.property || '—';
+  document.getElementById('ts-due').textContent = j.date ? formatDate(j.date) : '—';
+  document.getElementById('ts-assigned').textContent = j.assigned_to || 'Unassigned';
+
+  // Description preview (only if notes differs from heading)
+  const descRow = document.getElementById('ts-desc-row');
+  const descText = (m.heading && j.notes && j.notes !== m.heading) ? j.notes : null;
+  if (descText) { descRow.textContent = descText; descRow.style.display = ''; }
+  else { descRow.style.display = 'none'; }
+
+  // Severity (issue-report tasks)
+  const sevRow = document.getElementById('ts-severity-row');
+  if (m.severity) {
+    const sc = { high: '#dc2626', medium: '#d97706', low: '#16a34a' };
+    const sl = { high: '🔴 High — Urgent', medium: '🟡 Medium', low: '🟢 Low' };
+    sevRow.innerHTML = `<span style="font-size:12px;font-weight:600;color:${sc[m.severity]||'#666'};background:${sc[m.severity]||'#666'}22;padding:4px 12px;border-radius:999px;">${sl[m.severity]||m.severity}</span>`;
+    sevRow.style.display = '';
+  } else { sevRow.style.display = 'none'; }
+
+  // History
+  const started   = !!m.started_at;
+  const completed = s === 'complete' || s === 'resolved';
+  const dur = formatDuration(m.started_at, m.completed_at);
+
+  document.getElementById('ts-created-at').textContent  = formatDateTime(j.created_at) || '—';
+  document.getElementById('ts-created-by').textContent  = m.created_by_name || '—';
+
+  const satEl = document.getElementById('ts-started-at');
+  satEl.textContent = started ? formatDateTime(m.started_at) : 'Not yet started';
+  satEl.style.color = started ? '' : 'var(--text3)';
+
+  const sbyEl = document.getElementById('ts-started-by');
+  sbyEl.textContent = m.started_by || (started ? '—' : '—');
+  sbyEl.style.color = started ? '' : 'var(--text3)';
+
+  const catEl = document.getElementById('ts-completed-at');
+  catEl.textContent = completed ? (formatDateTime(m.completed_at) || '—') : '—';
+  catEl.style.color = completed ? '#15803d' : 'var(--text3)';
+
+  const cbyEl = document.getElementById('ts-completed-by');
+  cbyEl.textContent = completed ? (m.completed_by || '—') : '—';
+  cbyEl.style.color = completed ? '#15803d' : 'var(--text3)';
+
+  const durEl = document.getElementById('ts-duration');
+  durEl.textContent = dur || '—';
+  durEl.style.color = dur ? '#15803d' : 'var(--text3)';
+
+  // Footer action buttons
+  const footer = document.getElementById('ts-footer');
+  if (s === 'pending') {
+    footer.innerHTML = `
+      <button class="btn btn-secondary" onclick="closeTaskSummary()">Cancel</button>
+      <button class="btn btn-secondary" onclick="closeTaskSummary();openTaskDetail(_taskSummaryJob)" style="border-color:${dm.color};color:${dm.color};">Open Task →</button>
+      <button class="btn btn-primary" onclick="startTask(_taskSummaryJob)" style="background:#16a34a;">▶&nbsp;Start Task</button>`;
+  } else if (s === 'in_progress') {
+    footer.innerHTML = `
+      <button class="btn btn-secondary" onclick="closeTaskSummary()">Cancel</button>
+      <button class="btn btn-primary" onclick="closeTaskSummary();openTaskDetail(_taskSummaryJob)" style="background:${dm.color};">Open Task →</button>`;
+  } else {
+    footer.innerHTML = `
+      <button class="btn btn-secondary" onclick="closeTaskSummary()">Close</button>
+      <button class="btn btn-primary" onclick="closeTaskSummary();openTaskDetail(_taskSummaryJob)" style="background:var(--text2);">View Task →</button>`;
+  }
+
+  document.getElementById('task-summary-modal').classList.add('open');
+}
+
+function closeTaskSummary() {
+  document.getElementById('task-summary-modal').classList.remove('open');
+  _taskSummaryJob = null;
+}
+
+async function startTask(job) {
+  const j = jobs.find(jj => String(jj.id) === String(job.id)) || job;
+  if (!j.meta) j.meta = {};
+  const now = new Date().toISOString();
+  j.status      = 'in_progress';
+  j.meta.started_at = now;
+  j.meta.started_by = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+  try { await sb.from('jobs').update({ status: 'in_progress', meta: j.meta }).eq('id', j.id); } catch(e) {}
+  const live = jobs.find(jj => String(jj.id) === String(j.id));
+  if (live) { live.status = 'in_progress'; live.meta = { ...j.meta }; }
+  renderAllDepts();
+  updateStats();
+  closeTaskSummary();
+  showToast('▶ Task started — timer running', 'success');
+  openTaskDetail(j);
+}
+
+function formatDuration(startIso, endIso) {
+  if (!startIso || !endIso) return null;
+  const ms = new Date(endIso) - new Date(startIso);
+  if (isNaN(ms) || ms < 0) return null;
+  const totalMins = Math.floor(ms / 60000);
+  if (totalMins < 1) return 'Under 1 min';
+  if (totalMins < 60) return `${totalMins} min${totalMins !== 1 ? 's' : ''}`;
+  const hrs  = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+}
+
 // ===== HELPERS =====
 function formatDate(d) {
   if (!d) return '—';
@@ -3729,12 +3920,17 @@ function formatDateTime(iso) {
 
 // Reusable audit trail card shown at the bottom of every task view.
 function renderAuditCard(job) {
+  const m          = job.meta || {};
   const createdAt  = formatDateTime(job.created_at);
-  const createdBy  = escapeHtml((job.meta && job.meta.created_by_name) || '—');
+  const createdBy  = escapeHtml(m.created_by_name || '—');
+  const startedAt  = m.started_at  ? formatDateTime(m.started_at)  : '—';
+  const startedBy  = m.started_by  ? escapeHtml(m.started_by)      : '—';
   const isComplete = job.status === 'complete' || job.status === 'resolved';
-  const completedAt = isComplete ? formatDateTime(job.meta && job.meta.completed_at) : '—';
-  const completedBy = isComplete ? escapeHtml((job.meta && job.meta.completed_by) || '—') : '—';
-  const doneColor  = isComplete ? 'color:#15803d;' : 'color:var(--text3);';
+  const completedAt = isComplete ? formatDateTime(m.completed_at)     : '—';
+  const completedBy = isComplete ? escapeHtml(m.completed_by || '—') : '—';
+  const dur        = isComplete ? (formatDuration(m.started_at, m.completed_at) || '—') : '—';
+  const doneColor  = isComplete    ? 'color:#15803d;'     : 'color:var(--text3);';
+  const startColor = m.started_at  ? ''                   : 'color:var(--text3);';
   return `
     <div class="checklist-section-card">
       <div class="checklist-section-head">
@@ -3750,12 +3946,24 @@ function renderAuditCard(job) {
           <div style="font-size:13px;font-weight:500;">${createdBy}</div>
         </div>
         <div>
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Started</div>
+          <div style="font-size:13px;font-weight:500;${startColor}">${startedAt}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Started by</div>
+          <div style="font-size:13px;font-weight:500;${startColor}">${startedBy}</div>
+        </div>
+        <div>
           <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Completed</div>
           <div style="font-size:13px;font-weight:500;${doneColor}">${completedAt}</div>
         </div>
         <div>
           <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Completed by</div>
           <div style="font-size:13px;font-weight:500;${doneColor}">${completedBy}</div>
+        </div>
+        <div style="grid-column:1/-1;padding-top:10px;border-top:1px solid var(--border);margin-top:2px;">
+          <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Duration</div>
+          <div style="font-size:15px;font-weight:700;${doneColor}">${dur}</div>
         </div>
       </div>
     </div>`;
@@ -5079,18 +5287,25 @@ function openGeneralTask(job) {
   const propName = propNames[live.property] || live.property;
   document.getElementById('gen-task-sub').textContent =
     `${propName} · Due ${formatDate(live.date)}${live.assigned_to ? ' · ' + live.assigned_to : ''}`;
-  // Status pill
+  // Status pill + action button (3-state)
   const pill = document.getElementById('gen-task-status-pill');
-  const statusLabel = (live.status || 'pending').toUpperCase();
-  pill.textContent = statusLabel;
-  if (statusLabel === 'COMPLETE' || statusLabel === 'RESOLVED') {
-    pill.style.background = '#dcfce7'; pill.style.color = '#15803d';
-    document.getElementById('gen-task-close-btn').textContent = 'Reopen task';
-    document.getElementById('gen-task-close-btn').style.background = 'var(--text2)';
+  const btn  = document.getElementById('gen-task-close-btn');
+  const s    = live.status || 'pending';
+  if (s === 'complete' || s === 'resolved') {
+    pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#15803d;';
+    pill.textContent   = 'COMPLETE';
+    btn.textContent    = 'Reopen task';
+    btn.style.background = 'var(--text2)';
+  } else if (s === 'in_progress') {
+    pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:#dbeafe;color:#1e40af;';
+    pill.textContent   = 'IN PROGRESS';
+    btn.textContent    = 'Close task';
+    btn.style.background = btnColor;
   } else {
-    pill.style.background = 'var(--surface2)'; pill.style.color = 'var(--text2)';
-    document.getElementById('gen-task-close-btn').textContent = 'Close task';
-    document.getElementById('gen-task-close-btn').style.background = btnColor;
+    pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);';
+    pill.textContent   = 'PENDING';
+    btn.textContent    = 'Start task';
+    btn.style.background = '#16a34a';
   }
   renderGeneralTask();
 }
@@ -5342,20 +5557,35 @@ function removeGenTaskAttachment(idx) {
 async function toggleGeneralTaskStatus() {
   const j = currentGeneralTask;
   if (!j) return;
-  const newStatus = isJobLocked(j) ? 'pending' : 'complete';
-  j.status = newStatus;
   if (!j.meta) j.meta = {};
-  if (newStatus === 'complete') {
-    j.meta.completed_at = new Date().toISOString();
-    j.meta.completed_by = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+  const s   = j.status || 'pending';
+  const now = new Date().toISOString();
+  const who = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+
+  if (s === 'pending') {
+    // Start the task
+    j.status = 'in_progress';
+    j.meta.started_at = now;
+    j.meta.started_by = who;
+    showToast('▶ Task started — timer running', 'success');
+  } else if (s === 'in_progress') {
+    // Complete
+    j.status = 'complete';
+    j.meta.completed_at = now;
+    j.meta.completed_by = who;
   } else {
-    delete j.meta.completed_at;
-    delete j.meta.completed_by;
+    // Reopen
+    j.status = 'pending';
+    delete j.meta.started_at; delete j.meta.started_by;
+    delete j.meta.completed_at; delete j.meta.completed_by;
   }
-  try { await sb.from('jobs').update({ status: newStatus, meta: j.meta }).eq('id', j.id); } catch(e) {}
+
+  try { await sb.from('jobs').update({ status: j.status, meta: j.meta }).eq('id', j.id); } catch(e) {}
   const idx = jobs.findIndex(jj => jj.id === j.id);
-  if (idx >= 0) { jobs[idx].status = newStatus; jobs[idx].meta = j.meta; }
-  openGeneralTask(j); // re-open to refresh header + lock state
+  if (idx >= 0) { jobs[idx].status = j.status; jobs[idx].meta = j.meta; }
+  renderAllDepts();
+  updateStats();
+  openGeneralTask(j);
 }
 
 // ===== KEYS JOB DETAIL VIEW =====
@@ -5383,17 +5613,24 @@ function openKeysJob(job) {
   document.getElementById('keys-job-title').textContent = isOrder ? 'Key Order' : 'Key Expiry';
   const propName = propNames[live.property] || live.property;
   document.getElementById('keys-job-sub').textContent = `${propName} · Due ${formatDate(live.date)}${live.assigned_to ? ' · ' + live.assigned_to : ''}`;
-  const pill = document.getElementById('keys-job-status-pill');
-  const statusLabel = (live.status || 'pending').toUpperCase();
-  pill.textContent = statusLabel;
-  if (statusLabel === 'COMPLETE' || statusLabel === 'RESOLVED') {
-    pill.style.background = '#dcfce7'; pill.style.color = '#15803d';
-    document.getElementById('keys-job-close-btn').textContent = 'Reopen task';
-    document.getElementById('keys-job-close-btn').style.background = 'var(--text2)';
+  const pill  = document.getElementById('keys-job-status-pill');
+  const kbtn  = document.getElementById('keys-job-close-btn');
+  const ks    = live.status || 'pending';
+  if (ks === 'complete' || ks === 'resolved') {
+    pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#15803d;';
+    pill.textContent   = 'COMPLETE';
+    kbtn.textContent   = 'Reopen task';
+    kbtn.style.background = 'var(--text2)';
+  } else if (ks === 'in_progress') {
+    pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:#dbeafe;color:#1e40af;';
+    pill.textContent   = 'IN PROGRESS';
+    kbtn.textContent   = 'Close task';
+    kbtn.style.background = 'var(--cleaning)';
   } else {
-    pill.style.background = 'var(--surface2)'; pill.style.color = 'var(--text2)';
-    document.getElementById('keys-job-close-btn').textContent = 'Close task';
-    document.getElementById('keys-job-close-btn').style.background = 'var(--cleaning)';
+    pill.style.cssText = 'font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);';
+    pill.textContent   = 'PENDING';
+    kbtn.textContent   = 'Start task';
+    kbtn.style.background = '#16a34a';
   }
   renderKeysJob();
 }
@@ -5597,21 +5834,33 @@ function removeKeysJobAttachment(idx) {
 }
 
 function completeKeysJob() {
-  const j = currentKeysJob;
+  const j   = currentKeysJob;
   if (!j) return;
-  const isOpen = j.status !== 'complete' && j.status !== 'resolved';
-  j.status = isOpen ? 'complete' : 'pending';
   if (!j.meta) j.meta = {};
-  if (isOpen) {
-    j.meta.completed_at = new Date().toISOString();
-    j.meta.completed_by = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+  const s   = j.status || 'pending';
+  const now = new Date().toISOString();
+  const who = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+  const kLabel = j.meta?.key_job_type === 'order' ? 'Key Order' : 'Key Expiry';
+
+  if (s === 'pending') {
+    j.status = 'in_progress';
+    j.meta.started_at = now;
+    j.meta.started_by = who;
+    showToast('▶ Task started — timer running', 'success');
+    addActivity(`${kLabel} started: ${propNames[j.property] || j.property}`, 'keys');
+  } else if (s === 'in_progress') {
+    j.status = 'complete';
+    j.meta.completed_at = now;
+    j.meta.completed_by = who;
+    addActivity(`${kLabel} completed: ${propNames[j.property] || j.property}`, 'keys');
   } else {
-    delete j.meta.completed_at;
-    delete j.meta.completed_by;
+    j.status = 'pending';
+    delete j.meta.started_at; delete j.meta.started_by;
+    delete j.meta.completed_at; delete j.meta.completed_by;
+    addActivity(`${kLabel} reopened: ${propNames[j.property] || j.property}`, 'keys');
   }
   persistKeysJob();
-  addActivity(`${j.meta?.key_job_type === 'order' ? 'Key Order' : 'Key Expiry'} ${isOpen ? 'completed' : 'reopened'}: ${propNames[j.property] || j.property}`, 'operations');
-  openKeysJob(j); // re-render header pill + button label
+  openKeysJob(j);
 }
 
 function renderChecklistSections() {
@@ -6889,27 +7138,53 @@ function completeChecklist() {
   updateChecklistProgress();
 }
 
-// Footer primary button — context-sensitive: complete when open, reopen when locked.
+// Footer primary button — 3-state: start → complete → reopen
 function checklistFooterAction() {
-  if (isJobLocked(currentChecklistJob)) {
+  const s = currentChecklistJob?.status || 'pending';
+  if (s === 'complete' || s === 'resolved') {
     reopenChecklist();
-  } else {
+  } else if (s === 'in_progress') {
     completeChecklist();
+  } else {
+    startChecklistTask();
   }
 }
 
-// Keep the footer button label + PDF button visibility in sync with lock state.
+async function startChecklistTask() {
+  const j = currentChecklistJob;
+  if (!j) return;
+  if (!j.meta) j.meta = {};
+  const now = new Date().toISOString();
+  j.status          = 'in_progress';
+  j.meta.started_at = now;
+  j.meta.started_by = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown';
+  try { await sb.from('jobs').update({ status: 'in_progress', meta: j.meta }).eq('id', j.id); } catch(e) {}
+  const live = jobs.find(jj => jj.id === j.id);
+  if (live) { live.status = 'in_progress'; live.meta = { ...j.meta }; }
+  renderAllDepts();
+  updateStats();
+  refreshChecklistFooter();
+  showToast('▶ Task started — timer running', 'success');
+}
+
+// Keep the footer button label + PDF button visibility in sync with 3-state status.
 function refreshChecklistFooter() {
   const btn = document.getElementById('checklist-complete-btn');
   const pdf = document.getElementById('checklist-pdf-btn');
   if (!btn || !currentChecklistJob) return;
-  if (isJobLocked(currentChecklistJob)) {
+  const s = currentChecklistJob.status || 'pending';
+  const isInspection = currentChecklistJob.department === 'inspections';
+  if (s === 'complete' || s === 'resolved') {
     btn.textContent = 'Reopen task';
     btn.style.background = 'var(--text2)';
     if (pdf) pdf.style.display = '';
-  } else {
-    btn.textContent = 'Mark cleaning complete';
+  } else if (s === 'in_progress') {
+    btn.textContent = isInspection ? 'Mark inspection complete' : 'Mark cleaning complete';
     btn.style.background = '';
+    if (pdf) pdf.style.display = 'none';
+  } else {
+    btn.textContent = 'Start task';
+    btn.style.background = '#16a34a';
     if (pdf) pdf.style.display = 'none';
   }
 }
