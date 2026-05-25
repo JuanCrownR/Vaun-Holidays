@@ -4405,20 +4405,31 @@ function statusBadge(status) {
 function renderTodayBriefing() {
   const el = document.getElementById('today-briefing');
   if (!el) return;
-  const todayStr = new Date().toISOString().split('T')[0];
 
-  const now       = new Date();
-  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
-  const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
-  const checkIns  = bookings.filter(b => b.check_in  === todayStr && b.status !== 'cancelled');
-  const checkOuts = bookings.filter(b => b.check_out === todayStr && b.status !== 'cancelled');
-  const cleans    = jobs.filter(j => j.department === 'cleaning' && j.date === todayStr && j.status !== 'complete' && j.status !== 'resolved');
-  const weekJobs  = jobs.filter(j => { const d = new Date(j.date); return d >= weekStart && d <= weekEnd; });
+  // Mon 00:00:00 → Sun 23:59:59 of the current calendar week
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun … 6=Sat
+  const daysFromMon = dow === 0 ? 6 : dow - 1;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - daysFromMon);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  // YYYY-MM-DD strings for date-only comparisons
+  const wStartStr = weekStart.toISOString().split('T')[0];
+  const wEndStr   = weekEnd.toISOString().split('T')[0];
+
+  const checkIns  = bookings.filter(b => b.check_in  >= wStartStr && b.check_in  <= wEndStr && b.status !== 'cancelled');
+  const checkOuts = bookings.filter(b => b.check_out >= wStartStr && b.check_out <= wEndStr && b.status !== 'cancelled');
+  const cleans    = jobs.filter(j => j.department === 'cleaning' && j.date >= wStartStr && j.date <= wEndStr && j.status !== 'complete' && j.status !== 'resolved');
+  const weekJobs  = jobs.filter(j => j.date >= wStartStr && j.date <= wEndStr);
 
   const navTo = (view) => `showView('${view}', document.querySelector(".nav-item[onclick*=\\"showView('${view}'\\"]"))`;
 
-  const card = ({ icon, bg, borderColor, count, label, sub, onclick, urgent }) => `
-    <div class="briefing-card${urgent && count > 0 ? ' urgent' : ''}" onclick="${onclick}">
+  const card = ({ icon, bg, count, label, sub, onclick }) => `
+    <div class="briefing-card" onclick="${onclick}">
       <div class="briefing-icon" style="background:${bg};">${icon}</div>
       <div style="min-width:0;">
         <div class="briefing-count" style="color:${count > 0 ? 'var(--text)' : 'var(--text3)'};">${count}</div>
@@ -4429,13 +4440,15 @@ function renderTodayBriefing() {
 
   const propList = (arr, keyFn) => arr.length
     ? arr.slice(0, 2).map(keyFn).join(', ') + (arr.length > 2 ? ` +${arr.length - 2} more` : '')
-    : 'None today';
+    : 'None this week';
+
+  const uniqProps = arr => [...new Set(arr.map(j => j.property))].length;
 
   el.innerHTML = [
-    card({ icon:'🛎', bg:'#dbeafe', count: checkIns.length,  label:'Check-ins today',   sub: propList(checkIns,  b => propNames[b.property] || b.property || 'Unknown'), onclick: navTo('reservations') }),
-    card({ icon:'🚪', bg:'#ede9fe', count: checkOuts.length, label:'Check-outs today',  sub: propList(checkOuts, b => propNames[b.property] || b.property || 'Unknown'), onclick: navTo('reservations') }),
-    card({ icon:'🧹', bg:'#dcfce7', count: cleans.length,    label:'Cleans scheduled',  sub: cleans.length ? propList(cleans, j => propNames[j.property] || j.property || 'Unknown') : 'No cleans scheduled', onclick: "goToDept('cleaning')" }),
-    card({ icon:'📋', bg:'#fef3c7', count: weekJobs.length,  label:'Jobs this week',    sub: weekJobs.length ? `across ${[...new Set(weekJobs.map(j=>j.property))].length} propert${[...new Set(weekJobs.map(j=>j.property))].length === 1 ? 'y' : 'ies'}` : 'No jobs scheduled', onclick: navTo('alltasks') }),
+    card({ icon:'🛎', bg:'#dbeafe', count: checkIns.length,  label:'Check-ins this week',   sub: checkIns.length  ? propList(checkIns,  b => propNames[b.property] || b.property || 'Unknown') : 'None this week', onclick: navTo('reservations') }),
+    card({ icon:'🚪', bg:'#ede9fe', count: checkOuts.length, label:'Check-outs this week',  sub: checkOuts.length ? propList(checkOuts, b => propNames[b.property] || b.property || 'Unknown') : 'None this week', onclick: navTo('reservations') }),
+    card({ icon:'🧹', bg:'#dcfce7', count: cleans.length,    label:'Cleans this week',      sub: cleans.length    ? propList(cleans, j => propNames[j.property] || j.property || 'Unknown') : 'None this week', onclick: "goToDept('cleaning')" }),
+    card({ icon:'📋', bg:'#fef3c7', count: weekJobs.length,  label:'Jobs this week',        sub: weekJobs.length  ? `across ${uniqProps(weekJobs)} propert${uniqProps(weekJobs) === 1 ? 'y' : 'ies'}` : 'None this week', onclick: navTo('alltasks') }),
   ].join('');
 }
 
