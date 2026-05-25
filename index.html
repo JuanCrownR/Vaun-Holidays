@@ -3222,13 +3222,8 @@ function showView(name, el) {
   if (name === 'properties') renderPropertiesGrid();
   if (name === 'templates') renderTemplatesGrid();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
-  // Dept nav always shows portfolio-wide view — clear any property filter first
-  if (['cleaning','maintenance','inspections','operations','compliance','keys'].includes(name)) {
-    selectedPropertyId = null;
-    renderPropertySwitcher();
-    renderSidebarProperties();
-    renderAllDepts();
-  }
+  // Re-render dept tables so filter scoping picks up
+  if (['cleaning','maintenance','inspections','operations','compliance','keys'].includes(name)) renderAllDepts();
 }
 
 function toggleSidebar() {
@@ -7735,45 +7730,34 @@ function renderSidebarProperties() {
 }
 
 function selectProperty(id) {
-  const DEPT_VIEWS = ['cleaning','maintenance','inspections','operations','compliance','keys'];
-  const activeDept = DEPT_VIEWS.find(d => document.getElementById('view-' + d)?.classList.contains('active'));
-
+  if (_historyPush) {
+    if (id === null) history.pushState({ view: 'overview' }, '', '#overview');
+    else history.pushState({ view: 'asset', propertyId: id }, '', '#asset');
+  }
   selectedPropertyId = id;
+  // Reset asset tab when changing property
+  assetActiveTab = 'calendar';
   renderPropertySwitcher();
   renderSidebarProperties();
-
-  if (activeDept) {
-    // ── Inside a department view: filter in place, don't navigate away ──
-    if (_historyPush) history.pushState({ view: activeDept }, '', '#' + activeDept);
-    const deptTitles = { cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management' };
-    const deptLabel = deptTitles[activeDept] || activeDept;
-    const prop = id ? properties.find(p => p.id === id) : null;
-    document.getElementById('topbar-title').textContent = prop ? `${deptLabel} — ${prop.name}` : deptLabel;
-    renderAllDepts();
-  } else if (id === null) {
-    // ── No dept active + clearing filter → global dashboard ──
-    if (_historyPush) history.pushState({ view: 'overview' }, '', '#overview');
-    assetActiveTab = 'calendar';
+  if (id === null) {
+    // Back to global dashboard
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('view-overview').classList.add('active');
     const overviewNav = document.querySelector('.nav-item[onclick*="showView(\'overview\'"]');
     if (overviewNav) overviewNav.classList.add('active');
     document.getElementById('topbar-title').textContent = 'Dashboard';
-    renderAllDepts();
   } else {
-    // ── Normal property selection → asset view ──
-    if (_historyPush) history.pushState({ view: 'asset', propertyId: id }, '', '#asset');
-    assetActiveTab = 'calendar';
+    // Show asset view
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('view-asset').classList.add('active');
     const prop = properties.find(p => p.id === id);
     document.getElementById('topbar-title').textContent = prop ? prop.name : 'Property';
     renderAssetView();
-    renderAllDepts();
   }
-
+  // Re-render dept tables and calendar so filtering reflects new scope
+  renderAllDepts();
   if (document.getElementById('view-calendar').classList.contains('active')) renderCalendar();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
 }
