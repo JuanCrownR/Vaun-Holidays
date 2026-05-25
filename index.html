@@ -3870,16 +3870,16 @@ function openTaskSummary(job) {
   if (s === 'pending') {
     footer.innerHTML = `
       <button class="btn btn-secondary" onclick="closeTaskSummary()">Cancel</button>
-      <button class="btn btn-secondary" onclick="closeTaskSummary();openTaskDetail(_taskSummaryJob)" style="border-color:${dm.color};color:${dm.color};">Open Task →</button>
+      <button class="btn btn-secondary" onclick="viewTaskFromSummary()" style="border-color:${dm.color};color:${dm.color};">Open Task →</button>
       <button class="btn btn-primary" onclick="startTask(_taskSummaryJob)" style="background:#16a34a;">▶&nbsp;Start Task</button>`;
   } else if (s === 'in_progress') {
     footer.innerHTML = `
       <button class="btn btn-secondary" onclick="closeTaskSummary()">Cancel</button>
-      <button class="btn btn-primary" onclick="closeTaskSummary();openTaskDetail(_taskSummaryJob)" style="background:${dm.color};">Open Task →</button>`;
+      <button class="btn btn-primary" onclick="viewTaskFromSummary()" style="background:${dm.color};">Open Task →</button>`;
   } else {
     footer.innerHTML = `
       <button class="btn btn-secondary" onclick="closeTaskSummary()">Close</button>
-      <button class="btn btn-primary" onclick="closeTaskSummary();openTaskDetail(_taskSummaryJob)" style="background:var(--text2);">View Task →</button>`;
+      <button class="btn btn-primary" onclick="viewTaskFromSummary()" style="background:var(--text2);">View Task →</button>`;
   }
 
   document.getElementById('task-summary-modal').classList.add('open');
@@ -3888,6 +3888,13 @@ function openTaskSummary(job) {
 function closeTaskSummary() {
   document.getElementById('task-summary-modal').classList.remove('open');
   _taskSummaryJob = null;
+}
+
+// Capture job ref BEFORE nulling it in closeTaskSummary, then navigate
+function viewTaskFromSummary() {
+  const j = _taskSummaryJob;
+  closeTaskSummary();
+  if (j) openTaskDetail(j);
 }
 
 async function startTask(job) {
@@ -5374,6 +5381,9 @@ function renderGeneralTask() {
   const lockBanner = locked ? `
     <div class="lock-banner">
       <div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes.</span></div>
+      <div class="lock-banner-actions">
+        <button class="btn btn-primary lock-allowed" onclick="downloadGeneralTaskPDF()" style="background:var(--operations);">⬇ Download Report</button>
+      </div>
     </div>` : '';
   const pauseBanner = (!locked && paused) ? `
     <div class="pause-banner">
@@ -5457,7 +5467,7 @@ function renderCustomTemplateSections(j, tpl, locked) {
   if (!Array.isArray(j.meta.section_attachments)) j.meta.section_attachments = [];
   while (j.meta.section_attachments.length < tpl.sections.length) j.meta.section_attachments.push([]);
 
-  const lockBanner = locked ? `<div class="lock-banner"><div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes.</span></div></div>` : '';
+  const lockBanner = locked ? `<div class="lock-banner"><div class="lock-banner-text">🔒 <span><strong>This task is closed.</strong> Reopen to make changes.</span></div><div class="lock-banner-actions"><button class="btn btn-primary lock-allowed" onclick="downloadGeneralTaskPDF()">⬇ Download Report</button></div></div>` : '';
 
   const sectionsHtml = tpl.sections.map((sec, si) => {
     const secAttachments = j.meta.section_attachments[si] || [];
@@ -7173,6 +7183,132 @@ async function downloadKeysJobPDF() {
   }
 
   doc.save(`key-${isOrder ? 'order' : 'expiry'}_${(propName || 'property').replace(/[^a-z0-9]+/gi, '_')}_${j.date || formatYMD(new Date())}.pdf`);
+}
+
+async function downloadGeneralTaskPDF() {
+  const doc = _pdfDoc();
+  if (!doc) return;
+  const j = currentGeneralTask;
+  if (!j) return;
+  const m = j.meta || {};
+  const prop = properties.find(p => p.id === j.property);
+  const propName    = prop ? prop.name : (propNames[j.property] || j.property || '—');
+  const propAddress = prop ? (prop.address || '') : '';
+  const dept        = (j.department || '').charAt(0).toUpperCase() + (j.department || '').slice(1);
+  const taskTitle   = m.heading || j.notes || taskTypeLabel(j) || 'Task Report';
+  const marginX = 14;
+  let y = 18;
+  const ensureSpace = (h) => { if (y + h > 278) { doc.addPage(); y = 20; } };
+  const row = (label, value, indent = 0) => {
+    ensureSpace(7);
+    doc.setFontSize(9); doc.setTextColor(110);
+    doc.text(label, marginX + indent, y);
+    doc.setFontSize(10); doc.setTextColor(30);
+    const lines = doc.splitTextToSize(String(value || '—'), 140);
+    doc.text(lines, marginX + indent + 42, y);
+    y += lines.length * 4.5 + 1;
+  };
+
+  // ── Header ──────────────────────────────────────────────────
+  doc.setFontSize(20); doc.setFont(undefined, 'bold'); doc.setTextColor(15);
+  doc.text(taskTitle, marginX, y); y += 8;
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(11); doc.setTextColor(80);
+  doc.text(propName, marginX, y); y += 5;
+  if (propAddress) { doc.setFontSize(9); doc.text(propAddress, marginX, y); y += 4; }
+  doc.setFontSize(9); doc.text(`Generated: ${new Date().toLocaleString('en-AU')}`, marginX, y); y += 8;
+
+  // Separator
+  doc.setDrawColor(220); doc.line(marginX, y, 196, y); y += 6;
+
+  // ── Details ──────────────────────────────────────────────────
+  doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+  doc.text('Task Details', marginX, y); y += 5;
+  doc.setFont(undefined, 'normal');
+  row('Department', dept);
+  row('Status', (j.status || 'pending').toUpperCase());
+  row('Due date', formatDate(j.date));
+  row('Assigned to', j.assigned_to || 'Unassigned');
+  if (m.severity) row('Severity', m.severity.charAt(0).toUpperCase() + m.severity.slice(1));
+  y += 2;
+
+  // ── Description ──────────────────────────────────────────────
+  if (j.notes && j.notes !== m.heading) {
+    ensureSpace(12);
+    doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+    doc.text('Description', marginX, y); y += 5;
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(50);
+    const lines = doc.splitTextToSize(j.notes || '—', 180);
+    doc.text(lines, marginX, y); y += lines.length * 4.5 + 4;
+  }
+
+  // ── Custom template sections ─────────────────────────────────
+  const taskType = m.task_type;
+  const tpl = (taskType && taskType.startsWith('custom-'))
+    ? TASK_TEMPLATES.find(t => t.key === taskType) : null;
+  if (tpl && Array.isArray(tpl.sections)) {
+    tpl.sections.forEach((sec, si) => {
+      ensureSpace(12);
+      doc.setFontSize(11); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+      doc.text(sec.heading || `Step ${si + 1}`, marginX, y); y += 5;
+      doc.setFont(undefined, 'normal');
+      if (sec.description) {
+        doc.setFontSize(9); doc.setTextColor(90);
+        const dl = doc.splitTextToSize(sec.description, 180);
+        doc.text(dl, marginX, y); y += dl.length * 4 + 2;
+      }
+      const secAtts = (m.section_attachments && m.section_attachments[si]) || [];
+      const imgs = secAtts.filter(a => (a.type && a.type.startsWith('image/')) || /\.(jpe?g|png|gif|webp)$/i.test(a.name || ''));
+      if (imgs.length) { y = await _pdfImageBoxes(doc, imgs, y); }
+    });
+    y += 2;
+  }
+
+  // ── Supplier ─────────────────────────────────────────────────
+  if (m.supplier || m.contact_name || m.supplier_email || m.supplier_phone) {
+    ensureSpace(14);
+    doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+    doc.text('Supplier / Contractor', marginX, y); y += 5;
+    doc.setFont(undefined, 'normal');
+    if (m.supplier)        row('Company', m.supplier);
+    if (m.contact_name)    row('Contact', m.contact_name);
+    if (m.supplier_phone)  row('Phone', m.supplier_phone);
+    if (m.supplier_email)  row('Email', m.supplier_email);
+    y += 2;
+  }
+
+  // ── Attachments (images only) ─────────────────────────────────
+  const imgs = (m.attachments || []).filter(a => {
+    if (!a) return false;
+    if (a.type && a.type.startsWith('image/')) return true;
+    if (a.data_url && a.data_url.startsWith('data:image')) return true;
+    if (a.url && /\.(jpe?g|png|gif|webp)$/i.test(a.url)) return true;
+    return false;
+  });
+  if (imgs.length) {
+    ensureSpace(14);
+    doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+    doc.text('Photos', marginX, y); y += 5;
+    y = await _pdfImageBoxes(doc, imgs, y);
+    y += 2;
+  }
+
+  // ── Task History ─────────────────────────────────────────────
+  ensureSpace(36);
+  doc.setDrawColor(220); doc.line(marginX, y, 196, y); y += 5;
+  doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+  doc.text('Task History', marginX, y); y += 5;
+  doc.setFont(undefined, 'normal');
+  row('Created', `${formatDateTime(j.created_at) || '—'}${m.created_by_name ? '  by ' + m.created_by_name : ''}`);
+  row('Started', m.started_at ? `${formatDateTime(m.started_at)}${m.started_by ? '  by ' + m.started_by : ''}` : '—');
+  row('Completed', (j.status === 'complete' || j.status === 'resolved')
+    ? `${formatDateTime(m.completed_at) || '—'}${m.completed_by ? '  by ' + m.completed_by : ''}` : '—');
+  const dur = formatDuration(m.started_at, m.completed_at, m.pauses);
+  row('Duration', dur || '—');
+
+  // ── Save ─────────────────────────────────────────────────────
+  const safeName = (propName + ' ' + taskTitle).replace(/[^a-z0-9 ]+/gi, '_').replace(/ +/g, '-').toLowerCase();
+  doc.save(`task-report_${safeName}_${j.date || formatYMD(new Date())}.pdf`);
 }
 
 function completeChecklist() {
