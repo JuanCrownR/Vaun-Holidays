@@ -4158,8 +4158,7 @@ function _buildDeptDropdownOptions(type) {
     return [
       { value: 'pending',     label: 'Pending' },
       { value: 'in_progress', label: 'In Progress' },
-      { value: 'complete',    label: 'Complete' },
-      { value: 'resolved',    label: 'Resolved' }
+      { value: 'complete',    label: 'Complete' }
     ];
   } else if (type === 'assignment') {
     const vals = [...new Set(allJobs.map(j => j.assigned_to).filter(Boolean))].sort();
@@ -4395,8 +4394,8 @@ function renderDept(dept, containerId, headers, rowFn) {
 }
 
 function statusBadge(status) {
-  const map = { pending: 'badge-pending', inprogress: 'badge-inprogress', in_progress: 'badge-inprogress', complete: 'badge-complete', open: 'badge-open', resolved: 'badge-resolved', scheduled: 'badge-scheduled' };
-  const labels = { pending: 'Pending', inprogress: 'In Progress', in_progress: 'In Progress', complete: 'Complete', open: 'Open', resolved: 'Resolved', scheduled: 'Scheduled' };
+  const map = { pending: 'badge-pending', inprogress: 'badge-inprogress', in_progress: 'badge-inprogress', complete: 'badge-complete', open: 'badge-open', resolved: 'badge-complete', scheduled: 'badge-scheduled' };
+  const labels = { pending: 'Pending', inprogress: 'In Progress', in_progress: 'In Progress', complete: 'Complete', open: 'Open', resolved: 'Complete', scheduled: 'Scheduled' };
   return `<span class="badge ${map[status] || 'badge-pending'}">${labels[status] || status}</span>`;
 }
 
@@ -4732,7 +4731,7 @@ function openCalPreview(jobId, pillEl) {
     `<span class="cal-preview-badge" style="background:${deptColor}22;color:${deptColor}">${deptLabel}</span>`;
 
   // Status
-  const isComplete = job.status === 'complete';
+  const isComplete = job.status === 'complete' || job.status === 'resolved';
   const statusColor = isComplete ? '#2ecc71' : '#f39c12';
   const statusLabel = isComplete ? 'Complete' : 'Pending';
 
@@ -8807,7 +8806,7 @@ function renderAssetTasks() {
 
   const statusOptions = [
     ['all','All Statuses'],['pending','Pending'],['in_progress','In Progress'],
-    ['complete','Complete'],['resolved','Resolved']
+    ['complete','Complete']
   ].map(([v,l]) => `<option value="${v}" ${assetTaskFilters.status===v?'selected':''}>${l}</option>`).join('');
 
   const assigneeOptions = [
