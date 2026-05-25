@@ -1782,6 +1782,69 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   color: var(--text2);
 }
 
+/* ===== DEPT FILTER PILLS ===== */
+.dept-fpill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+  color: var(--text2); cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.dept-fpill:hover { border-color: var(--text3); color: var(--text); background: white; }
+.dept-fpill.has-filter { border-color: var(--text); background: var(--text); color: white; }
+.dept-fpill-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: white; color: var(--text); border-radius: 999px;
+  font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; padding: 0 4px;
+}
+.dept-fpill.has-filter .dept-fpill-badge { background: var(--accent); color: var(--brand); }
+.dept-filter-dropdown {
+  position: fixed; background: white; border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.14);
+  z-index: 2000; min-width: 210px; max-height: 320px; overflow-y: auto;
+  display: none;
+}
+.dept-filter-dd-title {
+  padding: 10px 14px 6px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--text3);
+  border-bottom: 1px solid var(--border);
+}
+.dept-filter-opt {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; font-size: 13px; color: var(--text); cursor: pointer;
+  transition: background .1s;
+}
+.dept-filter-opt:hover { background: var(--surface2); }
+.dept-filter-opt.checked { color: var(--text); font-weight: 500; }
+.dept-filter-check {
+  width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; flex-shrink: 0; background: white;
+}
+.dept-filter-opt.checked .dept-filter-check {
+  background: var(--text); border-color: var(--text); color: white;
+}
+.dept-filter-dd-footer {
+  padding: 8px 14px; border-top: 1px solid var(--border);
+}
+.dept-clear-link {
+  background: none; border: none; font-size: 12px; color: var(--text3);
+  cursor: pointer; padding: 0; text-decoration: underline;
+}
+.dept-clear-link:hover { color: var(--text); }
+.dept-filter-sort {
+  padding: 6px 10px; font-size: 12px; border: 1.5px solid var(--border);
+  border-radius: 8px; background: var(--surface2); color: var(--text2);
+  font-family: 'DM Sans', sans-serif; cursor: pointer; outline: none;
+}
+.dept-clear-all-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border-radius: 8px; border: 1.5px solid #fca5a5;
+  background: #fef2f2; color: #dc2626; font-size: 12px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+}
+.dept-clear-all-btn:hover { background: #fee2e2; }
+
 /* ===== RESERVATIONS VIEW ===== */
 .res-topbar {
   display: flex; align-items: center; gap: 12px;
@@ -3140,8 +3203,9 @@ let selectedPropertyId = null;   // null = "All Properties"
 let bookings = [];
 let assetActiveTab = 'calendar';
 let assetTaskFilters = { dept: 'all', status: 'all', assignedTo: 'all', sort: 'due-asc' };
-const DEPT_FILTER_DEFAULT = { status: 'all', assignedTo: 'all', sort: 'created-desc' };
+const DEPT_FILTER_DEFAULT = { assignment: [], status: [], property: [], createdBy: [], sort: 'created-desc' };
 let deptFilters = { ...DEPT_FILTER_DEFAULT };
+let _openDeptFilter = null; // which pill dropdown is currently open
 
 // Default properties — used as fallback if Supabase properties table is unavailable.
 // Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
@@ -3794,52 +3858,159 @@ function updateDeptBadges() {
   });
 }
 
+// ── Dept filter helpers ───────────────────────────────────────────
 function setDeptFilter(key, value) {
   deptFilters[key] = value;
   renderAllDepts();
 }
 
+function _activeDept() {
+  return ['cleaning','maintenance','inspections','operations','compliance','keys']
+    .find(d => document.getElementById('view-' + d)?.classList.contains('active')) || null;
+}
+
+function openDeptFilterDropdown(type, btnEl) {
+  if (_openDeptFilter === type) { closeDeptFilterDropdown(); return; }
+  _openDeptFilter = type;
+
+  const dept = _activeDept();
+  const allJobs = dept ? jobs.filter(j => j.department === dept) : jobs;
+
+  // Build option lists dynamically
+  const STATUS_OPTS = [
+    { value: 'pending',     label: 'Pending' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'complete',    label: 'Complete' },
+    { value: 'resolved',    label: 'Resolved' }
+  ];
+  let options = [];
+  const titles = { assignment:'Assignment', status:'Task Status', property:'Property', createdBy:'Created by' };
+
+  if (type === 'status') {
+    options = STATUS_OPTS;
+  } else if (type === 'assignment') {
+    const vals = [...new Set(allJobs.map(j => j.assigned_to).filter(Boolean))].sort();
+    options = [{ value: '__unassigned__', label: 'Unassigned' }, ...vals.map(v => ({ value: v, label: v }))];
+  } else if (type === 'property') {
+    options = properties.map(p => ({ value: p.id, label: p.name }));
+  } else if (type === 'createdBy') {
+    const vals = [...new Set(allJobs.map(j => j.meta?.created_by_name).filter(Boolean))].sort();
+    options = vals.map(v => ({ value: v, label: v }));
+  }
+
+  const selected = deptFilters[type] || [];
+  const inner = document.getElementById('dept-filter-dropdown-inner');
+
+  inner.innerHTML = `
+    <div class="dept-filter-dd-title">${titles[type] || type}</div>
+    ${options.length === 0
+      ? `<div style="padding:16px 14px;font-size:13px;color:var(--text3);">No options available</div>`
+      : options.map(o => `
+        <div class="dept-filter-opt${selected.includes(o.value) ? ' checked' : ''}"
+             onclick="toggleDeptFilterValue('${type}','${o.value.replace(/'/g,"\\'")}')">
+          <div class="dept-filter-check">${selected.includes(o.value) ? '✓' : ''}</div>
+          ${escapeHtml(o.label)}
+        </div>`).join('')
+    }
+    ${selected.length ? `<div class="dept-filter-dd-footer"><button class="dept-clear-link" onclick="clearDeptFilterType('${type}')">Clear</button></div>` : ''}
+  `;
+
+  const dd = document.getElementById('dept-filter-dropdown');
+  const rect = btnEl.getBoundingClientRect();
+  dd.style.top  = (rect.bottom + 6) + 'px';
+  dd.style.left = Math.min(rect.left, window.innerWidth - 230) + 'px';
+  dd.style.display = 'block';
+}
+
+function closeDeptFilterDropdown() {
+  document.getElementById('dept-filter-dropdown').style.display = 'none';
+  _openDeptFilter = null;
+}
+
+function toggleDeptFilterValue(type, value) {
+  const arr = deptFilters[type];
+  const idx = arr.indexOf(value);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(value);
+  renderAllDepts();
+  // Re-open the dropdown on the refreshed button
+  const dept = _activeDept();
+  if (dept && _openDeptFilter) {
+    const btn = document.querySelector(`#${dept}-filter-bar button[data-ftype="${_openDeptFilter}"]`);
+    if (btn) openDeptFilterDropdown(_openDeptFilter, btn);
+  }
+}
+
+function clearDeptFilterType(type) {
+  deptFilters[type] = [];
+  renderAllDepts();
+  closeDeptFilterDropdown();
+}
+
+function clearDeptFilters() {
+  deptFilters = { ...DEPT_FILTER_DEFAULT };
+  renderAllDepts();
+  closeDeptFilterDropdown();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  const dd = document.getElementById('dept-filter-dropdown');
+  if (dd && !dd.contains(e.target) && !e.target.closest('.dept-fpill')) {
+    closeDeptFilterDropdown();
+  }
+});
+
 function renderDept(dept, containerId, headers, rowFn) {
-  // ── Populate filter bar ───────────────────────────────────────
+  // ── Filter pill bar ───────────────────────────────────────────
   const barEl = document.getElementById(dept + '-filter-bar');
   if (barEl) {
-    const allForDept = jobs.filter(j => j.department === dept);
-    const assignees = [...new Set(allForDept.map(j => j.assigned_to).filter(Boolean))].sort();
     const f = deptFilters;
+    const hasFilters = f.assignment.length || f.status.length || f.property.length || f.createdBy.length;
 
-    const statusOpts = [['all','All Statuses'],['pending','Pending'],['in_progress','In Progress'],['complete','Complete'],['resolved','Resolved']]
-      .map(([v,l]) => `<option value="${v}" ${f.status===v?'selected':''}>${l}</option>`).join('');
+    const pill = (label, type) => {
+      const count = (f[type] || []).length;
+      const active = count > 0;
+      return `<button class="dept-fpill${active ? ' has-filter' : ''}" data-ftype="${type}"
+        onclick="openDeptFilterDropdown('${type}',this)">
+        ${label}${active ? `<span class="dept-fpill-badge">${count}</span>` : ''}
+        <span style="font-size:9px;opacity:.7;">▾</span>
+      </button>`;
+    };
 
-    const assigneeOpts = [
-      `<option value="all" ${f.assignedTo==='all'?'selected':''}>All Staff</option>`,
-      `<option value="unassigned" ${f.assignedTo==='unassigned'?'selected':''}>Unassigned</option>`,
-      ...assignees.map(a => `<option value="${escapeHtml(a)}" ${f.assignedTo===a?'selected':''}>${escapeHtml(a)}</option>`)
-    ].join('');
-
-    const sortOpts = [['created-desc','Newest first'],['created-asc','Oldest first'],['due-asc','Due date ↑'],['due-desc','Due date ↓'],['completed-desc','Completed (newest)'],['completed-asc','Completed (oldest)']]
+    const sortOpts = [['created-desc','Newest first'],['created-asc','Oldest first'],['due-asc','Due date ↑'],['due-desc','Due date ↓'],['completed-desc','Completed ↓'],['completed-asc','Completed ↑']]
       .map(([v,l]) => `<option value="${v}" ${f.sort===v?'selected':''}>${l}</option>`).join('');
 
     barEl.innerHTML = `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 0 12px;">
-        <select class="form-select" style="flex:1;min-width:130px;padding:7px 10px;font-size:12px;" onchange="setDeptFilter('status',this.value)">${statusOpts}</select>
-        <select class="form-select" style="flex:1;min-width:130px;padding:7px 10px;font-size:12px;" onchange="setDeptFilter('assignedTo',this.value)">${assigneeOpts}</select>
-        <select class="form-select" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;" onchange="setDeptFilter('sort',this.value)">${sortOpts}</select>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 0 14px;">
+        ${pill('Assignment', 'assignment')}
+        ${pill('Task Status', 'status')}
+        ${pill('Property', 'property')}
+        ${pill('Created by', 'createdBy')}
+        <div style="display:flex;gap:6px;align-items:center;margin-left:auto;">
+          ${hasFilters ? `<button class="dept-clear-all-btn" onclick="clearDeptFilters()">✕ Clear filters</button>` : ''}
+          <select class="dept-filter-sort" onchange="setDeptFilter('sort',this.value)">${sortOpts}</select>
+        </div>
       </div>`;
   }
 
-  // ── Filter & sort jobs ────────────────────────────────────────
+  // ── Apply filters & sort ──────────────────────────────────────
   let deptJobs = jobs.filter(j => j.department === dept);
   if (selectedPropertyId) deptJobs = deptJobs.filter(j => j.property === selectedPropertyId);
-  if (deptFilters.status !== 'all') deptJobs = deptJobs.filter(j => (j.status || 'pending') === deptFilters.status);
-  if (deptFilters.assignedTo === 'unassigned') deptJobs = deptJobs.filter(j => !j.assigned_to);
-  else if (deptFilters.assignedTo !== 'all') deptJobs = deptJobs.filter(j => j.assigned_to === deptFilters.assignedTo);
+
+  const f = deptFilters;
+  if (f.status.length)     deptJobs = deptJobs.filter(j => f.status.includes(j.status || 'pending'));
+  if (f.property.length)   deptJobs = deptJobs.filter(j => f.property.includes(j.property));
+  if (f.assignment.length) deptJobs = deptJobs.filter(j =>
+    f.assignment.includes(j.assigned_to || '__unassigned__'));
+  if (f.createdBy.length)  deptJobs = deptJobs.filter(j =>
+    f.createdBy.includes(j.meta?.created_by_name || ''));
 
   deptJobs.sort((a, b) => {
-    switch (deptFilters.sort) {
-      case 'created-desc': return (b.created_at || '').localeCompare(a.created_at || '');
-      case 'created-asc':  return (a.created_at || '').localeCompare(b.created_at || '');
-      case 'due-asc':      return (a.date || '').localeCompare(b.date || '');
-      case 'due-desc':     return (b.date || '').localeCompare(a.date || '');
+    switch (f.sort) {
+      case 'created-desc':   return (b.created_at || '').localeCompare(a.created_at || '');
+      case 'created-asc':    return (a.created_at || '').localeCompare(b.created_at || '');
+      case 'due-asc':        return (a.date || '').localeCompare(b.date || '');
+      case 'due-desc':       return (b.date || '').localeCompare(a.date || '');
       case 'completed-desc': return ((b.meta?.completed_at)||'').localeCompare((a.meta?.completed_at)||'');
       case 'completed-asc':  return ((a.meta?.completed_at)||'').localeCompare((b.meta?.completed_at)||'');
       default: return 0;
@@ -3847,10 +4018,12 @@ function renderDept(dept, containerId, headers, rowFn) {
   });
 
   const container = document.getElementById(containerId);
+  const hasActiveFilters = f.assignment.length || f.status.length || f.property.length || f.createdBy.length;
   if (deptJobs.length === 0) {
     const scope = selectedPropertyId ? ` for ${propNames[selectedPropertyId] || 'this property'}` : '';
-    const isFiltered = deptFilters.status !== 'all' || deptFilters.assignedTo !== 'all';
-    container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">${isFiltered ? 'No tasks match the current filters.' : `No ${dept} jobs${scope} yet. Click "+ New Job" to create one.`}</div>`;
+    container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
+      ${hasActiveFilters ? 'No tasks match the current filters.' : `No ${dept} jobs${scope} yet. Click "+ New Job" to create one.`}
+    </div>`;
     return;
   }
   container.innerHTML = deptJobs.map(rowFn).join('');
@@ -8900,5 +9073,11 @@ function renderAssetDetails() {
   `;
 }
 </script>
+
+<!-- Shared dept filter dropdown panel -->
+<div id="dept-filter-dropdown" class="dept-filter-dropdown">
+  <div id="dept-filter-dropdown-inner"></div>
+</div>
+
 </body>
 </html>
