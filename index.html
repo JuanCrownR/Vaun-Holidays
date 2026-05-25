@@ -3203,7 +3203,7 @@ let selectedPropertyId = null;   // null = "All Properties"
 let bookings = [];
 let assetActiveTab = 'calendar';
 let assetTaskFilters = { dept: 'all', status: 'all', assignedTo: 'all', sort: 'due-asc' };
-const DEPT_FILTER_DEFAULT = { assignment: [], status: [], property: [], createdBy: [], sort: 'created-desc', search: '' };
+const DEPT_FILTER_DEFAULT = { assignment: [], status: [], property: [], createdBy: [], sort: 'created-desc' };
 let deptFilters = { ...DEPT_FILTER_DEFAULT };
 let _openDeptFilter = null; // which pill dropdown is currently open
 
@@ -3960,23 +3960,12 @@ document.addEventListener('click', e => {
   }
 });
 
-function setDeptSearch(val) {
-  deptFilters.search = val;
-  renderAllDepts();
-  // Restore focus + cursor position after re-render
-  const dept = _activeDept();
-  if (dept) {
-    const inp = document.querySelector(`#${dept}-filter-bar .dept-search-input`);
-    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
-  }
-}
-
 function renderDept(dept, containerId, headers, rowFn) {
   // ── Filter pill bar ───────────────────────────────────────────
   const barEl = document.getElementById(dept + '-filter-bar');
   if (barEl) {
     const f = deptFilters;
-    const hasFilters = f.assignment.length || f.status.length || f.property.length || f.createdBy.length || f.search;
+    const hasFilters = f.assignment.length || f.status.length || f.property.length || f.createdBy.length;
 
     const pill = (label, type) => {
       const count = (f[type] || []).length;
@@ -3992,23 +3981,13 @@ function renderDept(dept, containerId, headers, rowFn) {
       .map(([v,l]) => `<option value="${v}" ${f.sort===v?'selected':''}>${l}</option>`).join('');
 
     barEl.innerHTML = `
-      <div style="display:flex;gap:8px;align-items:center;padding:0 0 10px;">
-        <div style="position:relative;flex:1;max-width:320px;">
-          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text3);pointer-events:none;">🔍</span>
-          <input class="dept-search-input" type="text" placeholder="Search tasks…"
-            value="${escapeHtml(f.search || '')}"
-            oninput="setDeptSearch(this.value)"
-            style="width:100%;box-sizing:border-box;padding:7px 30px 7px 30px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface2);color:var(--text);outline:none;">
-          ${f.search ? `<button onclick="setDeptSearch('')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:13px;color:var(--text3);cursor:pointer;line-height:1;padding:0;">✕</button>` : ''}
-        </div>
-      </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 0 14px;">
         ${pill('Assignment', 'assignment')}
         ${pill('Task Status', 'status')}
         ${pill('Property', 'property')}
         ${pill('Created by', 'createdBy')}
         <div style="display:flex;gap:6px;align-items:center;margin-left:auto;">
-          ${hasFilters ? `<button class="dept-clear-all-btn" onclick="clearDeptFilters()">✕ Clear all</button>` : ''}
+          ${hasFilters ? `<button class="dept-clear-all-btn" onclick="clearDeptFilters()">✕ Clear filters</button>` : ''}
           <select class="dept-filter-sort" onchange="setDeptFilter('sort',this.value)">${sortOpts}</select>
         </div>
       </div>`;
@@ -4025,15 +4004,6 @@ function renderDept(dept, containerId, headers, rowFn) {
     f.assignment.includes(j.assigned_to || '__unassigned__'));
   if (f.createdBy.length)  deptJobs = deptJobs.filter(j =>
     f.createdBy.includes(j.meta?.created_by_name || ''));
-  if (f.search) {
-    const q = f.search.toLowerCase();
-    deptJobs = deptJobs.filter(j =>
-      (j.title       || '').toLowerCase().includes(q) ||
-      (j.description || '').toLowerCase().includes(q) ||
-      (j.assigned_to || '').toLowerCase().includes(q) ||
-      (propNames[j.property] || j.property || '').toLowerCase().includes(q)
-    );
-  }
 
   deptJobs.sort((a, b) => {
     switch (f.sort) {
@@ -4048,7 +4018,7 @@ function renderDept(dept, containerId, headers, rowFn) {
   });
 
   const container = document.getElementById(containerId);
-  const hasActiveFilters = f.assignment.length || f.status.length || f.property.length || f.createdBy.length || f.search;
+  const hasActiveFilters = f.assignment.length || f.status.length || f.property.length || f.createdBy.length;
   if (deptJobs.length === 0) {
     const scope = selectedPropertyId ? ` for ${propNames[selectedPropertyId] || 'this property'}` : '';
     container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">
