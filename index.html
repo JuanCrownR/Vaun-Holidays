@@ -3222,8 +3222,13 @@ function showView(name, el) {
   if (name === 'properties') renderPropertiesGrid();
   if (name === 'templates') renderTemplatesGrid();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
-  // Re-render dept tables so filter scoping picks up
-  if (['cleaning','maintenance','inspections','operations','compliance','keys'].includes(name)) renderAllDepts();
+  // Dept nav always shows portfolio-wide view — clear any property filter first
+  if (['cleaning','maintenance','inspections','operations','compliance','keys'].includes(name)) {
+    selectedPropertyId = null;
+    renderPropertySwitcher();
+    renderSidebarProperties();
+    renderAllDepts();
+  }
 }
 
 function toggleSidebar() {
