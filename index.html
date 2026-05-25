@@ -2186,6 +2186,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Turnover jobs, checklists, and completion reports</div>
           </div>
         </div>
+        <div id="cleaning-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-cleaning">
             <span>Property</span><span>Assigned to</span><span>Date</span><span>Window</span><span>Status</span><span></span>
@@ -2207,6 +2208,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Issues, repairs, and property condition tracking</div>
           </div>
         </div>
+        <div id="maintenance-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-maintenance">
             <span>Issue</span><span>Property</span><span>Reported</span><span>Assigned</span><span>Status</span><span></span>
@@ -2228,6 +2230,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Pre and post-stay property condition reports</div>
           </div>
         </div>
+        <div id="inspections-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-inspections">
             <span>Property</span><span>Inspector</span><span>Date</span><span>Type</span><span>Status</span><span></span>
@@ -2249,6 +2252,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">General tasks, consumables, and property admin</div>
           </div>
         </div>
+        <div id="operations-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-operations">
             <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span><span></span>
@@ -2270,6 +2274,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Lost keys, replacement orders, expiring keys, and key audits</div>
           </div>
         </div>
+        <div id="keys-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-keys">
             <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span><span></span>
@@ -2291,6 +2296,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Certifications, regulatory checks, insurance, and council approvals</div>
           </div>
         </div>
+        <div id="compliance-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-compliance">
             <span>Task</span><span>Property</span><span>Due</span><span>Assigned</span><span>Status</span><span></span>
@@ -2995,6 +3001,8 @@ let selectedPropertyId = null;   // null = "All Properties"
 let bookings = [];
 let assetActiveTab = 'calendar';
 let assetTaskFilters = { dept: 'all', status: 'all', assignedTo: 'all', sort: 'due-asc' };
+const DEPT_FILTER_DEFAULT = { status: 'all', assignedTo: 'all', sort: 'created-desc' };
+let deptFilters = { ...DEPT_FILTER_DEFAULT };
 
 // Default properties — used as fallback if Supabase properties table is unavailable.
 // Each must keep ID compatible with existing jobs.property values: ferny, p2, p3, p4.
@@ -3223,8 +3231,11 @@ function showView(name, el) {
   if (name === 'properties') renderPropertiesGrid();
   if (name === 'templates') renderTemplatesGrid();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
-  // Re-render dept tables so filter scoping picks up
-  if (['cleaning','maintenance','inspections','operations','compliance','keys'].includes(name)) renderAllDepts();
+  // Re-render dept tables so filter scoping picks up; reset filters to default
+  if (['cleaning','maintenance','inspections','operations','compliance','keys'].includes(name)) {
+    deptFilters = { ...DEPT_FILTER_DEFAULT };
+    renderAllDepts();
+  }
 }
 
 function toggleSidebar() {
@@ -3637,14 +3648,63 @@ function updateDeptBadges() {
   });
 }
 
+function setDeptFilter(key, value) {
+  deptFilters[key] = value;
+  renderAllDepts();
+}
+
 function renderDept(dept, containerId, headers, rowFn) {
+  // ── Populate filter bar ───────────────────────────────────────
+  const barEl = document.getElementById(dept + '-filter-bar');
+  if (barEl) {
+    const allForDept = jobs.filter(j => j.department === dept);
+    const assignees = [...new Set(allForDept.map(j => j.assigned_to).filter(Boolean))].sort();
+    const f = deptFilters;
+
+    const statusOpts = [['all','All Statuses'],['pending','Pending'],['in_progress','In Progress'],['complete','Complete'],['resolved','Resolved']]
+      .map(([v,l]) => `<option value="${v}" ${f.status===v?'selected':''}>${l}</option>`).join('');
+
+    const assigneeOpts = [
+      `<option value="all" ${f.assignedTo==='all'?'selected':''}>All Staff</option>`,
+      `<option value="unassigned" ${f.assignedTo==='unassigned'?'selected':''}>Unassigned</option>`,
+      ...assignees.map(a => `<option value="${escapeHtml(a)}" ${f.assignedTo===a?'selected':''}>${escapeHtml(a)}</option>`)
+    ].join('');
+
+    const sortOpts = [['created-desc','Newest first'],['created-asc','Oldest first'],['due-asc','Due date ↑'],['due-desc','Due date ↓'],['completed-desc','Completed (newest)'],['completed-asc','Completed (oldest)']]
+      .map(([v,l]) => `<option value="${v}" ${f.sort===v?'selected':''}>${l}</option>`).join('');
+
+    barEl.innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 0 12px;">
+        <select class="form-select" style="flex:1;min-width:130px;padding:7px 10px;font-size:12px;" onchange="setDeptFilter('status',this.value)">${statusOpts}</select>
+        <select class="form-select" style="flex:1;min-width:130px;padding:7px 10px;font-size:12px;" onchange="setDeptFilter('assignedTo',this.value)">${assigneeOpts}</select>
+        <select class="form-select" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;" onchange="setDeptFilter('sort',this.value)">${sortOpts}</select>
+      </div>`;
+  }
+
+  // ── Filter & sort jobs ────────────────────────────────────────
   let deptJobs = jobs.filter(j => j.department === dept);
   if (selectedPropertyId) deptJobs = deptJobs.filter(j => j.property === selectedPropertyId);
-  deptJobs.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  if (deptFilters.status !== 'all') deptJobs = deptJobs.filter(j => (j.status || 'pending') === deptFilters.status);
+  if (deptFilters.assignedTo === 'unassigned') deptJobs = deptJobs.filter(j => !j.assigned_to);
+  else if (deptFilters.assignedTo !== 'all') deptJobs = deptJobs.filter(j => j.assigned_to === deptFilters.assignedTo);
+
+  deptJobs.sort((a, b) => {
+    switch (deptFilters.sort) {
+      case 'created-desc': return (b.created_at || '').localeCompare(a.created_at || '');
+      case 'created-asc':  return (a.created_at || '').localeCompare(b.created_at || '');
+      case 'due-asc':      return (a.date || '').localeCompare(b.date || '');
+      case 'due-desc':     return (b.date || '').localeCompare(a.date || '');
+      case 'completed-desc': return ((b.meta?.completed_at)||'').localeCompare((a.meta?.completed_at)||'');
+      case 'completed-asc':  return ((a.meta?.completed_at)||'').localeCompare((b.meta?.completed_at)||'');
+      default: return 0;
+    }
+  });
+
   const container = document.getElementById(containerId);
   if (deptJobs.length === 0) {
     const scope = selectedPropertyId ? ` for ${propNames[selectedPropertyId] || 'this property'}` : '';
-    container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">No ${dept} jobs${scope} yet. Click "+ New Job" to create one.</div>`;
+    const isFiltered = deptFilters.status !== 'all' || deptFilters.assignedTo !== 'all';
+    container.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px;">${isFiltered ? 'No tasks match the current filters.' : `No ${dept} jobs${scope} yet. Click "+ New Job" to create one.`}</div>`;
     return;
   }
   container.innerHTML = deptJobs.map(rowFn).join('');
