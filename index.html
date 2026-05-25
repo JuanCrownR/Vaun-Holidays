@@ -2318,9 +2318,9 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="stat-sub">of 4 onboarded</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Jobs This Week</div>
-            <div class="stat-value" id="stat-jobs">0</div>
-            <div class="stat-sub">across all properties</div>
+            <div class="stat-label">Overdue Tasks</div>
+            <div class="stat-value" id="stat-overdue" style="color:#dc2626">0</div>
+            <div class="stat-sub">past due date</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">Open Maintenance</div>
@@ -4407,10 +4407,13 @@ function renderTodayBriefing() {
   if (!el) return;
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const now       = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+  const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
   const checkIns  = bookings.filter(b => b.check_in  === todayStr && b.status !== 'cancelled');
   const checkOuts = bookings.filter(b => b.check_out === todayStr && b.status !== 'cancelled');
   const cleans    = jobs.filter(j => j.department === 'cleaning' && j.date === todayStr && j.status !== 'complete' && j.status !== 'resolved');
-  const overdue   = jobs.filter(j => j.date && j.date < todayStr && j.status !== 'complete' && j.status !== 'resolved');
+  const weekJobs  = jobs.filter(j => { const d = new Date(j.date); return d >= weekStart && d <= weekEnd; });
 
   const navTo = (view) => `showView('${view}', document.querySelector(".nav-item[onclick*=\\"showView('${view}'\\"]"))`;
 
@@ -4432,7 +4435,7 @@ function renderTodayBriefing() {
     card({ icon:'🛎', bg:'#dbeafe', count: checkIns.length,  label:'Check-ins today',   sub: propList(checkIns,  b => propNames[b.property] || b.property || 'Unknown'), onclick: navTo('reservations') }),
     card({ icon:'🚪', bg:'#ede9fe', count: checkOuts.length, label:'Check-outs today',  sub: propList(checkOuts, b => propNames[b.property] || b.property || 'Unknown'), onclick: navTo('reservations') }),
     card({ icon:'🧹', bg:'#dcfce7', count: cleans.length,    label:'Cleans scheduled',  sub: cleans.length ? propList(cleans, j => propNames[j.property] || j.property || 'Unknown') : 'No cleans scheduled', onclick: "goToDept('cleaning')" }),
-    card({ icon:'⚠️', bg:'#fee2e2', count: overdue.length,   label:'Overdue tasks',     sub: overdue.length ? `${overdue.length} task${overdue.length !== 1 ? 's' : ''} past due date` : '✓ All up to date', onclick: navTo('alltasks'), urgent: true }),
+    card({ icon:'📋', bg:'#fef3c7', count: weekJobs.length,  label:'Jobs this week',    sub: weekJobs.length ? `across ${[...new Set(weekJobs.map(j=>j.property))].length} propert${[...new Set(weekJobs.map(j=>j.property))].length === 1 ? 'y' : 'ies'}` : 'No jobs scheduled', onclick: navTo('alltasks') }),
   ].join('');
 }
 
@@ -4526,8 +4529,10 @@ function updateStats() {
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
-  const weekJobs = jobs.filter(j => { const d = new Date(j.date); return d >= weekStart && d <= weekEnd; });
-  document.getElementById('stat-jobs').textContent = weekJobs.length;
+  const todayStr = now.toISOString().split('T')[0];
+  const overdueCount = jobs.filter(j => j.date && j.date < todayStr && j.status !== 'complete' && j.status !== 'resolved').length;
+  const statOverdue = document.getElementById('stat-overdue');
+  if (statOverdue) { statOverdue.textContent = overdueCount; statOverdue.style.color = overdueCount > 0 ? '#dc2626' : 'var(--text3)'; }
   const openMaint = jobs.filter(j => j.department === 'maintenance' && j.status !== 'complete' && j.status !== 'resolved').length;
   document.getElementById('stat-maint').textContent = openMaint;
   const upcoming = jobs.filter(j => j.department === 'cleaning' && new Date(j.date) >= now).sort((a,b) => new Date(a.date)-new Date(b.date));
