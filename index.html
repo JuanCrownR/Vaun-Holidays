@@ -4527,7 +4527,7 @@ function updateStats() {
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
   const weekJobs = jobs.filter(j => { const d = new Date(j.date); return d >= weekStart && d <= weekEnd; });
   document.getElementById('stat-jobs').textContent = weekJobs.length;
-  const openMaint = jobs.filter(j => j.department === 'maintenance' && j.status !== 'resolved').length;
+  const openMaint = jobs.filter(j => j.department === 'maintenance' && j.status !== 'complete' && j.status !== 'resolved').length;
   document.getElementById('stat-maint').textContent = openMaint;
   const upcoming = jobs.filter(j => j.department === 'cleaning' && new Date(j.date) >= now).sort((a,b) => new Date(a.date)-new Date(b.date));
   if (upcoming.length > 0) {
