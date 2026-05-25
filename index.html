@@ -308,6 +308,12 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   background: var(--maintenance);
   color: white;
 }
+/* Admin-only elements hidden for non-admin users */
+.admin-only { display: none; }
+/* Admin section label gets a subtle accent tint */
+.nav-section-label.admin-label {
+  color: rgba(200,245,90,0.45);
+}
 .sidebar-user {
   padding: 16px;
   border-top: 1px solid rgba(255,255,255,0.06);
@@ -2228,9 +2234,6 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       <div class="nav-item" onclick="showView('reservations',this)">
         <span class="nav-icon">🛎</span> Reservations
       </div>
-      <div class="nav-item" onclick="showView('templates',this)">
-        <span class="nav-icon">📑</span> Templates
-      </div>
 
       <div class="nav-section-label">Departments</div>
       <div class="nav-item" onclick="showView('alltasks',this)">
@@ -2272,6 +2275,14 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <span class="nav-icon">🏢</span> All Properties
       </div>
       <div id="sidebar-prop-list" style="max-height:240px;overflow-y:auto;margin-right:-4px;padding-right:4px;"></div>
+
+      <div class="nav-section-label admin-label admin-only">Admin</div>
+      <div class="nav-item admin-only" onclick="showView('templates',this)">
+        <span class="nav-icon">📑</span> Templates
+      </div>
+      <div class="nav-item admin-only" onclick="showView('users',this)">
+        <span class="nav-icon">👤</span> Users
+      </div>
     </div>
     <div class="sidebar-user">
       <div class="user-avatar" id="user-avatar">J</div>
@@ -2643,6 +2654,32 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <div id="templates-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
 
         <div id="template-preview" style="display:none;margin-top:24px;"></div>
+      </div>
+
+      <!-- USERS (Admin only) -->
+      <div class="view" id="view-users">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Users</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:2px;">Manage team members, roles, and access.</div>
+          </div>
+          <button class="btn btn-primary" onclick="openInviteUserModal()">+ Invite user</button>
+        </div>
+
+        <div id="users-loading" style="text-align:center;padding:40px;color:var(--text3);display:none;">Loading users…</div>
+        <div id="users-error" style="display:none;padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#dc2626;margin-bottom:16px;font-size:13px;"></div>
+
+        <div class="jobs-table" id="users-table-wrap" style="display:none;">
+          <div class="table-header" style="grid-template-columns:36px 1fr 120px 160px 140px 80px;">
+            <span></span>
+            <span>Email</span>
+            <span>Name</span>
+            <span>Role</span>
+            <span>Last sign-in</span>
+            <span></span>
+          </div>
+          <div id="users-list"></div>
+        </div>
       </div>
 
       <!-- CLEANING CHECKLIST (Changeover Clean template) -->
@@ -3202,6 +3239,82 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   </div>
 </div>
 
+<!-- INVITE USER MODAL -->
+<div class="modal-overlay" id="invite-user-modal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Invite User</h3>
+      <button class="modal-close" onclick="closeInviteUserModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="invite-user-error" style="display:none;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#dc2626;margin-bottom:14px;font-size:13px;"></div>
+      <div id="invite-user-success" style="display:none;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#16a34a;margin-bottom:14px;font-size:13px;"></div>
+      <div class="form-group">
+        <label class="form-label">Email address</label>
+        <input type="email" class="form-input" id="invite-email" placeholder="team@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select class="form-select" id="invite-role">
+          <option value="staff">Staff</option>
+          <option value="cleaner">Cleaner</option>
+          <option value="manager">Manager</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin-top:8px;">An invitation email will be sent. The user sets their own password via the link.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeInviteUserModal()">Cancel</button>
+      <button class="btn btn-primary" id="invite-user-btn" onclick="sendUserInvite()">Send invite</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div class="modal-overlay" id="change-password-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Change Password</h3>
+      <button class="modal-close" onclick="closeChangePasswordModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="change-pw-error" style="display:none;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#dc2626;margin-bottom:14px;font-size:13px;"></div>
+      <div id="change-pw-success" style="display:none;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#16a34a;margin-bottom:14px;font-size:13px;"></div>
+      <p id="change-pw-email-label" style="font-size:13px;color:var(--text2);margin-bottom:14px;"></p>
+      <div class="form-group">
+        <label class="form-label">New password</label>
+        <input type="password" class="form-input" id="change-pw-input" placeholder="Min. 8 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm password</label>
+        <input type="password" class="form-input" id="change-pw-confirm" placeholder="Re-enter password">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancel</button>
+      <button class="btn btn-primary" id="change-pw-btn" onclick="submitChangePassword()">Update password</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE USER MODAL -->
+<div class="modal-overlay confirm-modal" id="confirm-delete-user-modal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Delete User</h3>
+      <button class="modal-close" onclick="document.getElementById('confirm-delete-user-modal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;">Are you sure you want to delete <strong id="confirm-delete-user-email"></strong>? This cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('confirm-delete-user-modal').classList.remove('open')">Cancel</button>
+      <button class="btn" style="background:#dc2626;color:white;" id="confirm-delete-user-btn" onclick="executeDeleteUser()">Delete user</button>
+    </div>
+  </div>
+</div>
+
 <!-- NEW JOB MODAL -->
 <div class="modal-overlay" id="new-job-modal">
   <div class="modal">
@@ -3478,6 +3591,10 @@ async function loadApp(user) {
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  // Show/hide admin-only elements based on role
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = role === 'admin' ? '' : 'none';
+  });
   initCalendar();
   await loadProperties();
   await loadBookings();
@@ -3555,7 +3672,7 @@ function showView(name, el) {
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', reservations: 'Reservations', alltasks: 'All Tasks', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts' };
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', reservations: 'Reservations', alltasks: 'All Tasks', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts', users: 'Users' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
   if (name === 'contacts') { loadContacts(); }
@@ -3563,6 +3680,7 @@ function showView(name, el) {
   if (name === 'asset') renderAssetView();
   if (name === 'properties') renderPropertiesGrid();
   if (name === 'templates') renderTemplatesGrid();
+  if (name === 'users') loadAdminUsers();
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
   // Re-render dept tables so filter scoping picks up; reset filters to default
   if (['cleaning','maintenance','inspections','operations','compliance','keys','alltasks'].includes(name)) {
@@ -9579,6 +9697,242 @@ function renderAssetDetails() {
     ` : ''}
   `;
 }
+
+// ===== ADMIN — USERS =====
+
+let _adminUserTarget = null; // { id, email } for delete / change-password
+
+async function _adminApiFetch(path, opts = {}) {
+  const { data: { session } } = await sb.auth.getSession();
+  const jwt = session?.access_token || '';
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+    ...opts,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Request failed');
+  return json;
+}
+
+async function loadAdminUsers() {
+  const loading = document.getElementById('users-loading');
+  const errEl   = document.getElementById('users-error');
+  const wrap    = document.getElementById('users-table-wrap');
+  const list    = document.getElementById('users-list');
+
+  loading.style.display = 'block';
+  errEl.style.display = 'none';
+  wrap.style.display = 'none';
+  list.innerHTML = '';
+
+  try {
+    const { users } = await _adminApiFetch('/api/admin-users');
+    loading.style.display = 'none';
+    wrap.style.display = '';
+    renderUsersList(users);
+  } catch (err) {
+    loading.style.display = 'none';
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function renderUsersList(users) {
+  const list = document.getElementById('users-list');
+  if (!users || users.length === 0) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">No users found.</div>';
+    return;
+  }
+
+  const roleColors = { admin: '#c8f55a', manager: '#3498db', cleaner: '#2ecc71', staff: '#9a9a9a' };
+  const meId = currentUser?.id;
+
+  list.innerHTML = users.map(u => {
+    const initials = (u.name || u.email || '?').charAt(0).toUpperCase();
+    const lastSeen = u.last_sign_in_at
+      ? new Date(u.last_sign_in_at).toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' })
+      : (u.invited_at ? 'Invite pending' : '—');
+    const roleColor = roleColors[u.role] || '#9a9a9a';
+    const isMe = u.id === meId;
+
+    return `
+    <div class="job-row" style="grid-template-columns:36px 1fr 120px 160px 140px 80px;align-items:center;">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--brand2);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">${initials}</div>
+      <div>
+        <div style="font-size:13px;font-weight:500;">${u.email}</div>
+        ${isMe ? '<div style="font-size:11px;color:var(--text3);">You</div>' : ''}
+      </div>
+      <div style="font-size:13px;color:var(--text2);">${u.name || '—'}</div>
+      <div>
+        <select class="form-select" style="font-size:12px;padding:4px 8px;height:auto;border-color:${roleColor}40;color:${roleColor};"
+          onchange="changeUserRole('${u.id}', this.value)" ${isMe ? 'disabled title="You cannot change your own role"' : ''}>
+          <option value="staff"   ${u.role==='staff'   ?'selected':''}>Staff</option>
+          <option value="cleaner" ${u.role==='cleaner' ?'selected':''}>Cleaner</option>
+          <option value="manager" ${u.role==='manager' ?'selected':''}>Manager</option>
+          <option value="admin"   ${u.role==='admin'   ?'selected':''}>Admin</option>
+        </select>
+      </div>
+      <div style="font-size:12px;color:var(--text3);">${lastSeen}</div>
+      <div style="display:flex;gap:6px;justify-content:flex-end;">
+        <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" title="Change password"
+          onclick="openChangePasswordModal('${u.id}','${u.email.replace(/'/g,"\\'")}')" ${isMe ? '' : ''}>🔑</button>
+        ${!isMe ? `<button class="btn" style="padding:4px 8px;font-size:11px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;" title="Delete user"
+          onclick="confirmDeleteUser('${u.id}','${u.email.replace(/'/g,"\\'")}')">🗑</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// --- Invite user ---
+function openInviteUserModal() {
+  document.getElementById('invite-email').value = '';
+  document.getElementById('invite-role').value = 'staff';
+  document.getElementById('invite-user-error').style.display = 'none';
+  document.getElementById('invite-user-success').style.display = 'none';
+  document.getElementById('invite-user-btn').textContent = 'Send invite';
+  document.getElementById('invite-user-btn').disabled = false;
+  document.getElementById('invite-user-modal').classList.add('open');
+}
+function closeInviteUserModal() {
+  document.getElementById('invite-user-modal').classList.remove('open');
+}
+async function sendUserInvite() {
+  const email = document.getElementById('invite-email').value.trim();
+  const role  = document.getElementById('invite-role').value;
+  const errEl = document.getElementById('invite-user-error');
+  const sucEl = document.getElementById('invite-user-success');
+  const btn   = document.getElementById('invite-user-btn');
+
+  errEl.style.display = 'none';
+  sucEl.style.display = 'none';
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errEl.textContent = 'Please enter a valid email address.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+
+  try {
+    await _adminApiFetch('/api/admin-users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'invite', email, role }),
+    });
+    sucEl.textContent = `Invitation sent to ${email}`;
+    sucEl.style.display = 'block';
+    btn.textContent = 'Sent ✓';
+    setTimeout(() => {
+      closeInviteUserModal();
+      loadAdminUsers();
+    }, 1600);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    btn.textContent = 'Send invite';
+    btn.disabled = false;
+  }
+}
+
+// --- Change password ---
+function openChangePasswordModal(userId, email) {
+  _adminUserTarget = { id: userId, email };
+  document.getElementById('change-pw-email-label').textContent = `Changing password for: ${email}`;
+  document.getElementById('change-pw-input').value = '';
+  document.getElementById('change-pw-confirm').value = '';
+  document.getElementById('change-pw-error').style.display = 'none';
+  document.getElementById('change-pw-success').style.display = 'none';
+  document.getElementById('change-pw-btn').textContent = 'Update password';
+  document.getElementById('change-pw-btn').disabled = false;
+  document.getElementById('change-password-modal').classList.add('open');
+}
+function closeChangePasswordModal() {
+  document.getElementById('change-password-modal').classList.remove('open');
+  _adminUserTarget = null;
+}
+async function submitChangePassword() {
+  if (!_adminUserTarget) return;
+  const password = document.getElementById('change-pw-input').value;
+  const confirm  = document.getElementById('change-pw-confirm').value;
+  const errEl    = document.getElementById('change-pw-error');
+  const sucEl    = document.getElementById('change-pw-success');
+  const btn      = document.getElementById('change-pw-btn');
+
+  errEl.style.display = 'none';
+  sucEl.style.display = 'none';
+
+  if (!password || password.length < 8) {
+    errEl.textContent = 'Password must be at least 8 characters.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (password !== confirm) {
+    errEl.textContent = 'Passwords do not match.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.textContent = 'Updating…';
+  btn.disabled = true;
+
+  try {
+    await _adminApiFetch('/api/admin-users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'changePassword', userId: _adminUserTarget.id, password }),
+    });
+    sucEl.textContent = 'Password updated successfully.';
+    sucEl.style.display = 'block';
+    btn.textContent = 'Updated ✓';
+    setTimeout(() => closeChangePasswordModal(), 1600);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    btn.textContent = 'Update password';
+    btn.disabled = false;
+  }
+}
+
+// --- Change role (inline select) ---
+async function changeUserRole(userId, role) {
+  try {
+    await _adminApiFetch('/api/admin-users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'changeRole', userId, role }),
+    });
+    showToast('Role updated', 'success');
+  } catch (err) {
+    alert('Failed to change role: ' + err.message);
+    loadAdminUsers(); // Refresh to restore correct value
+  }
+}
+
+// --- Delete user ---
+function confirmDeleteUser(userId, email) {
+  _adminUserTarget = { id: userId, email };
+  document.getElementById('confirm-delete-user-email').textContent = email;
+  document.getElementById('confirm-delete-user-modal').classList.add('open');
+}
+async function executeDeleteUser() {
+  if (!_adminUserTarget) return;
+  const btn = document.getElementById('confirm-delete-user-btn');
+  btn.textContent = 'Deleting…';
+  btn.disabled = true;
+  try {
+    await _adminApiFetch('/api/admin-users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', userId: _adminUserTarget.id }),
+    });
+    document.getElementById('confirm-delete-user-modal').classList.remove('open');
+    _adminUserTarget = null;
+    loadAdminUsers();
+  } catch (err) {
+    alert('Failed to delete user: ' + err.message);
+    btn.textContent = 'Delete user';
+    btn.disabled = false;
+  }
+}
+
 </script>
 
 <!-- Shared dept filter dropdown panel -->
