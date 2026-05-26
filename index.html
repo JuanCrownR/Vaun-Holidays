@@ -490,6 +490,8 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 }
 .notif-item:hover { background: var(--surface2); }
 .notif-item.unread { background: #f0fdf4; border-left: 3px solid var(--accent2); padding-left: 13px; }
+.notif-item-clickable { cursor: pointer; }
+.notif-item-clickable:hover .notif-item-title { text-decoration: underline; }
 .notif-item-title { font-size: 13px; font-weight: 500; color: var(--text); }
 .notif-item-body { font-size: 12px; color: var(--text2); margin-top: 2px; line-height: 1.4; }
 .notif-item-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
@@ -10156,10 +10158,12 @@ function renderNotifPanel() {
     const ts = new Date(n.created_at).getTime();
     const isNew = ts > lastSeen;
     const ago = _timeAgo(n.created_at);
-    return `<div class="notif-item${isNew ? ' unread' : ''}">
+    const clickable = !!n.job_id;
+    return `<div class="notif-item${isNew ? ' unread' : ''}${clickable ? ' notif-item-clickable' : ''}"
+      ${clickable ? `onclick="openNotifJob('${n.job_id}')"` : ''}>
       <div class="notif-item-title">${escapeHtml(n.title)}</div>
       ${n.body ? `<div class="notif-item-body">${escapeHtml(n.body)}</div>` : ''}
-      <div class="notif-item-time">${ago}</div>
+      <div class="notif-item-time">${ago}${clickable ? ' <span style="color:var(--accent2);font-weight:500;">· View task →</span>' : ''}</div>
     </div>`;
   }).join('');
 }
@@ -10189,6 +10193,19 @@ function markAllNotifSeen() {
   localStorage.setItem(_notifLastSeenKey(), Date.now().toString());
   _updateNotifBadge();
   renderNotifPanel();
+}
+
+function openNotifJob(jobId) {
+  // Close the panel
+  document.getElementById('notif-panel')?.classList.remove('open');
+  // Find the job
+  const job = jobs.find(j => String(j.id) === String(jobId));
+  if (!job) { showToast('Task not found — it may have been deleted', 'error'); return; }
+  // Navigate to the right dept view so the user can see it in context
+  const deptNavItem = document.querySelector(`.nav-item[onclick*="showView('${job.department}"]`);
+  showView(job.department, deptNavItem);
+  // Open the task summary
+  setTimeout(() => viewJob(job), 100);
 }
 
 function _timeAgo(iso) {
