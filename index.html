@@ -10116,11 +10116,23 @@ function _showNotifToast(title, body) {
   _notifToastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
 }
 
-function _notifLastSeenKey() { return 'notif_last_seen_' + (currentUser?.id || 'anon'); }
+// ── Per-notification read tracking ────────────────────────────────────────
+function _readKey() { return 'notif_read_' + (currentUser?.id || 'anon'); }
+function _readIds() {
+  try { return new Set(JSON.parse(localStorage.getItem(_readKey()) || '[]')); }
+  catch { return new Set(); }
+}
+function _markRead(notifId) {
+  const ids = _readIds(); ids.add(String(notifId));
+  localStorage.setItem(_readKey(), JSON.stringify([...ids]));
+}
+function _markAllRead() {
+  localStorage.setItem(_readKey(), JSON.stringify(_notifications.map(n => String(n.id))));
+}
 
 function _updateNotifBadge(animate = false) {
-  const lastSeen = parseInt(localStorage.getItem(_notifLastSeenKey()) || '0', 10);
-  const unseen = _notifications.filter(n => new Date(n.created_at).getTime() > lastSeen).length;
+  const readIds = _readIds();
+  const unseen = _notifications.filter(n => !readIds.has(String(n.id))).length;
   const badge = document.getElementById('notif-badge');
   const bell  = document.getElementById('notif-bell');
   if (!badge) return;
@@ -10153,17 +10165,16 @@ function renderNotifPanel() {
     body.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text3);font-size:13px;">No notifications yet.</div>';
     return;
   }
-  const lastSeen = parseInt(localStorage.getItem(_notifLastSeenKey()) || '0', 10);
+  const readIds = _readIds();
   body.innerHTML = _notifications.map(n => {
-    const ts = new Date(n.created_at).getTime();
-    const isNew = ts > lastSeen;
-    const ago = _timeAgo(n.created_at);
+    const isUnread  = !readIds.has(String(n.id));
+    const ago       = _timeAgo(n.created_at);
     const clickable = !!n.job_id;
-    return `<div class="notif-item${isNew ? ' unread' : ''}${clickable ? ' notif-item-clickable' : ''}"
-      ${clickable ? `onclick="openNotifJob('${n.job_id}')"` : ''}>
+    return `<div class="notif-item${isUnread ? ' unread' : ''}${clickable ? ' notif-item-clickable' : ''}"
+      onclick="${clickable ? `openNotifJob('${n.job_id}','${n.id}')` : `_markRead('${n.id}');_updateNotifBadge();renderNotifPanel()`}">
       <div class="notif-item-title">${escapeHtml(n.title)}</div>
       ${n.body ? `<div class="notif-item-body">${escapeHtml(n.body)}</div>` : ''}
-      <div class="notif-item-time">${ago}${clickable ? ' <span style="color:var(--accent2);font-weight:500;">· View task →</span>' : ''}</div>
+      <div class="notif-item-time">${ago}${clickable ? ` <span style="color:${isUnread ? 'var(--accent2)' : 'var(--text3)'};font-weight:500;">· View task →</span>` : ''}</div>
     </div>`;
   }).join('');
 }
@@ -10190,18 +10201,20 @@ function _closeNotifOnOutsideClick(e) {
 }
 
 function markAllNotifSeen() {
-  localStorage.setItem(_notifLastSeenKey(), Date.now().toString());
+  _markAllRead();
   _updateNotifBadge();
   renderNotifPanel();
 }
 
-function openNotifJob(jobId) {
+function openNotifJob(jobId, notifId) {
+  // Mark this notification as read and update badge immediately
+  if (notifId) { _markRead(notifId); _updateNotifBadge(); }
   // Close the panel
   document.getElementById('notif-panel')?.classList.remove('open');
   // Find the job
   const job = jobs.find(j => String(j.id) === String(jobId));
   if (!job) { showToast('Task not found — it may have been deleted', 'error'); return; }
-  // Navigate to the right dept view so the user can see it in context
+  // Navigate to the right dept view
   const deptNavItem = document.querySelector(`.nav-item[onclick*="showView('${job.department}"]`);
   showView(job.department, deptNavItem);
   // Open the task summary
