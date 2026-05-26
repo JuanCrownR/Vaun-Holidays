@@ -308,14 +308,29 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   background: var(--maintenance);
   color: white;
 }
-/* Admin-only elements hidden for non-admin users; shown when body.is-admin */
-.admin-only { display: none !important; }
-body.is-admin .nav-item.admin-only { display: flex !important; }
-body.is-admin .nav-section-label.admin-only { display: block !important; }
-/* Admin section label gets a subtle accent tint */
-.nav-section-label.admin-label {
-  color: rgba(200,245,90,0.45);
+/* Admin nav item — locked state for non-admins */
+.nav-item-locked { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+/* Admin tabs */
+.admin-tab-bar {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
 }
+.admin-tab {
+  padding: 8px 18px 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text2);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s;
+}
+.admin-tab:hover { color: var(--text); }
+.admin-tab.active { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
 .sidebar-user {
   padding: 16px;
   border-top: 1px solid rgba(255,255,255,0.06);
@@ -2278,12 +2293,9 @@ body.is-admin .nav-section-label.admin-only { display: block !important; }
       </div>
       <div id="sidebar-prop-list" style="max-height:240px;overflow-y:auto;margin-right:-4px;padding-right:4px;"></div>
 
-      <div class="nav-section-label admin-label admin-only">Admin</div>
-      <div class="nav-item admin-only" onclick="showView('templates',this)">
-        <span class="nav-icon">📑</span> Templates
-      </div>
-      <div class="nav-item admin-only" onclick="showView('users',this)">
-        <span class="nav-icon">👤</span> Users
+      <div class="nav-item" id="admin-nav-item" onclick="handleAdminNavClick(this)">
+        <span class="nav-icon">⚙️</span> Admin
+        <span id="admin-nav-lock" style="margin-left:auto;font-size:12px;display:none;">🔒</span>
       </div>
     </div>
     <div class="sidebar-user">
@@ -2644,43 +2656,42 @@ body.is-admin .nav-section-label.admin-only { display: block !important; }
         </div>
       </div>
 
-      <!-- TEMPLATES -->
-      <div class="view" id="view-templates">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <div>
-            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Templates</div>
-            <div style="font-size:13px;color:var(--text2);margin-top:2px;">Reusable task templates for cleaning, inspections, and maintenance workflows.</div>
-          </div>
-          <button class="btn btn-primary" onclick="openNewTemplateModal()">+ New template</button>
-        </div>
-        <div id="templates-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
-
-        <div id="template-preview" style="display:none;margin-top:24px;"></div>
-      </div>
-
-      <!-- USERS (Admin only) -->
-      <div class="view" id="view-users">
+      <!-- ADMIN (Templates + Users) -->
+      <div class="view" id="view-admin">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
           <div>
-            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Users</div>
-            <div style="font-size:13px;color:var(--text2);margin-top:2px;">Manage team members, roles, and access.</div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Admin</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:2px;">Templates and user management.</div>
           </div>
-          <button class="btn btn-primary" onclick="openInviteUserModal()">+ Invite user</button>
+          <div id="admin-tab-action"></div>
         </div>
 
-        <div id="users-loading" style="text-align:center;padding:40px;color:var(--text3);display:none;">Loading users…</div>
-        <div id="users-error" style="display:none;padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#dc2626;margin-bottom:16px;font-size:13px;"></div>
+        <div class="admin-tab-bar">
+          <button class="admin-tab active" id="admin-tab-btn-templates" onclick="showAdminTab('templates')">📑 Templates</button>
+          <button class="admin-tab" id="admin-tab-btn-users" onclick="showAdminTab('users')">👤 Users</button>
+        </div>
 
-        <div class="jobs-table" id="users-table-wrap" style="display:none;">
-          <div class="table-header" style="grid-template-columns:36px 1fr 120px 160px 140px 80px;">
-            <span></span>
-            <span>Email</span>
-            <span>Name</span>
-            <span>Role</span>
-            <span>Last sign-in</span>
-            <span></span>
+        <!-- Templates section -->
+        <div id="admin-section-templates">
+          <div id="templates-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
+          <div id="template-preview" style="display:none;margin-top:24px;"></div>
+        </div>
+
+        <!-- Users section -->
+        <div id="admin-section-users" style="display:none;">
+          <div id="users-loading" style="text-align:center;padding:40px;color:var(--text3);display:none;">Loading users…</div>
+          <div id="users-error" style="display:none;padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#dc2626;margin-bottom:16px;font-size:13px;"></div>
+          <div class="jobs-table" id="users-table-wrap" style="display:none;">
+            <div class="table-header" style="grid-template-columns:36px 1fr 120px 160px 140px 80px;">
+              <span></span>
+              <span>Email</span>
+              <span>Name</span>
+              <span>Role</span>
+              <span>Last sign-in</span>
+              <span></span>
+            </div>
+            <div id="users-list"></div>
           </div>
-          <div id="users-list"></div>
         </div>
       </div>
 
@@ -3593,11 +3604,15 @@ async function loadApp(user) {
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  // Show/hide admin-only elements based on role
-  if (role === 'admin') {
-    document.body.classList.add('is-admin');
+  // Lock Admin nav item for non-admins
+  const adminNavItem = document.getElementById('admin-nav-item');
+  const adminNavLock = document.getElementById('admin-nav-lock');
+  if (role !== 'admin') {
+    adminNavItem.classList.add('nav-item-locked');
+    if (adminNavLock) adminNavLock.style.display = '';
   } else {
-    document.body.classList.remove('is-admin');
+    adminNavItem.classList.remove('nav-item-locked');
+    if (adminNavLock) adminNavLock.style.display = 'none';
   }
   initCalendar();
   await loadProperties();
@@ -3676,15 +3691,14 @@ function showView(name, el) {
   document.querySelectorAll('.sidebar-prop-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  const titles = { overview: 'Dashboard', calendar: 'Calendar', templates: 'Templates', reservations: 'Reservations', alltasks: 'All Tasks', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts', users: 'Users' };
+  const titles = { overview: 'Dashboard', calendar: 'Calendar', admin: 'Admin', reservations: 'Reservations', alltasks: 'All Tasks', cleaning: 'Cleaning', maintenance: 'Maintenance', inspections: 'Inspections', operations: 'Operations', compliance: 'Compliance', keys: 'Keys Management', properties: 'Properties', asset: 'Property', 'general-task': 'Task', contacts: 'Contacts' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'calendar') renderCalendar();
   if (name === 'contacts') { loadContacts(); }
   if (name === 'reservations') { resFilters = { dateTab: 'today', pills: [], search: '' }; renderReservations(); }
   if (name === 'asset') renderAssetView();
   if (name === 'properties') renderPropertiesGrid();
-  if (name === 'templates') renderTemplatesGrid();
-  if (name === 'users') loadAdminUsers();
+  if (name === 'admin') showAdminTab(_activeAdminTab || 'templates');
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
   // Re-render dept tables so filter scoping picks up; reset filters to default
   if (['cleaning','maintenance','inspections','operations','compliance','keys','alltasks'].includes(name)) {
@@ -9702,9 +9716,38 @@ function renderAssetDetails() {
   `;
 }
 
-// ===== ADMIN — USERS =====
+// ===== ADMIN PANEL =====
 
+let _activeAdminTab = 'templates';
 let _adminUserTarget = null; // { id, email } for delete / change-password
+
+function handleAdminNavClick(el) {
+  const role = currentUser?.user_metadata?.role || 'admin';
+  if (role !== 'admin') {
+    showToast('Admin access required', 'error');
+    return;
+  }
+  showView('admin', el);
+}
+
+function showAdminTab(tab) {
+  _activeAdminTab = tab;
+  // Update tab buttons
+  document.getElementById('admin-tab-btn-templates').classList.toggle('active', tab === 'templates');
+  document.getElementById('admin-tab-btn-users').classList.toggle('active', tab === 'users');
+  // Show/hide sections
+  document.getElementById('admin-section-templates').style.display = tab === 'templates' ? '' : 'none';
+  document.getElementById('admin-section-users').style.display = tab === 'users' ? '' : 'none';
+  // Action button in header
+  const actionEl = document.getElementById('admin-tab-action');
+  if (tab === 'templates') {
+    actionEl.innerHTML = '<button class="btn btn-primary" onclick="openNewTemplateModal()">+ New template</button>';
+    renderTemplatesGrid();
+  } else {
+    actionEl.innerHTML = '<button class="btn btn-primary" onclick="openInviteUserModal()">+ Invite user</button>';
+    loadAdminUsers();
+  }
+}
 
 async function _adminApiFetch(path, opts = {}) {
   const { data: { session } } = await sb.auth.getSession();
