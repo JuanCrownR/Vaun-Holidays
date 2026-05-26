@@ -378,6 +378,87 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 }
 .topbar-title { font-size: 20px; font-weight: 700; color: var(--text); }
 .topbar-actions { display: flex; gap: 10px; align-items: center; }
+/* ===== NOTIFICATION BELL ===== */
+.notif-bell {
+  position: relative;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 38px; height: 38px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.notif-bell:hover { background: var(--surface2); }
+.notif-bell-badge {
+  position: absolute;
+  top: -5px; right: -5px;
+  background: #dc2626;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 999px;
+  min-width: 15px;
+  text-align: center;
+  line-height: 14px;
+  display: none;
+}
+.notif-panel {
+  position: fixed;
+  top: 60px; right: 16px;
+  width: 360px;
+  max-height: 500px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.13);
+  z-index: 200;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.notif-panel.open { display: flex; }
+.notif-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+}
+.notif-panel-body { overflow-y: auto; flex: 1; }
+.notif-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border2);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.notif-item:hover { background: var(--surface2); }
+.notif-item.unread { background: #f0fdf4; border-left: 3px solid var(--accent2); padding-left: 13px; }
+.notif-item-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.notif-item-body { font-size: 12px; color: var(--text2); margin-top: 2px; line-height: 1.4; }
+.notif-item-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
+/* ===== DEPT DEFAULT ASSIGNEE BAR ===== */
+.dept-default-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.dept-default-bar strong { color: var(--text); font-weight: 600; }
+.dept-default-edit { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text2); }
+.dept-default-edit:hover { background: var(--surface3); }
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 16px;
@@ -2322,7 +2403,21 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <div id="search-results-dropdown" class="search-results-dropdown"></div>
       </div>
       <div class="topbar-actions">
+        <button class="notif-bell" id="notif-bell" onclick="toggleNotifPanel()" title="Notifications">
+          🔔
+          <span class="notif-bell-badge" id="notif-badge">0</span>
+        </button>
         <button class="btn btn-primary" onclick="openNewJobModal()">+ New Job</button>
+      </div>
+    </div>
+    <!-- Notification panel (outside topbar flow so it overlays content) -->
+    <div class="notif-panel" id="notif-panel">
+      <div class="notif-panel-head">
+        <span>Notifications</span>
+        <button onclick="markAllNotifSeen()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:inherit;">Mark all read</button>
+      </div>
+      <div class="notif-panel-body" id="notif-panel-body">
+        <div style="padding:32px;text-align:center;color:var(--text3);font-size:13px;">No notifications yet.</div>
       </div>
     </div>
     <!-- Property switcher pill row -->
@@ -2513,6 +2608,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Turnover jobs, checklists, and completion reports</div>
           </div>
         </div>
+        <div id="cleaning-default-bar"></div>
         <div id="cleaning-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-cleaning">
@@ -2535,6 +2631,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Issues, repairs, and property condition tracking</div>
           </div>
         </div>
+        <div id="maintenance-default-bar"></div>
         <div id="maintenance-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-maintenance">
@@ -2557,6 +2654,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Pre and post-stay property condition reports</div>
           </div>
         </div>
+        <div id="inspections-default-bar"></div>
         <div id="inspections-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-inspections">
@@ -2579,6 +2677,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">General tasks, consumables, and property admin</div>
           </div>
         </div>
+        <div id="operations-default-bar"></div>
         <div id="operations-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-operations">
@@ -2601,6 +2700,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Lost keys, replacement orders, expiring keys, and key audits</div>
           </div>
         </div>
+        <div id="keys-default-bar"></div>
         <div id="keys-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-keys">
@@ -2623,6 +2723,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
             <div class="dept-sub">Certifications, regulatory checks, insurance, and council approvals</div>
           </div>
         </div>
+        <div id="compliance-default-bar"></div>
         <div id="compliance-filter-bar"></div>
         <div class="jobs-table">
           <div class="table-header grid-compliance">
@@ -2942,6 +3043,12 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       <div class="form-group">
         <label class="form-label">Owner postal / residential address</label>
         <input type="text" class="form-input" id="prop-owner-address" placeholder="123 Owner St, Brisbane QLD 4000">
+      </div>
+
+      <div class="form-group" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <label class="form-label" style="margin-bottom:4px;">Department Assignees</label>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Default assignee for each department at this property. Overrides the department-wide default.</div>
+        <div id="prop-dept-assignments" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
       </div>
 
       <div class="form-group">
@@ -3398,7 +3505,10 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       </div>
       <div class="form-group">
         <label class="form-label" id="job-assign-label">Assigned to</label>
-        <input type="text" class="form-input" id="job-assign" placeholder="Cleaner name or staff member">
+        <input type="text" class="form-input" id="job-assign" placeholder="Cleaner name or staff member"
+          list="team-members-list" autocomplete="off" oninput="_assignOverridden=true">
+        <datalist id="team-members-list"></datalist>
+        <div id="job-assign-hint" style="font-size:11px;color:var(--text3);margin-top:4px;display:none;">Auto-assigned from property settings</div>
       </div>
 
       <!-- Supplier / Contractor -->
@@ -3622,6 +3732,9 @@ async function loadApp(user) {
   renderPropertiesGrid();
   populateJobPropertyDropdown();
   loadJobs();
+  loadDeptDefaults();
+  loadNotifications();
+  ensureTeamMembers();
   setupRealtime();
   // Seed the history stack so the browser back button always has a safe
   // "home" entry to return to instead of leaving the app entirely.
@@ -3705,6 +3818,10 @@ function showView(name, el) {
     deptFilters = { ...DEPT_FILTER_DEFAULT };
     renderAllDepts();
   }
+  // Render dept default assignee bar
+  if (['cleaning','maintenance','inspections','operations','compliance','keys'].includes(name)) {
+    renderDeptDefaultBar(name);
+  }
 }
 
 function toggleSidebar() {
@@ -3755,6 +3872,13 @@ function setupRealtime() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, p => handlePropertyChange(p))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, p => handleBookingChange(p))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cleaning_completions' }, p => handleCleaningCompletionChange(p))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, p => {
+        if (p.new && !_notifications.find(n => n.id === p.new.id)) {
+          _notifications.unshift(p.new);
+          _updateNotifBadge();
+          if (document.getElementById('notif-panel')?.classList.contains('open')) renderNotifPanel();
+        }
+      })
       .subscribe();
   } catch (e) {
     console.warn('Realtime setup failed', e);
@@ -3964,7 +4088,6 @@ async function saveJob() {
 
   const { data, error } = await sb.from('jobs').insert([job]).select();
   if (error) {
-    // If table doesn't exist yet, store locally
     job.id = Date.now();
     jobs.push(job);
   } else if (data) {
@@ -3975,6 +4098,18 @@ async function saveJob() {
   updateStats();
   if (document.getElementById('view-calendar').classList.contains('active')) renderCalendar();
   addActivity(`New ${job.department} job created for ${propNames[job.property]}`, job.department);
+
+  // Notifications + email for assignee
+  if (job.assigned_to) {
+    const propLabel = propNames[job.property] || job.property;
+    const taskLabel = (job.meta && job.meta.heading) || job.notes || (job.department + ' task');
+    const notifTitle = `New ${job.department} task assigned to ${job.assigned_to}`;
+    const notifBody  = `${taskLabel} · ${propLabel}${job.date ? ' · ' + formatDate(job.date) : ''}`;
+    createNotification('task_assigned', notifTitle, notifBody, data?.[0]?.id || null, job.property);
+    // Send email if we have the assignee's email
+    const assigneeEmail = getAssigneeEmail(job.property, job.department, job.assigned_to);
+    if (assigneeEmail) sendAssignmentEmail(assigneeEmail, job.assigned_to, notifTitle, notifBody);
+  }
 }
 
 function renderAllDepts() {
@@ -4805,10 +4940,14 @@ function openNewJobModal() {
       if (deptSelect) deptSelect.value = viewName;
     }
   }
+  _assignOverridden = false;
   updateJobForm();
   document.getElementById('new-job-modal').classList.add('open');
 }
-function closeNewJobModal() { document.getElementById('new-job-modal').classList.remove('open'); }
+function closeNewJobModal() {
+  document.getElementById('new-job-modal').classList.remove('open');
+  _assignOverridden = false;
+}
 
 // Toggle conditional fields in the New Job modal based on the current
 // Department selection (and, for Keys, the Key job type).
@@ -4844,6 +4983,21 @@ function updateJobForm() {
   const keysType = document.getElementById('job-keys-type').value;
   const isOrder = isKeys && keysType === 'order';
   document.getElementById('job-keys-reason-group').style.display = isOrder ? '' : 'none';
+
+  // Auto-assign: fill "Assigned to" from property or dept default (if user hasn't manually typed)
+  if (!_assignOverridden) {
+    const propId = document.getElementById('job-property').value;
+    const auto = getAutoAssignee(propId, dept);
+    const assignInput = document.getElementById('job-assign');
+    const hint = document.getElementById('job-assign-hint');
+    if (auto) {
+      assignInput.value = auto.user_name;
+      hint.style.display = '';
+    } else {
+      assignInput.value = '';
+      hint.style.display = 'none';
+    }
+  }
 }
 
 function viewJob(job) {
@@ -9393,6 +9547,7 @@ function openAddPropertyModal() {
   document.getElementById('prop-error').style.display = 'none';
   editingFobs = [];
   renderFobsList();
+  renderPropDeptAssignments({});
   document.getElementById('add-property-modal').classList.add('open');
 }
 
@@ -9420,6 +9575,7 @@ function openEditPropertyModal(id) {
   // Clone so edits don't mutate the live property until Save
   editingFobs = Array.isArray(prop.fobs) ? JSON.parse(JSON.stringify(prop.fobs)) : [];
   renderFobsList();
+  renderPropDeptAssignments(prop.department_assignments || {});
   document.getElementById('prop-error').style.display = 'none';
   document.getElementById('add-property-modal').classList.add('open');
 }
@@ -9492,6 +9648,7 @@ async function saveProperty() {
     keys_total: keys_total === '' ? null : Number(keys_total),
     keys_guest: keys_guest === '' ? null : Number(keys_guest),
     fobs: (editingFobs || []).filter(f => (f.number && f.number.trim()) || f.activated_at),
+    department_assignments: readPropDeptAssignments(),
     owner_1_name: owner_1_name || null,
     owner_2_name: owner_2_name || null,
     owner_email: owner_email || null,
@@ -9714,6 +9871,271 @@ function renderAssetDetails() {
       </div>
     ` : ''}
   `;
+}
+
+// ===== AUTO-ASSIGNEES & NOTIFICATIONS =====
+
+let deptDefaults = {};    // { cleaning: {user_name, user_email}, ... }
+let teamMembers  = [];    // [{ name, email }] cached suggestions
+let _notifications = [];  // fetched from Supabase
+let _assignOverridden = false; // true if user manually edited the job-assign field
+const DEPT_LIST = ['cleaning','maintenance','inspections','operations','compliance','keys'];
+
+// ── Dept defaults ──────────────────────────────────────────────────────────
+async function loadDeptDefaults() {
+  try {
+    const { data } = await sb.from('department_defaults').select('*');
+    if (data) {
+      deptDefaults = {};
+      data.forEach(r => {
+        deptDefaults[r.department] = { user_name: r.user_name || '', user_email: r.user_email || '' };
+      });
+    }
+  } catch(e) { console.warn('loadDeptDefaults:', e); }
+}
+
+async function saveDeptDefault(dept, userName, userEmail) {
+  deptDefaults[dept] = { user_name: userName, user_email: userEmail };
+  try {
+    await sb.from('department_defaults').upsert({ department: dept, user_name: userName, user_email: userEmail, updated_at: new Date().toISOString() });
+  } catch(e) { console.warn('saveDeptDefault:', e); }
+  renderDeptDefaultBar(dept);
+  showToast(`Default assignee updated for ${dept}`, 'success');
+}
+
+function renderDeptDefaultBar(dept) {
+  const el = document.getElementById(`${dept}-default-bar`);
+  if (!el) return;
+  const d = deptDefaults[dept] || {};
+  const name = d.user_name || '';
+  if (!name) {
+    el.innerHTML = `<div class="dept-default-bar">
+      <span style="color:var(--text3);">No default assignee set for this department.</span>
+      <button class="dept-default-edit" onclick="openDeptDefaultEdit('${dept}')">+ Set default</button>
+    </div>`;
+  } else {
+    el.innerHTML = `<div class="dept-default-bar">
+      <span>Default assignee:</span>
+      <strong>${escapeHtml(name)}</strong>
+      ${d.user_email ? `<span style="color:var(--text3);">(${escapeHtml(d.user_email)})</span>` : ''}
+      <button class="dept-default-edit" style="margin-left:auto;" onclick="openDeptDefaultEdit('${dept}')">✎ Edit</button>
+    </div>`;
+  }
+}
+
+function openDeptDefaultEdit(dept) {
+  const d = deptDefaults[dept] || {};
+  const name  = prompt(`Default assignee name for ${dept}:`, d.user_name || '');
+  if (name === null) return; // cancelled
+  const email = prompt(`Their email address (for notifications):`, d.user_email || '');
+  if (email === null) return;
+  saveDeptDefault(dept, name.trim(), email.trim());
+}
+
+// ── Property dept assignment form ──────────────────────────────────────────
+const DEPT_ICONS = { cleaning:'🧹', maintenance:'🔧', inspections:'🔍', operations:'📋', compliance:'🛡', keys:'🔑' };
+
+function renderPropDeptAssignments(existing) {
+  const el = document.getElementById('prop-dept-assignments');
+  if (!el) return;
+  el.innerHTML = DEPT_LIST.map(dept => {
+    const v = (existing && existing[dept]) || {};
+    return `<div style="display:flex;flex-direction:column;gap:4px;">
+      <label class="form-label" style="font-size:11px;margin-bottom:0;">${DEPT_ICONS[dept]} ${dept.charAt(0).toUpperCase()+dept.slice(1)}</label>
+      <input type="text" class="form-input" style="font-size:12px;padding:7px 10px;"
+        id="prop-da-name-${dept}" placeholder="Name (leave blank for dept default)"
+        list="team-members-list" value="${escapeHtml(v.user_name || '')}">
+      <input type="email" class="form-input" style="font-size:12px;padding:7px 10px;"
+        id="prop-da-email-${dept}" placeholder="Email (for notifications)"
+        value="${escapeHtml(v.user_email || '')}">
+    </div>`;
+  }).join('');
+}
+
+function readPropDeptAssignments() {
+  const result = {};
+  DEPT_LIST.forEach(dept => {
+    const nameEl  = document.getElementById(`prop-da-name-${dept}`);
+    const emailEl = document.getElementById(`prop-da-email-${dept}`);
+    const name  = (nameEl  && nameEl.value.trim())  || '';
+    const email = (emailEl && emailEl.value.trim()) || '';
+    if (name || email) result[dept] = { user_name: name, user_email: email };
+  });
+  return result;
+}
+
+// ── Auto-assignee resolution ───────────────────────────────────────────────
+function getAutoAssignee(propId, dept) {
+  if (!propId || !dept) return null;
+  const prop = properties.find(p => p.id === propId);
+  if (prop && prop.department_assignments && prop.department_assignments[dept] && prop.department_assignments[dept].user_name) {
+    return prop.department_assignments[dept];
+  }
+  if (deptDefaults[dept] && deptDefaults[dept].user_name) {
+    return deptDefaults[dept];
+  }
+  return null;
+}
+
+function getAssigneeEmail(propId, dept, assignedName) {
+  // Try property-specific first
+  const prop = properties.find(p => p.id === propId);
+  if (prop && prop.department_assignments && prop.department_assignments[dept]) {
+    const da = prop.department_assignments[dept];
+    if (da.user_name === assignedName && da.user_email) return da.user_email;
+  }
+  // Try dept default
+  if (deptDefaults[dept] && deptDefaults[dept].user_name === assignedName && deptDefaults[dept].user_email) {
+    return deptDefaults[dept].user_email;
+  }
+  // Try team members cache
+  const tm = teamMembers.find(m => m.name === assignedName);
+  return tm ? tm.email : null;
+}
+
+// ── Team members cache ────────────────────────────────────────────────────
+async function ensureTeamMembers() {
+  // Try admin API first
+  try {
+    const json = await _adminApiFetch('/api/admin-users');
+    if (json.users) {
+      teamMembers = json.users.map(u => ({
+        name: u.name || u.email.split('@')[0],
+        email: u.email
+      }));
+      _updateTeamDatalist();
+      return;
+    }
+  } catch(e) { /* not admin or API unavailable — fall through */ }
+  // Fallback: collect unique assigned_to values from jobs
+  const names = [...new Set(jobs.map(j => j.assigned_to).filter(Boolean))];
+  teamMembers = names.map(n => ({ name: n, email: '' }));
+  _updateTeamDatalist();
+}
+
+function _updateTeamDatalist() {
+  const dl = document.getElementById('team-members-list');
+  if (!dl) return;
+  dl.innerHTML = teamMembers.map(m => `<option value="${escapeHtml(m.name)}">`).join('');
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────
+async function loadNotifications() {
+  try {
+    const { data } = await sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(50);
+    if (data) {
+      _notifications = data;
+      _updateNotifBadge();
+      renderNotifPanel();
+    }
+  } catch(e) { console.warn('loadNotifications:', e); }
+}
+
+async function createNotification(type, title, body, jobId, propertyId) {
+  const row = { type, title, body: body || '', job_id: jobId || null, property_id: propertyId || null };
+  try {
+    const { data } = await sb.from('notifications').insert([row]).select();
+    if (data) _notifications.unshift(data[0]);
+  } catch(e) {
+    _notifications.unshift({ ...row, id: Date.now(), created_at: new Date().toISOString() });
+  }
+  _updateNotifBadge();
+  renderNotifPanel();
+}
+
+function _notifLastSeenKey() { return 'notif_last_seen_' + (currentUser?.id || 'anon'); }
+
+function _updateNotifBadge() {
+  const lastSeen = parseInt(localStorage.getItem(_notifLastSeenKey()) || '0', 10);
+  const unseen = _notifications.filter(n => new Date(n.created_at).getTime() > lastSeen).length;
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  if (unseen > 0) {
+    badge.textContent = unseen > 99 ? '99+' : unseen;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function renderNotifPanel() {
+  const body = document.getElementById('notif-panel-body');
+  if (!body) return;
+  if (!_notifications.length) {
+    body.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text3);font-size:13px;">No notifications yet.</div>';
+    return;
+  }
+  const lastSeen = parseInt(localStorage.getItem(_notifLastSeenKey()) || '0', 10);
+  body.innerHTML = _notifications.map(n => {
+    const ts = new Date(n.created_at).getTime();
+    const isNew = ts > lastSeen;
+    const ago = _timeAgo(n.created_at);
+    return `<div class="notif-item${isNew ? ' unread' : ''}">
+      <div class="notif-item-title">${escapeHtml(n.title)}</div>
+      ${n.body ? `<div class="notif-item-body">${escapeHtml(n.body)}</div>` : ''}
+      <div class="notif-item-time">${ago}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if (isOpen) {
+    renderNotifPanel();
+    // Close when clicking outside
+    setTimeout(() => {
+      document.addEventListener('click', _closeNotifOnOutsideClick, { once: true });
+    }, 0);
+  }
+}
+
+function _closeNotifOnOutsideClick(e) {
+  const panel = document.getElementById('notif-panel');
+  const bell  = document.getElementById('notif-bell');
+  if (panel && !panel.contains(e.target) && bell && !bell.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+}
+
+function markAllNotifSeen() {
+  localStorage.setItem(_notifLastSeenKey(), Date.now().toString());
+  _updateNotifBadge();
+  renderNotifPanel();
+}
+
+function _timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ── Email notifications ───────────────────────────────────────────────────
+async function sendAssignmentEmail(toEmail, toName, subject, body) {
+  if (!toEmail) return;
+  const html = `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#0d0d0d;">
+      <div style="background:#0d0d0d;padding:20px 28px;border-radius:10px 10px 0 0;">
+        <span style="color:#c8f55a;font-size:13px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Vaun Holidays</span>
+      </div>
+      <div style="background:#f5f5f3;padding:28px;border-radius:0 0 10px 10px;border:1px solid #e2e2de;border-top:none;">
+        <h2 style="margin:0 0 12px;font-size:18px;">Hi ${escapeHtml(toName)},</h2>
+        <p style="margin:0 0 16px;color:#5a5a5a;line-height:1.6;">${escapeHtml(body)}</p>
+        <p style="margin:0;font-size:12px;color:#9a9a9a;">Log in to Vaun Holidays PMS to view the full task details.</p>
+      </div>
+    </div>`;
+  try {
+    await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: toEmail, subject, html })
+    });
+  } catch(e) { console.warn('sendAssignmentEmail failed:', e); }
 }
 
 // ===== ADMIN PANEL =====
