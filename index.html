@@ -454,7 +454,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   line-height: 14px;
   border: 2px solid white;
   box-shadow: 0 1px 4px rgba(220,38,38,0.4);
-  display: none;
+  /* visibility controlled via JS only — no display:none here */
 }
 .notif-panel {
   position: fixed;
@@ -10124,7 +10124,9 @@ function _updateNotifBadge(animate = false) {
   if (!badge) return;
   if (unseen > 0) {
     badge.textContent = unseen > 99 ? '99+' : unseen;
-    badge.style.display = '';
+    badge.style.display = 'flex';
+    badge.style.alignItems = 'center';
+    badge.style.justifyContent = 'center';
     if (animate) {
       // Shake bell
       bell && bell.classList.remove('ringing');
