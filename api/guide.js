@@ -156,6 +156,9 @@ function buildGuideHTML(prop, guide) {
         </div>`;
     }
 
+    // Append section photos (sequential order)
+    inner += photosHTML(d.photos);
+
     body += `
       <div class="section-card">
         <div class="section-header">
@@ -211,6 +214,10 @@ details[open] summary::after{content:'－'}
 .faq-answer{padding:6px 4px 12px;font-size:13px;color:#334155;line-height:1.6}
 .report-btn{display:block;text-align:center;padding:13px 20px;border-radius:12px;font-size:15px;font-weight:600;text-decoration:none;background:${color};color:white}
 .report-btn-email{background:#f8fafc;color:#334155;border:1.5px solid #e2e8f0}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9}
+.photo-grid a{display:block;aspect-ratio:1;overflow:hidden;border-radius:10px;background:#f8fafc}
+.photo-grid img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .2s}
+.photo-grid img:hover{opacity:.88}
 footer{text-align:center;padding:20px;font-size:11px;color:#94a3b8}
 </style>
 </head>
@@ -229,6 +236,17 @@ ${body}
 <footer>Powered by Vaun Holidays</footer>
 </body>
 </html>`;
+}
+
+function photosHTML(photos) {
+  if (!photos || !photos.length) return '';
+  const imgs = photos.filter(p =>
+    p.url && ((p.type && p.type.startsWith('image/')) || /\.(jpe?g|png|gif|webp|heic)$/i.test(p.name || ''))
+  );
+  if (!imgs.length) return '';
+  return `<div class="photo-grid">${
+    imgs.map(p => `<a href="${esc(p.url)}" target="_blank" rel="noopener"><img src="${esc(p.url)}" alt="" loading="lazy"></a>`).join('')
+  }</div>`;
 }
 
 function errorPage(msg) {
