@@ -532,6 +532,29 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 }
 .assignee-tag-remove:hover { color: white; }
 
+/* ── Guest Guide Builder ─────────────────────────────────────────── */
+.gg-section { border: 1.5px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; background: var(--surface); }
+.gg-section-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; user-select: none; background: var(--surface2); transition: background 0.15s; }
+.gg-section-header:hover { background: var(--surface3, #e5e7eb); }
+.gg-section-icon { font-size: 18px; flex-shrink: 0; }
+.gg-section-title { font-size: 13px; font-weight: 600; flex: 1; color: var(--text); }
+.gg-toggle { width: 36px; height: 20px; background: var(--border); border-radius: 999px; border: none; cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; }
+.gg-toggle.on { background: #22c55e; }
+.gg-toggle::after { content: ''; position: absolute; width: 14px; height: 14px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.gg-toggle.on::after { left: 19px; }
+.gg-chevron { font-size: 10px; color: var(--text3); flex-shrink: 0; transition: transform 0.2s; }
+.gg-section-body { padding: 14px 16px; border-top: 1px solid var(--border); display: none; }
+.gg-section-body.open { display: block; }
+.gg-add-btn { background: none; border: 1.5px dashed var(--border); border-radius: 8px; padding: 9px 16px; font-size: 12px; color: var(--text3); cursor: pointer; width: 100%; margin-top: 8px; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+.gg-add-btn:hover { border-color: var(--brand); color: var(--brand); }
+.gg-list-item { padding: 12px; background: var(--surface2); border-radius: 10px; border: 1px solid var(--border); margin-bottom: 8px; position: relative; display: flex; flex-direction: column; gap: 8px; }
+.gg-item-remove { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.gg-item-remove:hover { color: #dc2626; background: #fee2e2; }
+.gg-publish-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+.gg-status-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; flex-shrink: 0; }
+.gg-status-badge.published { background: #dcfce7; color: #15803d; }
+.gg-status-badge.draft { background: var(--surface3, #f1f5f9); color: var(--text2); }
+
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 16px;
@@ -3029,6 +3052,7 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
           <button class="asset-tab" data-tab="tasks" onclick="switchAssetTab('tasks')">Tasks</button>
           <button class="asset-tab" data-tab="bookings" onclick="switchAssetTab('bookings')">Bookings</button>
           <button class="asset-tab" data-tab="details" onclick="switchAssetTab('details')">Details</button>
+          <button class="asset-tab" data-tab="guide" onclick="switchAssetTab('guide')">Guest Guide</button>
         </div>
         <div class="asset-panel" id="asset-panel"></div>
       </div>
@@ -9161,6 +9185,7 @@ function renderAssetPanel() {
     case 'tasks':    panel.innerHTML = renderAssetTasks(); break;
     case 'bookings': panel.innerHTML = renderAssetBookings(); break;
     case 'details':  panel.innerHTML = renderAssetDetails(); break;
+    case 'guide':    panel.innerHTML = renderGuestGuideBuilder(); break;
   }
 }
 
@@ -9997,6 +10022,381 @@ function renderAssetDetails() {
       </div>
     ` : ''}
   `;
+}
+
+// ===== GUEST GUIDE BUILDER =====
+
+const GUIDE_SECTIONS = [
+  { key: 'welcome',        icon: '👋', title: 'Welcome Message',           type: 'text',      placeholder: 'Write a warm welcome message for your guests...' },
+  { key: 'key_collection', icon: '🗝️', title: 'Key Collection & Check-in', type: 'text_code', placeholder: 'Instructions for collecting keys or accessing the property...' },
+  { key: 'getting_there',  icon: '📍', title: 'Getting There',             type: 'text',      placeholder: 'Directions, nearby landmarks, transport options...' },
+  { key: 'car_parking',    icon: '🅿️', title: 'Car Parking',              type: 'text',      placeholder: 'Parking instructions, bay numbers, visitor parking...' },
+  { key: 'house_manual',   icon: '🏠', title: 'House Manual & Facilities', type: 'text',      placeholder: 'WiFi password, how to use appliances, bins, heating/cooling...' },
+  { key: 'checkout',       icon: '🚪', title: 'Check-out Instructions',    type: 'text',      placeholder: 'What guests need to do before leaving...' },
+  { key: 'contacts',       icon: '📞', title: 'Contact Details',           type: 'contacts' },
+  { key: 'poi',            icon: '🗺️', title: 'Points of Interest',        type: 'poi' },
+  { key: 'emergency',      icon: '🚨', title: 'Emergency Information',     type: 'text',      placeholder: 'Emergency contacts, nearest hospital, fire evacuation plan...' },
+  { key: 'faqs',           icon: '❓', title: 'FAQs',                      type: 'faqs' },
+  { key: 'report_issue',   icon: '⚠️', title: 'Report an Issue',           type: 'report' },
+];
+
+let _guideData = null;
+let _guideOpenSections = new Set(['welcome']);
+let _guideSaveTimer = null;
+
+function _defaultGuideData() {
+  const sections = {};
+  const defaultOn = ['welcome','key_collection','getting_there','house_manual','contacts','checkout'];
+  GUIDE_SECTIONS.forEach(s => {
+    sections[s.key] = { enabled: defaultOn.includes(s.key) };
+    if (s.type === 'text' || s.type === 'text_code') sections[s.key].content = '';
+    if (s.type === 'text_code') sections[s.key].code = '';
+    if (s.type === 'contacts' || s.type === 'poi' || s.type === 'faqs') sections[s.key].items = [];
+    if (s.type === 'report') { sections[s.key].email = ''; sections[s.key].phone = ''; }
+  });
+  return { published: false, sections, checkin_time: '3:00pm', checkout_time: '10:00am' };
+}
+
+function renderGuestGuideBuilder() {
+  const prop = properties.find(p => p.id === selectedPropertyId);
+  if (!prop) return '<div style="padding:32px;color:var(--text3);">Select a property first.</div>';
+
+  _guideData = (prop.guest_guide && Object.keys(prop.guest_guide).length > 0)
+    ? JSON.parse(JSON.stringify(prop.guest_guide))
+    : _defaultGuideData();
+
+  if (!_guideData.sections) _guideData.sections = {};
+  GUIDE_SECTIONS.forEach(s => {
+    if (!_guideData.sections[s.key]) {
+      _guideData.sections[s.key] = { enabled: false };
+      if (s.type === 'contacts' || s.type === 'poi' || s.type === 'faqs') _guideData.sections[s.key].items = [];
+      if (s.type === 'report') { _guideData.sections[s.key].email = ''; _guideData.sections[s.key].phone = ''; }
+    }
+  });
+
+  const published = !!_guideData.published;
+  const guideUrl = `${window.location.origin}/api/guide?id=${prop.id}`;
+
+  const sectionsHTML = GUIDE_SECTIONS.map(sd => {
+    const d = _guideData.sections[sd.key] || { enabled: false };
+    const enabled = d.enabled !== false;
+    const isOpen = _guideOpenSections.has(sd.key);
+    const bodyHTML = (enabled && isOpen) ? _renderGuideSectionBody(sd, d) : '';
+    return `
+      <div class="gg-section">
+        <div class="gg-section-header" onclick="toggleGuideSection('${sd.key}')">
+          <span class="gg-section-icon">${sd.icon}</span>
+          <span class="gg-section-title">${sd.title}</span>
+          <button type="button" class="gg-toggle ${enabled ? 'on' : ''}"
+            onclick="event.stopPropagation();toggleGuideSectionEnabled('${sd.key}',this)"
+            title="${enabled ? 'Disable' : 'Enable'} section"></button>
+          <span class="gg-chevron" id="gg-chev-${sd.key}">${isOpen ? '▲' : '▼'}</span>
+        </div>
+        <div class="gg-section-body ${(isOpen && enabled) ? 'open' : ''}" id="gg-body-${sd.key}">
+          ${bodyHTML}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="max-width:700px;">
+      <div class="gg-publish-bar">
+        <span class="gg-status-badge ${published ? 'published' : 'draft'}">${published ? '● PUBLISHED' : '◌ DRAFT'}</span>
+        <span style="font-size:13px;color:var(--text2);flex:1;">${published ? 'Visible to guests' : 'Not yet visible to guests'}</span>
+        <button class="btn btn-secondary" onclick="copyGuideLink()" style="font-size:12px;padding:7px 12px;">🔗 Copy Link</button>
+        <button class="btn btn-secondary" onclick="downloadGuidePDFClient()" style="font-size:12px;padding:7px 12px;">⬇ PDF</button>
+        <button class="btn ${published ? 'btn-secondary' : 'btn-primary'}" onclick="toggleGuidePublish()" style="font-size:12px;padding:7px 14px;">
+          ${published ? 'Unpublish' : '● Publish'}
+        </button>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <div class="form-group" style="flex:1;margin:0;">
+          <label class="form-label" style="font-size:11px;">Check-in time</label>
+          <input type="text" class="form-input" value="${escapeHtml(_guideData.checkin_time||'3:00pm')}" placeholder="3:00pm"
+            oninput="updateGuideTopField('checkin_time',this.value)">
+        </div>
+        <div class="form-group" style="flex:1;margin:0;">
+          <label class="form-label" style="font-size:11px;">Check-out time</label>
+          <input type="text" class="form-input" value="${escapeHtml(_guideData.checkout_time||'10:00am')}" placeholder="10:00am"
+            oninput="updateGuideTopField('checkout_time',this.value)">
+        </div>
+      </div>
+
+      ${sectionsHTML}
+    </div>`;
+}
+
+function _renderGuideSectionBody(sd, d) {
+  const key = sd.key;
+  if (sd.type === 'text' || sd.type === 'text_code') {
+    let html = `<textarea class="form-textarea" style="min-height:90px;"
+      placeholder="${escapeHtml(sd.placeholder||'')}"
+      oninput="updateGuideSectionField('${key}','content',this.value)">${escapeHtml(d.content||'')}</textarea>`;
+    if (sd.type === 'text_code') {
+      html += `<div style="margin-top:10px;">
+        <label class="form-label" style="font-size:11px;">Access Code / PIN (optional)</label>
+        <input type="text" class="form-input" placeholder="e.g. 1234# or Lockbox A1"
+          value="${escapeHtml(d.code||'')}"
+          oninput="updateGuideSectionField('${key}','code',this.value)">
+      </div>`;
+    }
+    return html;
+  }
+  if (sd.type === 'contacts') {
+    const items = d.items || [];
+    const rows = items.map((item, i) => `
+      <div class="gg-list-item">
+        <button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <input type="text" class="form-input" placeholder="Name" value="${escapeHtml(item.name||'')}" oninput="updateGuideListItem('${key}',${i},'name',this.value)">
+          <input type="text" class="form-input" placeholder="Role (e.g. Property Manager)" value="${escapeHtml(item.role||'')}" oninput="updateGuideListItem('${key}',${i},'role',this.value)">
+          <input type="tel" class="form-input" placeholder="Phone" value="${escapeHtml(item.phone||'')}" oninput="updateGuideListItem('${key}',${i},'phone',this.value)">
+          <input type="email" class="form-input" placeholder="Email" value="${escapeHtml(item.email||'')}" oninput="updateGuideListItem('${key}',${i},'email',this.value)">
+        </div>
+      </div>`).join('');
+    return rows + `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add Contact</button>`;
+  }
+  if (sd.type === 'poi') {
+    const items = d.items || [];
+    const rows = items.map((item, i) => `
+      <div class="gg-list-item">
+        <button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>
+        <input type="text" class="form-input" placeholder="Place name (e.g. Bondi Beach)" value="${escapeHtml(item.name||'')}" oninput="updateGuideListItem('${key}',${i},'name',this.value)">
+        <input type="text" class="form-input" placeholder="Distance (e.g. 5 min walk)" value="${escapeHtml(item.distance||'')}" oninput="updateGuideListItem('${key}',${i},'distance',this.value)">
+        <textarea class="form-textarea" style="min-height:50px;" placeholder="Short description (optional)" oninput="updateGuideListItem('${key}',${i},'description',this.value)">${escapeHtml(item.description||'')}</textarea>
+      </div>`).join('');
+    return rows + `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add Place</button>`;
+  }
+  if (sd.type === 'faqs') {
+    const items = d.items || [];
+    const rows = items.map((item, i) => `
+      <div class="gg-list-item">
+        <button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>
+        <input type="text" class="form-input" placeholder="Question" value="${escapeHtml(item.question||'')}" oninput="updateGuideListItem('${key}',${i},'question',this.value)">
+        <textarea class="form-textarea" style="min-height:60px;" placeholder="Answer" oninput="updateGuideListItem('${key}',${i},'answer',this.value)">${escapeHtml(item.answer||'')}</textarea>
+      </div>`).join('');
+    return rows + `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add FAQ</button>`;
+  }
+  if (sd.type === 'report') {
+    return `<p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Guests will see buttons to contact you when they need to report an issue.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" style="font-size:11px;">Contact email</label>
+          <input type="email" class="form-input" placeholder="manager@example.com" value="${escapeHtml(d.email||'')}" oninput="updateGuideSectionField('${key}','email',this.value)">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" style="font-size:11px;">Contact phone</label>
+          <input type="tel" class="form-input" placeholder="+61 400 000 000" value="${escapeHtml(d.phone||'')}" oninput="updateGuideSectionField('${key}','phone',this.value)">
+        </div>
+      </div>`;
+  }
+  return '';
+}
+
+function toggleGuideSection(key) {
+  const body = document.getElementById('gg-body-' + key);
+  const chev = document.getElementById('gg-chev-' + key);
+  const d = _guideData?.sections?.[key];
+  if (!body) return;
+  const isEnabled = d && d.enabled !== false;
+  if (_guideOpenSections.has(key)) {
+    _guideOpenSections.delete(key);
+    body.classList.remove('open');
+    if (chev) chev.textContent = '▼';
+  } else {
+    _guideOpenSections.add(key);
+    if (isEnabled) {
+      const sd = GUIDE_SECTIONS.find(s => s.key === key);
+      if (sd) body.innerHTML = _renderGuideSectionBody(sd, d);
+      body.classList.add('open');
+    }
+    if (chev) chev.textContent = '▲';
+  }
+}
+
+function toggleGuideSectionEnabled(key, btn) {
+  if (!_guideData?.sections?.[key]) return;
+  const nowEnabled = !(_guideData.sections[key].enabled !== false);
+  _guideData.sections[key].enabled = nowEnabled;
+  btn.classList.toggle('on', nowEnabled);
+  const body = document.getElementById('gg-body-' + key);
+  if (nowEnabled) {
+    _guideOpenSections.add(key);
+    const sd = GUIDE_SECTIONS.find(s => s.key === key);
+    if (sd && body) { body.innerHTML = _renderGuideSectionBody(sd, _guideData.sections[key]); body.classList.add('open'); }
+    const chev = document.getElementById('gg-chev-' + key);
+    if (chev) chev.textContent = '▲';
+  } else {
+    if (body) { body.innerHTML = ''; body.classList.remove('open'); }
+  }
+  scheduleGuideSave();
+}
+
+function updateGuideSectionField(key, field, value) {
+  if (!_guideData?.sections?.[key]) return;
+  _guideData.sections[key][field] = value;
+  scheduleGuideSave();
+}
+
+function updateGuideTopField(field, value) {
+  if (!_guideData) return;
+  _guideData[field] = value;
+  scheduleGuideSave();
+}
+
+function updateGuideListItem(key, idx, field, value) {
+  const items = _guideData?.sections?.[key]?.items;
+  if (!items || !items[idx]) return;
+  items[idx][field] = value;
+  scheduleGuideSave();
+}
+
+function addGuideItem(key) {
+  if (!_guideData?.sections?.[key]) return;
+  if (!_guideData.sections[key].items) _guideData.sections[key].items = [];
+  const sd = GUIDE_SECTIONS.find(s => s.key === key);
+  if (!sd) return;
+  if (sd.type === 'contacts') _guideData.sections[key].items.push({name:'',role:'',phone:'',email:''});
+  else if (sd.type === 'poi') _guideData.sections[key].items.push({name:'',description:'',distance:''});
+  else if (sd.type === 'faqs') _guideData.sections[key].items.push({question:'',answer:''});
+  const body = document.getElementById('gg-body-' + key);
+  if (body) body.innerHTML = _renderGuideSectionBody(sd, _guideData.sections[key]);
+  scheduleGuideSave();
+}
+
+function removeGuideItem(key, idx) {
+  const items = _guideData?.sections?.[key]?.items;
+  if (!items) return;
+  items.splice(idx, 1);
+  const sd = GUIDE_SECTIONS.find(s => s.key === key);
+  const body = document.getElementById('gg-body-' + key);
+  if (body && sd) body.innerHTML = _renderGuideSectionBody(sd, _guideData.sections[key]);
+  scheduleGuideSave();
+}
+
+function scheduleGuideSave() {
+  clearTimeout(_guideSaveTimer);
+  _guideSaveTimer = setTimeout(saveGuideNow, 800);
+}
+
+async function saveGuideNow() {
+  if (!_guideData || !selectedPropertyId) return;
+  try {
+    await sb.from('properties').update({ guest_guide: _guideData }).eq('id', selectedPropertyId);
+    const idx = properties.findIndex(p => p.id === selectedPropertyId);
+    if (idx >= 0) properties[idx].guest_guide = JSON.parse(JSON.stringify(_guideData));
+  } catch(e) { console.warn('Guide save failed:', e); }
+}
+
+async function toggleGuidePublish() {
+  if (!_guideData) return;
+  _guideData.published = !_guideData.published;
+  await saveGuideNow();
+  renderAssetPanel();
+}
+
+function copyGuideLink() {
+  const prop = properties.find(p => p.id === selectedPropertyId);
+  if (!prop) return;
+  const url = `${window.location.origin}/api/guide?id=${prop.id}`;
+  navigator.clipboard?.writeText(url).then(() => showToast('Guide link copied 🔗', 'success')).catch(() => {
+    const tmp = document.createElement('textarea');
+    tmp.value = url; document.body.appendChild(tmp); tmp.select();
+    try { document.execCommand('copy'); showToast('Guide link copied 🔗', 'success'); } catch(e) {}
+    tmp.remove();
+  });
+}
+
+async function downloadGuidePDFClient() {
+  const prop = properties.find(p => p.id === selectedPropertyId);
+  if (!prop || !_guideData) return;
+  const doc = _pdfDoc();
+  if (!doc) return;
+
+  const marginX = 14;
+  let y = 18;
+  const ensureSpace = h => { if (y + h > 278) { doc.addPage(); y = 20; } };
+
+  // Header
+  doc.setFontSize(22); doc.setFont(undefined, 'bold'); doc.setTextColor(15);
+  doc.text(`${prop.name} — Guest Guide`, marginX, y); y += 8;
+  doc.setFont(undefined, 'normal');
+  if (prop.address) { doc.setFontSize(10); doc.setTextColor(80); doc.text(prop.address, marginX, y); y += 5; }
+  doc.setFontSize(10);
+  if (_guideData.checkin_time) { doc.text(`Check-in: from ${_guideData.checkin_time}`, marginX, y); y += 5; }
+  if (_guideData.checkout_time) { doc.text(`Check-out: by ${_guideData.checkout_time}`, marginX, y); y += 5; }
+  y += 3;
+  doc.setDrawColor(200); doc.line(marginX, y, 196, y); y += 6;
+
+  const s = _guideData.sections || {};
+
+  function addSection(title, lines) {
+    ensureSpace(14);
+    doc.setFontSize(13); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+    doc.text(title, marginX, y); y += 5;
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(55);
+    const wrapped = doc.splitTextToSize(lines, 182);
+    ensureSpace(wrapped.length * 4.5 + 4);
+    doc.text(wrapped, marginX, y); y += wrapped.length * 4.5 + 4;
+  }
+
+  GUIDE_SECTIONS.forEach(sd => {
+    const d = s[sd.key];
+    if (!d || d.enabled === false) return;
+    if ((sd.type === 'text' || sd.type === 'text_code') && d.content) {
+      let text = d.content;
+      if (sd.type === 'text_code' && d.code) text += `\n\nAccess Code: ${d.code}`;
+      addSection(`${sd.icon} ${sd.title}`, text);
+    } else if (sd.type === 'contacts' && d.items?.length) {
+      ensureSpace(14);
+      doc.setFontSize(13); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+      doc.text(`📞 Contact Details`, marginX, y); y += 5;
+      d.items.forEach(c => {
+        ensureSpace(18);
+        doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(20);
+        doc.text(`${c.name}${c.role ? ' — ' + c.role : ''}`, marginX + 4, y); y += 4.5;
+        doc.setFont(undefined, 'normal'); doc.setTextColor(60); doc.setFontSize(9);
+        if (c.phone) { doc.text(`Phone: ${c.phone}`, marginX + 6, y); y += 4; }
+        if (c.email) { doc.text(`Email: ${c.email}`, marginX + 6, y); y += 4; }
+        y += 2;
+      });
+    } else if (sd.type === 'poi' && d.items?.length) {
+      ensureSpace(14);
+      doc.setFontSize(13); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+      doc.text(`🗺️ Points of Interest`, marginX, y); y += 5;
+      d.items.forEach(p => {
+        ensureSpace(14);
+        doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(20);
+        doc.text(`${p.name}${p.distance ? '  ·  ' + p.distance : ''}`, marginX + 4, y); y += 4.5;
+        if (p.description) {
+          doc.setFont(undefined, 'normal'); doc.setTextColor(60); doc.setFontSize(9);
+          const lines = doc.splitTextToSize(p.description, 176);
+          doc.text(lines, marginX + 6, y); y += lines.length * 4 + 2;
+        }
+        y += 1;
+      });
+    } else if (sd.type === 'faqs' && d.items?.length) {
+      ensureSpace(14);
+      doc.setFontSize(13); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+      doc.text(`❓ FAQs`, marginX, y); y += 5;
+      d.items.forEach(f => {
+        ensureSpace(14);
+        doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(20);
+        const qlines = doc.splitTextToSize(`Q: ${f.question}`, 182);
+        doc.text(qlines, marginX + 4, y); y += qlines.length * 4.5;
+        if (f.answer) {
+          doc.setFont(undefined, 'normal'); doc.setTextColor(60); doc.setFontSize(9);
+          const alines = doc.splitTextToSize(`A: ${f.answer}`, 178);
+          doc.text(alines, marginX + 6, y); y += alines.length * 4 + 3;
+        }
+      });
+    } else if (sd.type === 'report' && (d.email || d.phone)) {
+      addSection(`⚠️ Report an Issue`, [d.phone ? `Phone: ${d.phone}` : '', d.email ? `Email: ${d.email}` : ''].filter(Boolean).join('\n'));
+    }
+  });
+
+  doc.save(`guest-guide_${(prop.name||'property').replace(/[^a-z0-9]+/gi,'_')}.pdf`);
 }
 
 // ===== AUTO-ASSIGNEES & NOTIFICATIONS =====
