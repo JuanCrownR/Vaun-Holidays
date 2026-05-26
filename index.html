@@ -511,6 +511,27 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .dept-default-bar strong { color: var(--text); font-weight: 600; }
 .dept-default-edit { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text2); }
 .dept-default-edit:hover { background: var(--surface3); }
+
+/* ── Multi-assignee tag chips ─────────────────────────────────────── */
+.assignee-tags-wrap {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 8px;
+}
+.assignee-tags-wrap:empty { margin-bottom: 0; }
+.assignee-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--brand); color: white;
+  border-radius: 999px; padding: 4px 10px 4px 12px;
+  font-size: 12px; font-weight: 500; line-height: 1.3;
+}
+.assignee-tag-remove {
+  background: none; border: none;
+  color: rgba(255,255,255,0.75); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 0 0 2px;
+  display: inline-flex; align-items: center; flex-shrink: 0;
+}
+.assignee-tag-remove:hover { color: white; }
+
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 16px;
@@ -3565,10 +3586,15 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       </div>
       <div class="form-group">
         <label class="form-label" id="job-assign-label">Assigned to</label>
-        <input type="text" class="form-input" id="job-assign" placeholder="Cleaner name or staff member"
-          list="team-members-list" autocomplete="off" oninput="_assignOverridden=true">
+        <div id="assignee-tags-wrap" class="assignee-tags-wrap"></div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" class="form-input" id="job-assign" placeholder="Type name and press Enter…"
+            list="team-members-list" autocomplete="off" style="flex:1;margin:0;"
+            onkeydown="handleAssigneeKeydown(event)">
+          <button type="button" class="btn btn-secondary" style="padding:8px 14px;white-space:nowrap;flex-shrink:0;" onclick="addAssigneeFromInput()">+ Add</button>
+        </div>
         <datalist id="team-members-list"></datalist>
-        <div id="job-assign-hint" style="font-size:11px;color:var(--text3);margin-top:4px;display:none;">Auto-assigned from property settings</div>
+        <div id="job-assign-hint" style="font-size:11px;color:var(--text3);margin-top:6px;display:none;">Auto-assigned from property settings</div>
       </div>
 
       <!-- Supplier / Contractor -->
@@ -4134,12 +4160,19 @@ async function saveJob() {
     }
     meta.attachments = [];
   }
+  // Capture any name still typed in the input but not yet added as a tag
+  const pendingAssigneeName = (document.getElementById('job-assign')?.value || '').trim();
+  if (pendingAssigneeName && !_currentAssignees.some(a => a.name === pendingAssigneeName)) {
+    const tm = teamMembers.find(m => m.name === pendingAssigneeName);
+    _currentAssignees.push({ name: pendingAssigneeName, email: tm ? tm.email : '' });
+  }
   const job = {
     department: dept,
     property: document.getElementById('job-property').value,
     date: document.getElementById('job-date').value,
     time_window: document.getElementById('job-time').value,
-    assigned_to: document.getElementById('job-assign').value,
+    assigned_to: _currentAssignees.length > 0 ? _currentAssignees[0].name : '',
+    assignees: _currentAssignees.length > 0 ? _currentAssignees : [],
     notes: document.getElementById('job-notes').value,
     status: 'pending',
     meta: meta,
@@ -4160,16 +4193,19 @@ async function saveJob() {
   if (document.getElementById('view-calendar').classList.contains('active')) renderCalendar();
   addActivity(`New ${job.department} job created for ${propNames[job.property]}`, job.department);
 
-  // Notifications + email for assignee
-  if (job.assigned_to) {
+  // Notifications + email for all assignees
+  if (job.assignees && job.assignees.length > 0) {
     const propLabel = propNames[job.property] || job.property;
     const taskLabel = (job.meta && job.meta.heading) || job.notes || (job.department + ' task');
-    const notifTitle = `New ${job.department} task assigned to ${job.assigned_to}`;
+    const names = job.assignees.map(a => a.name).join(', ');
+    const notifTitle = `New ${job.department} task assigned to ${names}`;
     const notifBody  = `${taskLabel} · ${propLabel}${job.date ? ' · ' + formatDate(job.date) : ''}`;
     createNotification('task_assigned', notifTitle, notifBody, data?.[0]?.id || null, job.property);
-    // Send email if we have the assignee's email
-    const assigneeEmail = getAssigneeEmail(job.property, job.department, job.assigned_to);
-    if (assigneeEmail) sendAssignmentEmail(assigneeEmail, job.assigned_to, notifTitle, notifBody);
+    // Send email to each assignee
+    for (const assignee of job.assignees) {
+      const email = assignee.email || getAssigneeEmail(job.property, job.department, assignee.name);
+      if (email) sendAssignmentEmail(email, assignee.name, notifTitle, notifBody);
+    }
   }
 }
 
@@ -4185,7 +4221,7 @@ function renderAllDepts() {
     <div class="table-row grid-cleaning" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:12px;color:var(--text2)">${taskTypeLabel(j)}</span>
-      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span>${statusBadge(j.status)}</span>
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
@@ -4203,7 +4239,7 @@ function renderAllDepts() {
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Maintenance issue')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
-      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span>${statusBadge(j.status)}</span>
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
@@ -4218,7 +4254,7 @@ function renderAllDepts() {
   ], j => `
     <div class="table-row grid-inspections" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
-      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:12px;color:var(--text2)">${taskTypeLabel(j)}</span>
       <span>${statusBadge(j.status)}</span>
@@ -4237,7 +4273,7 @@ function renderAllDepts() {
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Operations task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
-      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span>${statusBadge(j.status)}</span>
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
@@ -4254,7 +4290,7 @@ function renderAllDepts() {
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Compliance task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
-      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span>${statusBadge(j.status)}</span>
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
@@ -4271,7 +4307,7 @@ function renderAllDepts() {
       <span style="font-size:13px;font-weight:500">${escapeHtml(j.notes || 'Keys task')}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
-      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span>${statusBadge(j.status)}</span>
       <span><button class="job-delete-btn" title="Delete job" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
     </div>`);
@@ -4330,7 +4366,14 @@ function renderAllTasks() {
   if (f.department.length)  allJobs = allJobs.filter(j => f.department.includes(j.department));
   if (f.status.length)      allJobs = allJobs.filter(j => f.status.includes(j.status || 'pending'));
   if (f.property.length)    allJobs = allJobs.filter(j => f.property.includes(j.property));
-  if (f.assignment.length)  allJobs = allJobs.filter(j => f.assignment.includes(j.assigned_to || '__unassigned__'));
+  if (f.assignment.length)  allJobs = allJobs.filter(j => {
+    const names = j.assignees && j.assignees.length > 0
+      ? j.assignees.map(a => a.name)
+      : (j.assigned_to ? [j.assigned_to] : ['__unassigned__']);
+    return f.assignment.some(v => v === '__unassigned__'
+      ? (!j.assigned_to && (!j.assignees || j.assignees.length === 0))
+      : names.includes(v));
+  });
   if (f.createdBy.length)   allJobs = allJobs.filter(j => f.createdBy.includes(j.meta?.created_by_name || ''));
 
   allJobs.sort((a, b) => {
@@ -4386,7 +4429,7 @@ function renderAllTasks() {
       <span><span class="dept-chip" style="background:${dm.bg};color:${dm.color};">${dm.label}</span></span>
       <span style="font-size:13px;font-weight:500">${taskLabel}</span>
       <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property] || j.property || '—'}</div></span>
-      <span style="font-size:13px;color:var(--text2)">${j.assigned_to || '—'}</span>
+      <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span>${statusBadge(j.status)}</span>
       <span><button class="job-delete-btn" title="Delete" onclick="event.stopPropagation();confirmDeleteJob('${escapeHtml(String(j.id))}')">🗑</button></span>
@@ -4495,7 +4538,11 @@ function _buildDeptDropdownOptions(type) {
       { value: 'complete',    label: 'Complete' }
     ];
   } else if (type === 'assignment') {
-    const vals = [...new Set(allJobs.map(j => j.assigned_to).filter(Boolean))].sort();
+    const vals = [...new Set(allJobs.flatMap(j =>
+      j.assignees && j.assignees.length > 0
+        ? j.assignees.map(a => a.name).filter(Boolean)
+        : (j.assigned_to ? [j.assigned_to] : [])
+    ))].sort();
     return [{ value: '__unassigned__', label: 'Unassigned' }, ...vals.map(v => ({ value: v, label: v }))];
   } else if (type === 'property') {
     return properties.map(p => ({ value: p.id, label: p.name }));
@@ -4682,8 +4729,14 @@ function renderDept(dept, containerId, headers, rowFn) {
   const f = deptFilters;
   if (f.status.length)     deptJobs = deptJobs.filter(j => f.status.includes(j.status || 'pending'));
   if (f.property.length)   deptJobs = deptJobs.filter(j => f.property.includes(j.property));
-  if (f.assignment.length) deptJobs = deptJobs.filter(j =>
-    f.assignment.includes(j.assigned_to || '__unassigned__'));
+  if (f.assignment.length) deptJobs = deptJobs.filter(j => {
+    const names = j.assignees && j.assignees.length > 0
+      ? j.assignees.map(a => a.name)
+      : (j.assigned_to ? [j.assigned_to] : ['__unassigned__']);
+    return f.assignment.some(v => v === '__unassigned__'
+      ? (!j.assigned_to && (!j.assignees || j.assignees.length === 0))
+      : names.includes(v));
+  });
   if (f.createdBy.length)  deptJobs = deptJobs.filter(j =>
     f.createdBy.includes(j.meta?.created_by_name || ''));
 
@@ -5002,12 +5055,15 @@ function openNewJobModal() {
     }
   }
   _assignOverridden = false;
+  _currentAssignees = [];
+  _renderAssigneeTags();
   updateJobForm();
   document.getElementById('new-job-modal').classList.add('open');
 }
 function closeNewJobModal() {
   document.getElementById('new-job-modal').classList.remove('open');
   _assignOverridden = false;
+  _currentAssignees = [];
 }
 
 // Toggle conditional fields in the New Job modal based on the current
@@ -5045,18 +5101,19 @@ function updateJobForm() {
   const isOrder = isKeys && keysType === 'order';
   document.getElementById('job-keys-reason-group').style.display = isOrder ? '' : 'none';
 
-  // Auto-assign: fill "Assigned to" from property or dept default (if user hasn't manually typed)
+  // Auto-assign: pre-populate assignees from property or dept default (if user hasn't manually changed)
   if (!_assignOverridden) {
     const propId = document.getElementById('job-property').value;
     const auto = getAutoAssignee(propId, dept);
-    const assignInput = document.getElementById('job-assign');
     const hint = document.getElementById('job-assign-hint');
-    if (auto) {
-      assignInput.value = auto.user_name;
-      hint.style.display = '';
+    if (auto && auto.user_name) {
+      _currentAssignees = [{ name: auto.user_name, email: auto.user_email || '' }];
+      _renderAssigneeTags();
+      if (hint) hint.style.display = '';
     } else {
-      assignInput.value = '';
-      hint.style.display = 'none';
+      _currentAssignees = [];
+      _renderAssigneeTags();
+      if (hint) hint.style.display = 'none';
     }
   }
 }
@@ -5116,11 +5173,11 @@ function openCalPreview(jobId, pillEl) {
     : '';
 
   // Assigned-to row
-  const assignedTo = job.assigned_to || (job.meta && job.meta.assigned_to);
+  const assignedTo = _assigneeDisplay(job) || (job.meta && job.meta.assigned_to);
   const assignedRow = assignedTo
     ? `<div class="cal-preview-row">
          <span class="cal-preview-label">Assigned to</span>
-         <span class="cal-preview-value">${assignedTo}</span>
+         <span class="cal-preview-value">${escapeHtml(assignedTo)}</span>
        </div>`
     : '';
 
@@ -5238,7 +5295,7 @@ function openTaskSummary(job) {
   document.getElementById('ts-title').textContent = title;
   document.getElementById('ts-property').textContent = propNames[j.property] || j.property || '—';
   document.getElementById('ts-due').textContent = j.date ? formatDate(j.date) : '—';
-  document.getElementById('ts-assigned').textContent = j.assigned_to || 'Unassigned';
+  document.getElementById('ts-assigned').textContent = _assigneeDisplay(j) || 'Unassigned';
 
   // Description preview (only if notes differs from heading)
   const descRow = document.getElementById('ts-desc-row');
@@ -6863,14 +6920,10 @@ function renderGeneralTask() {
       <div class="checklist-section-head">
         <span class="checklist-section-title">Assignment</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px;">
-        <div>
-          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Assigned to</div>
-          <input type="text" class="form-input" value="${escapeHtml(j.assigned_to || '')}"
-            placeholder="Team member…"
-            oninput="updateGenTaskField('assigned_to', this.value)">
-        </div>
-        <div>
+      <div style="padding:0 16px 16px;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Assigned to</div>
+        ${_genTaskAssigneeHTML(j)}
+        <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Due date</div>
           <input type="date" class="form-input" value="${j.date || ''}"
             oninput="updateGenTaskField('date', this.value)">
@@ -6926,12 +6979,10 @@ function renderCustomTemplateSections(j, tpl, locked) {
   body.innerHTML = `${lockBanner}${sectionsHtml}
     <div class="checklist-section-card">
       <div class="checklist-section-head"><span class="checklist-section-title">Assignment</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px;">
-        <div>
-          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Assigned to</div>
-          <input type="text" class="form-input" value="${escapeHtml(j.assigned_to||'')}" placeholder="Team member…" oninput="updateGenTaskField('assigned_to',this.value)">
-        </div>
-        <div>
+      <div style="padding:0 16px 16px;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Assigned to</div>
+        ${_genTaskAssigneeHTML(j)}
+        <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Due date</div>
           <input type="date" class="form-input" value="${j.date||''}" oninput="updateGenTaskField('date',this.value)">
         </div>
@@ -6976,11 +7027,16 @@ function updateGenTaskField(field, value) {
   if (field === 'heading') { j.meta.heading = value; }
   else if (field === 'notes') { j.notes = value; }
   else if (field === 'assigned_to') { j.assigned_to = value; }
+  else if (field === 'assignees') {
+    j.assignees = value;
+    j.assigned_to = Array.isArray(value) && value.length > 0 ? value[0].name : '';
+  }
   else if (field === 'date') { j.date = value; }
   // Update topbar subtitle reactively
   const propName = propNames[j.property] || j.property;
+  const displayName = _assigneeDisplay(j);
   document.getElementById('gen-task-sub').textContent =
-    `${propName} · Due ${formatDate(j.date)}${j.assigned_to ? ' · ' + j.assigned_to : ''}`;
+    `${propName} · Due ${formatDate(j.date)}${displayName ? ' · ' + displayName : ''}`;
   if (field === 'heading') {
     document.getElementById('gen-task-title').textContent = value || taskTypeLabel(j);
     document.getElementById('topbar-title').textContent = value || taskTypeLabel(j);
@@ -6988,7 +7044,7 @@ function updateGenTaskField(field, value) {
   // Debounce DB write
   clearTimeout(_genTaskSaveTimer);
   _genTaskSaveTimer = setTimeout(async () => {
-    const update = { notes: j.notes, assigned_to: j.assigned_to, date: j.date, meta: j.meta };
+    const update = { notes: j.notes, assigned_to: j.assigned_to, assignees: j.assignees || [], date: j.date, meta: j.meta };
     try {
       await sb.from('jobs').update(update).eq('id', j.id);
       const idx = jobs.findIndex(jj => jj.id === j.id);
@@ -8439,7 +8495,7 @@ async function downloadChecklistPDF() {
   doc.text(`${propName}`, marginX, y); y += 5;
   if (propAddress) { doc.text(propAddress, marginX, y); y += 5; }
   doc.text(`Cleaning date: ${formatDate(j.date)}`, marginX, y); y += 5;
-  doc.text(`Assigned to: ${j.assigned_to || '—'}`, marginX, y); y += 5;
+  doc.text(`Assigned to: ${_assigneeDisplay(j) || '—'}`, marginX, y); y += 5;
   doc.text(`Status: ${(j.status || 'pending').toUpperCase()}`, marginX, y); y += 5;
   doc.text(`Generated: ${new Date().toLocaleString('en-AU')}`, marginX, y); y += 8;
 
@@ -8546,7 +8602,7 @@ async function downloadKeysJobPDF() {
   doc.text(propName, marginX, y); y += 5;
   if (propAddress) { doc.text(propAddress, marginX, y); y += 5; }
   doc.text(`Due: ${formatDate(j.date)}`, marginX, y); y += 5;
-  doc.text(`Assigned to: ${j.assigned_to || '—'}`, marginX, y); y += 5;
+  doc.text(`Assigned to: ${_assigneeDisplay(j) || '—'}`, marginX, y); y += 5;
   doc.text(`Status: ${(j.status || 'pending').toUpperCase()}`, marginX, y); y += 5;
   doc.text(`Generated: ${new Date().toLocaleString('en-AU')}`, marginX, y); y += 8;
 
@@ -8649,7 +8705,7 @@ async function downloadGeneralTaskPDF() {
   row('Department', dept);
   row('Status', (j.status || 'pending').toUpperCase());
   row('Due date', formatDate(j.date));
-  row('Assigned to', j.assigned_to || 'Unassigned');
+  row('Assigned to', _assigneeDisplay(j) || 'Unassigned');
   if (m.severity) row('Severity', m.severity.charAt(0).toUpperCase() + m.severity.slice(1));
   y += 2;
 
@@ -9165,7 +9221,11 @@ function renderAssetTasks() {
   const allJobs = jobs.filter(j => j.property === selectedPropertyId);
 
   // Build dynamic assigned-to list for the dropdown
-  const assignees = [...new Set(allJobs.map(j => j.assigned_to).filter(Boolean))].sort();
+  const assignees = [...new Set(allJobs.flatMap(j =>
+    j.assignees && j.assignees.length > 0
+      ? j.assignees.map(a => a.name).filter(Boolean)
+      : (j.assigned_to ? [j.assigned_to] : [])
+  ))].sort();
 
   // ── Filter bar ────────────────────────────────────────────────
   const deptOptions = [
@@ -9204,8 +9264,13 @@ function renderAssetTasks() {
   let filtered = [...allJobs];
   if (assetTaskFilters.dept !== 'all') filtered = filtered.filter(j => j.department === assetTaskFilters.dept);
   if (assetTaskFilters.status !== 'all') filtered = filtered.filter(j => (j.status || 'pending') === assetTaskFilters.status);
-  if (assetTaskFilters.assignedTo === 'unassigned') filtered = filtered.filter(j => !j.assigned_to);
-  else if (assetTaskFilters.assignedTo !== 'all') filtered = filtered.filter(j => j.assigned_to === assetTaskFilters.assignedTo);
+  if (assetTaskFilters.assignedTo === 'unassigned') {
+    filtered = filtered.filter(j => !j.assigned_to && (!j.assignees || j.assignees.length === 0));
+  } else if (assetTaskFilters.assignedTo !== 'all') {
+    filtered = filtered.filter(j =>
+      (j.assignees && j.assignees.some(a => a.name === assetTaskFilters.assignedTo)) ||
+      (!j.assignees && j.assigned_to === assetTaskFilters.assignedTo));
+  }
 
   // ── Apply sort ────────────────────────────────────────────────
   filtered.sort((a, b) => {
@@ -9272,7 +9337,7 @@ function assetTaskRow(j) {
       <div class="asset-task-icon" style="background:${di.bg}">${di.icon}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
-        <div style="font-size:11px;color:var(--text3);">${escapeHtml(j.assigned_to || 'Unassigned')}</div>
+        <div style="font-size:11px;color:var(--text3);">${escapeHtml(_assigneeDisplay(j) || 'Unassigned')}</div>
         ${completedAt}
       </div>
       <div style="font-size:12px;color:var(--text2);white-space:nowrap;">${formatDate(j.date)}</div>
@@ -9940,6 +10005,106 @@ let deptDefaults = {};    // { cleaning: {user_name, user_email}, ... }
 let teamMembers  = [];    // [{ name, email }] cached suggestions
 let _notifications = [];  // fetched from Supabase
 let _assignOverridden = false; // true if user manually edited the job-assign field
+let _currentAssignees = []; // [{name, email}] — multi-assignee state for new-job modal
+
+// ── Multi-assignee helpers ──────────────────────────────────────────────────
+
+/** Returns a comma-separated display string for all assignees on a job */
+function _assigneeDisplay(j) {
+  if (j && j.assignees && Array.isArray(j.assignees) && j.assignees.length > 0) {
+    return j.assignees.map(a => a.name || a).filter(Boolean).join(', ');
+  }
+  return (j && j.assigned_to) ? j.assigned_to : '';
+}
+
+/** Re-renders the assignee tag chips in the new-job modal */
+function _renderAssigneeTags() {
+  const wrap = document.getElementById('assignee-tags-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = _currentAssignees.map((a, i) =>
+    `<span class="assignee-tag">${escapeHtml(a.name)}<button type="button" class="assignee-tag-remove" onclick="removeAssignee(${i})" title="Remove">×</button></span>`
+  ).join('');
+}
+
+/** Add the name currently in the #job-assign input as a tag */
+function addAssigneeFromInput() {
+  const inp = document.getElementById('job-assign');
+  const name = (inp ? inp.value.trim() : '');
+  if (!name) return;
+  if (_currentAssignees.some(a => a.name === name)) { inp.value = ''; return; }
+  const tm = teamMembers.find(m => m.name === name);
+  _currentAssignees.push({ name, email: tm ? tm.email : '' });
+  _assignOverridden = true;
+  inp.value = '';
+  _renderAssigneeTags();
+  const hint = document.getElementById('job-assign-hint');
+  if (hint) hint.style.display = '';
+}
+
+/** Remove an assignee by index */
+function removeAssignee(idx) {
+  _currentAssignees.splice(idx, 1);
+  _renderAssigneeTags();
+  const hint = document.getElementById('job-assign-hint');
+  if (hint) hint.style.display = _currentAssignees.length > 0 ? '' : 'none';
+}
+
+/** Handle Enter/comma key in the assignee input */
+function handleAssigneeKeydown(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    addAssigneeFromInput();
+  }
+}
+
+/**
+ * Returns HTML for the multi-assignee tag input in the general task detail.
+ * Each tag has a × to remove, plus a text input + Add button to add more.
+ */
+function _genTaskAssigneeHTML(j) {
+  const assignees = (j.assignees && Array.isArray(j.assignees) && j.assignees.length > 0)
+    ? j.assignees
+    : (j.assigned_to ? [{ name: j.assigned_to, email: '' }] : []);
+
+  const tagsHtml = assignees.map((a, i) =>
+    `<span class="assignee-tag">${escapeHtml(a.name)}<button type="button" class="assignee-tag-remove" onclick="removeGenTaskAssignee(${i})" title="Remove">×</button></span>`
+  ).join('');
+
+  return `
+    <div id="gen-task-assignee-tags" class="assignee-tags-wrap" style="margin-bottom:${assignees.length > 0 ? '8px' : '0'};">${tagsHtml}</div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input type="text" class="form-input" id="gen-task-assignee-input" placeholder="Add person…"
+        list="team-members-list" autocomplete="off" style="flex:1;margin:0;"
+        onkeydown="handleGenTaskAssigneeKeydown(event)">
+      <button type="button" class="btn btn-secondary" style="padding:7px 12px;white-space:nowrap;flex-shrink:0;font-size:12px;" onclick="addGenTaskAssignee()">+ Add</button>
+    </div>`;
+}
+
+function addGenTaskAssignee() {
+  const j = currentGeneralTask; if (!j) return;
+  const inp = document.getElementById('gen-task-assignee-input');
+  const name = (inp ? inp.value.trim() : '');
+  if (!name) return;
+  const existing = (j.assignees && Array.isArray(j.assignees)) ? j.assignees : (j.assigned_to ? [{ name: j.assigned_to, email: '' }] : []);
+  if (existing.some(a => a.name === name)) { inp.value = ''; return; }
+  const tm = teamMembers.find(m => m.name === name);
+  const newList = [...existing, { name, email: tm ? tm.email : '' }];
+  inp.value = '';
+  updateGenTaskField('assignees', newList);
+  renderGeneralTask();
+}
+
+function removeGenTaskAssignee(idx) {
+  const j = currentGeneralTask; if (!j) return;
+  const existing = (j.assignees && Array.isArray(j.assignees)) ? [...j.assignees] : (j.assigned_to ? [{ name: j.assigned_to, email: '' }] : []);
+  existing.splice(idx, 1);
+  updateGenTaskField('assignees', existing);
+  renderGeneralTask();
+}
+
+function handleGenTaskAssigneeKeydown(e) {
+  if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addGenTaskAssignee(); }
+}
 const DEPT_LIST = ['cleaning','maintenance','inspections','operations','compliance','keys'];
 
 // ── Dept defaults ──────────────────────────────────────────────────────────
@@ -10068,8 +10233,12 @@ async function ensureTeamMembers() {
       return;
     }
   } catch(e) { /* not admin or API unavailable — fall through */ }
-  // Fallback: collect unique assigned_to values from jobs
-  const names = [...new Set(jobs.map(j => j.assigned_to).filter(Boolean))];
+  // Fallback: collect unique names from jobs (both assigned_to and assignees array)
+  const names = [...new Set(jobs.flatMap(j =>
+    j.assignees && j.assignees.length > 0
+      ? j.assignees.map(a => a.name).filter(Boolean)
+      : (j.assigned_to ? [j.assigned_to] : [])
+  ))];
   teamMembers = names.map(n => ({ name: n, email: '' }));
   _updateTeamDatalist();
 }
