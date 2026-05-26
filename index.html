@@ -308,8 +308,10 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
   background: var(--maintenance);
   color: white;
 }
-/* Admin-only elements hidden for non-admin users */
-.admin-only { display: none; }
+/* Admin-only elements hidden for non-admin users; shown when body.is-admin */
+.admin-only { display: none !important; }
+body.is-admin .nav-item.admin-only { display: flex !important; }
+body.is-admin .nav-section-label.admin-only { display: block !important; }
 /* Admin section label gets a subtle accent tint */
 .nav-section-label.admin-label {
   color: rgba(200,245,90,0.45);
@@ -3592,9 +3594,11 @@ async function loadApp(user) {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   // Show/hide admin-only elements based on role
-  document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = role === 'admin' ? '' : 'none';
-  });
+  if (role === 'admin') {
+    document.body.classList.add('is-admin');
+  } else {
+    document.body.classList.remove('is-admin');
+  }
   initCalendar();
   await loadProperties();
   await loadBookings();
