@@ -10075,6 +10075,12 @@ function renderGuestGuideBuilder() {
     if (!Array.isArray(_guideData.sections[s.key].photos)) _guideData.sections[s.key].photos = [];
   });
 
+  // Auto-fill welcome message on first use (empty content)
+  if (!_guideData.sections.welcome.content) {
+    _guideData.sections.welcome.content = _buildWelcomeTemplate(prop);
+    scheduleGuideSave();
+  }
+
   const published = !!_guideData.published;
   const guideUrl = `${window.location.origin}/api/guide?id=${prop.id}`;
 
@@ -10133,7 +10139,14 @@ function _renderGuideSectionBody(sd, d) {
   let content = '';
 
   if (sd.type === 'text' || sd.type === 'text_code') {
-    content = `<textarea class="form-textarea" style="min-height:90px;"
+    const templateBtn = (key === 'welcome') ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:11px;color:var(--text3);">Automatically uses your property name &amp; address.</span>
+        <button type="button" class="btn btn-secondary" style="font-size:11px;padding:4px 10px;white-space:nowrap;"
+          onclick="applyWelcomeTemplate()">✨ Reset template</button>
+      </div>` : '';
+    content = templateBtn + `<textarea class="form-textarea" style="min-height:110px;"
+      id="${key === 'welcome' ? 'gg-welcome-textarea' : ''}"
       placeholder="${escapeHtml(sd.placeholder||'')}"
       oninput="updateGuideSectionField('${key}','content',this.value)">${escapeHtml(d.content||'')}</textarea>`;
     if (sd.type === 'text_code') {
@@ -10297,6 +10310,32 @@ function toggleGuideSectionEnabled(key, btn) {
 function updateGuideSectionField(key, field, value) {
   if (!_guideData?.sections?.[key]) return;
   _guideData.sections[key][field] = value;
+  scheduleGuideSave();
+}
+
+function _buildWelcomeTemplate(prop) {
+  const name  = prop.name    || 'this property';
+  const addr  = prop.address ? `\nAddress: ${prop.address}\n` : '\n';
+  const cin   = _guideData?.checkin_time  || '3:00pm';
+  const cout  = _guideData?.checkout_time || '10:00am';
+  return `Welcome to ${name}!
+
+We're so pleased to have you as our guest and hope you have a wonderful stay.
+${addr}
+This guide has everything you need for a smooth and comfortable visit — from getting in, to local tips and check-out details.
+
+Check-in is from ${cin} and check-out is by ${cout}.
+
+Please don't hesitate to reach out if there's anything we can help with. Enjoy your stay!`;
+}
+
+function applyWelcomeTemplate() {
+  const prop = properties.find(p => p.id === selectedPropertyId);
+  if (!prop || !_guideData) return;
+  const txt = _buildWelcomeTemplate(prop);
+  _guideData.sections.welcome.content = txt;
+  const ta = document.getElementById('gg-welcome-textarea');
+  if (ta) ta.value = txt;
   scheduleGuideSave();
 }
 
