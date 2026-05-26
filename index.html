@@ -9133,8 +9133,8 @@ function renderAssetCalendar() {
     ).join('');
     const taskHtml = dayJobs.slice(0, 2).map(j => {
       const di = deptIcon(j.department);
-      return `<div class="asset-cal-task">${di.icon} ${escapeHtml(j.department)}</div>`;
-    }).join('');
+      return `<div class="asset-cal-task" style="cursor:pointer;" onclick="event.stopPropagation();openCalPreview('${j.id}',this)">${di.icon} ${escapeHtml(j.department)}</div>`;
+    }).join('') + (dayJobs.length > 2 ? `<div class="asset-cal-task" style="cursor:pointer;opacity:0.6;" onclick="event.stopPropagation();openCalPreview('${dayJobs[2].id}',this)">+${dayJobs.length-2} more</div>` : '');
     cells.push(`
       <div class="${classes.join(' ')}">
         <div class="asset-cal-dow">${dows[d.getDay()]}</div>
