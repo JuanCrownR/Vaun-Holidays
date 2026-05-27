@@ -565,6 +565,8 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .gg-lock-btn.edit:hover { background: var(--brand); }
 .gg-lock-btn.done { background: #16a34a; color: white; }
 .gg-lock-btn.done:hover { background: #15803d; }
+.gg-lock-btn.cancel { background: white; color: #92400e; border: 1px solid #fcd34d; }
+.gg-lock-btn.cancel:hover { background: #fef3c7; }
 
 /* Read-only fields inside guide section bodies — selectable so guests can
    still copy WiFi passwords / access codes / addresses, but visually muted
@@ -10170,6 +10172,9 @@ let _guideSaveTimer = null;
 // Sections currently in edit mode. Empty by default — every section is
 // locked (read-only) until the user clicks Edit and confirms.
 let _guideEditingSections = new Set();
+// Per-section snapshot taken when entering edit mode, so Cancel can
+// roll back any changes made during that editing pass.
+let _guideEditingSnapshots = {};
 
 function _defaultGuideData() {
   const sections = {};
@@ -10281,15 +10286,18 @@ function _renderGuideSectionBody(sd, d) {
   // attached; readonly just blocks input.
   const ro = editing ? '' : ' readonly';
 
-  // Lock indicator + Edit/Done button at the top of every section body
+  // Lock indicator + Edit/Done/Cancel buttons at the top of every section body
   const lockBar = `
     <div class="gg-lock-bar ${editing ? 'editing' : 'locked'}">
       <span class="gg-lock-text">${editing
         ? '<span style="font-size:13px;">✎</span> Editing — your changes save automatically'
         : '<span style="font-size:13px;">🔒</span> View only — click Edit to make changes'}</span>
-      ${editing
-        ? `<button type="button" class="gg-lock-btn done" onclick="lockGuideSection('${key}')">✓ Done editing</button>`
-        : `<button type="button" class="gg-lock-btn edit" onclick="requestEditGuideSection('${key}')">✎ Edit</button>`}
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        ${editing
+          ? `<button type="button" class="gg-lock-btn cancel" onclick="cancelEditGuideSection('${key}')">✕ Cancel</button>
+             <button type="button" class="gg-lock-btn done" onclick="lockGuideSection('${key}')">✓ Done</button>`
+          : `<button type="button" class="gg-lock-btn edit" onclick="requestEditGuideSection('${key}')">✎ Edit</button>`}
+      </div>
     </div>`;
 
   let content = '';
@@ -10391,11 +10399,33 @@ function _renderGuideSectionBody(sd, d) {
 function requestEditGuideSection(key) {
   const ok = confirm('Are you sure you want to edit this information?');
   if (!ok) return;
+  // Snapshot the section so Cancel can restore it
+  if (_guideData?.sections?.[key]) {
+    _guideEditingSnapshots[key] = JSON.parse(JSON.stringify(_guideData.sections[key]));
+  }
   _guideEditingSections.add(key);
   _rerenderGuideSection(key);
 }
 
 function lockGuideSection(key) {
+  // "Done" — keep the changes (they were auto-saved as the user typed)
+  _guideEditingSections.delete(key);
+  delete _guideEditingSnapshots[key];
+  _rerenderGuideSection(key);
+}
+
+async function cancelEditGuideSection(key) {
+  const ok = confirm('Discard your changes to this section?');
+  if (!ok) return;
+  // Restore the snapshot taken when editing started
+  if (_guideEditingSnapshots[key] && _guideData?.sections) {
+    _guideData.sections[key] = _guideEditingSnapshots[key];
+    delete _guideEditingSnapshots[key];
+    // Cancel any pending debounced save and persist the restored value
+    // immediately, so the DB matches what's now on screen.
+    clearTimeout(_guideSaveTimer);
+    await saveGuideNow();
+  }
   _guideEditingSections.delete(key);
   _rerenderGuideSection(key);
 }
@@ -10482,7 +10512,9 @@ function toggleGuideSection(key) {
   if (_guideOpenSections.has(key)) {
     _guideOpenSections.delete(key);
     // Auto-lock on collapse — re-opening starts back in view-only mode.
+    // Changes were auto-saved as the user typed; we just drop the snapshot.
     _guideEditingSections.delete(key);
+    delete _guideEditingSnapshots[key];
     body.classList.remove('open');
     if (chev) chev.textContent = '▼';
   } else {
