@@ -3076,13 +3076,23 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <label class="form-label">Property Thumbnail</label>
         <div id="prop-thumb-area" style="position:relative;border-radius:10px;overflow:hidden;cursor:pointer;" onclick="document.getElementById('prop-thumbnail-input').click()">
           <div id="prop-thumb-empty" style="border:2px dashed var(--border);border-radius:10px;background:var(--surface2);padding:28px;text-align:center;">
-            <div style="font-size:26px;margin-bottom:6px;">📷</div>
+            <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;" aria-hidden="true">
+              <rect x="5" y="3" width="14" height="19" rx="0.5"/>
+              <rect x="8" y="6" width="2.5" height="2.5"/>
+              <rect x="13.5" y="6" width="2.5" height="2.5"/>
+              <rect x="8" y="10.5" width="2.5" height="2.5"/>
+              <rect x="13.5" y="10.5" width="2.5" height="2.5"/>
+              <path d="M10 22 L10 16 L14 16 L14 22"/>
+            </svg>
             <div style="font-size:13px;font-weight:500;color:var(--text2);">Click to upload a property photo</div>
             <div style="font-size:11px;color:var(--text3);margin-top:3px;">JPG · PNG · WEBP — recommended 16:9</div>
           </div>
           <div id="prop-thumb-preview" style="display:none;position:relative;">
             <img id="prop-thumb-img" style="width:100%;height:180px;object-fit:cover;display:block;" alt="Property thumbnail">
-            <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:white;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;pointer-events:none;">✎ Change</div>
+            <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px;">
+              <span style="background:rgba(0,0,0,.6);color:white;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;pointer-events:none;">✎ Change</span>
+              <button type="button" onclick="event.stopPropagation(); removePropThumbnail();" style="background:rgba(220,38,38,.85);color:white;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;">✕ Remove</button>
+            </div>
           </div>
           <div id="prop-thumb-loading" style="display:none;border:2px dashed var(--border);border-radius:10px;background:var(--surface2);padding:28px;text-align:center;">
             <div style="font-size:13px;color:var(--text3);">Uploading…</div>
@@ -9709,6 +9719,12 @@ function _setPropThumbUrl(url) {
   }
 }
 
+function removePropThumbnail() {
+  // Clears the in-modal thumbnail. The change is only persisted to the DB
+  // when the user clicks Save (so they can cancel without losing the photo).
+  _setPropThumbUrl(null);
+}
+
 async function handlePropThumbnailChange(input) {
   const file = input.files && input.files[0];
   if (!file) return;
@@ -9972,10 +9988,18 @@ function renderPropertiesGrid() {
       </div>
     ` : '';
 
-    const thumbInitial = (p.name || '?')[0].toUpperCase();
+    // Stock building icon — shown in the circle when no thumbnail has been uploaded
+    const stockBuildingSVG = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="${p.color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="5" y="3" width="14" height="19" rx="0.5"/>
+      <rect x="8" y="6" width="2.5" height="2.5"/>
+      <rect x="13.5" y="6" width="2.5" height="2.5"/>
+      <rect x="8" y="10.5" width="2.5" height="2.5"/>
+      <rect x="13.5" y="10.5" width="2.5" height="2.5"/>
+      <path d="M10 22 L10 16 L14 16 L14 22"/>
+    </svg>`;
     const thumbEl = p.thumbnail_url
       ? `<img src="${escapeHtml(p.thumbnail_url)}" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" loading="lazy">`
-      : `<span style="font-size:18px;font-weight:700;color:${p.color};font-family:'Syne',sans-serif;">${thumbInitial}</span>`;
+      : stockBuildingSVG;
 
     return `
     <div class="card" style="cursor:pointer;position:relative;" onclick="selectProperty('${p.id}')">
