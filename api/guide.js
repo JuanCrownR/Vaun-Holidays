@@ -91,8 +91,10 @@ function buildGuideHTML(prop, guide) {
     { key: 'report_issue',   icon: '⚠️', title: 'Report an Issue',           sub: 'Report a problem'    },
   ];
 
-  // Sections shown inline on home page (critical check-in info)
-  const HOME_KEYS = ['welcome', 'key_collection', 'car_parking', 'wifi', 'contacts'];
+  // Welcome shown inline on home; these 4 shown as nav buttons on home
+  const HOME_INLINE_KEYS = ['welcome'];
+  const HOME_NAV_KEYS    = ['getting_there', 'key_collection', 'car_parking', 'wifi'];
+  const HOME_KEYS        = [...HOME_INLINE_KEYS, ...HOME_NAV_KEYS];
 
   // ── Check if a section has any content ─────────────────────────────────────
   function hasContent(sec) {
@@ -172,25 +174,36 @@ function buildGuideHTML(prop, guide) {
     return html;
   }
 
-  // ── Home: inline section cards ─────────────────────────────────────────────
-  const homeCards = SECTIONS
-    .filter(sec => HOME_KEYS.includes(sec.key) && hasContent(sec))
-    .map(sec => {
-      const inner = buildInner(sec);
-      if (!inner.trim()) return '';
-      // Welcome gets a special warm style; others get the standard card
-      const isWelcome = sec.key === 'welcome';
-      return `
-  <div class="home-card${isWelcome ? ' welcome-card' : ''}">
+  // ── Home: welcome card (inline) ────────────────────────────────────────────
+  const welcomeSec = SECTIONS.find(s => s.key === 'welcome');
+  const welcomeCard = (welcomeSec && hasContent(welcomeSec)) ? (() => {
+    const inner = buildInner(welcomeSec);
+    return inner.trim() ? `
+  <div class="home-card welcome-card">
     <div class="home-card-head">
-      <span class="home-card-icon">${sec.icon}</span>
-      <span class="home-card-title">${sec.title}</span>
+      <span class="home-card-icon">${welcomeSec.icon}</span>
+      <span class="home-card-title">${welcomeSec.title}</span>
     </div>
     <div class="home-card-body">${inner}</div>
-  </div>`;
-    }).join('');
+  </div>` : '';
+  })() : '';
 
-  // ── Hamburger: remaining sections ─────────────────────────────────────────
+  // ── Home: quick-access nav list (Getting There, Key Collection, Parking, WiFi) ──
+  const homeNavSections = SECTIONS.filter(sec => HOME_NAV_KEYS.includes(sec.key) && hasContent(sec));
+  const homeNavList = homeNavSections.length ? `
+  <div class="home-nav-list">
+    ${homeNavSections.map(sec => `
+    <a href="#${sec.key}" class="home-nav-item">
+      <span class="home-nav-icon">${sec.icon}</span>
+      <div class="home-nav-text">
+        <div class="home-nav-title">${sec.title}</div>
+        <div class="home-nav-sub">${sec.sub}</div>
+      </div>
+      <span class="home-nav-chevron">›</span>
+    </a>`).join('')}
+  </div>` : '';
+
+  // ── Hamburger: everything not on the home page ─────────────────────────────
   const menuSections = SECTIONS.filter(sec => !HOME_KEYS.includes(sec.key) && hasContent(sec));
 
   const menuItems = menuSections.map(sec => `
@@ -203,8 +216,9 @@ function buildGuideHTML(prop, guide) {
       <span class="menu-chevron">›</span>
     </a>`).join('');
 
-  // ── Section screens (for hamburger items) ──────────────────────────────────
-  const sectionScreens = menuSections.map(sec => {
+  // ── Section screens (home nav + hamburger items) ───────────────────────────
+  const allNavSections = SECTIONS.filter(sec => !HOME_INLINE_KEYS.includes(sec.key) && hasContent(sec));
+  const sectionScreens = allNavSections.map(sec => {
     const inner = buildInner(sec);
     if (!inner.trim()) return '';
     return `
@@ -265,6 +279,17 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:
 /* Welcome card gets a warm brand-color accent on the left */
 .welcome-card{border-left:4px solid var(--brand)}
 .welcome-card .home-card-head{background:linear-gradient(135deg,rgba(var(--brand-rgb,33,146,163),.06) 0%,transparent 100%)}
+
+/* ── Home quick-access nav list ── */
+.home-nav-list{background:white;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:14px}
+.home-nav-item{display:flex;align-items:center;gap:14px;padding:16px 18px;text-decoration:none;color:#303336;border-bottom:1px solid #f1f5f9;transition:background .12s;-webkit-tap-highlight-color:transparent}
+.home-nav-item:last-child{border-bottom:none}
+.home-nav-item:active{background:#f8fafc}
+.home-nav-icon{font-size:24px;flex-shrink:0;width:36px;text-align:center;line-height:1}
+.home-nav-text{flex:1;min-width:0}
+.home-nav-title{font-size:15px;font-weight:600;color:#0f172a}
+.home-nav-sub{font-size:12px;color:#94a3b8;margin-top:2px}
+.home-nav-chevron{font-size:22px;color:var(--brand);flex-shrink:0;font-weight:600}
 
 /* ═══════════ SECTION TOPBAR ═══════════ */
 .topbar{background:var(--brand);padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;min-height:52px}
@@ -362,7 +387,8 @@ footer{text-align:center;padding:24px 16px;font-size:11px;color:#94a3b8}
   </header>
 
   <div class="home-body">
-    ${homeCards}
+    ${welcomeCard}
+    ${homeNavList}
   </div>
 
   <footer>Powered by Vaun Holidays</footer>
