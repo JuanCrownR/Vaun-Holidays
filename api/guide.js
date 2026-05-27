@@ -85,6 +85,7 @@ function buildGuideHTML(prop, guide) {
   const SECTIONS = [
     { key: 'welcome',        icon: '👋', title: 'Welcome',                   label: 'Welcome' },
     { key: 'key_collection', icon: '🔑', title: 'Key Collection & Check-in', label: 'Check-In' },
+    { key: 'wifi',           icon: '📶', title: 'WiFi Details',              label: 'WiFi' },
     { key: 'getting_there',  icon: '📍', title: 'Getting There',             label: 'Directions' },
     { key: 'car_parking',    icon: '🅿️', title: 'Car Parking',              label: 'Parking' },
     { key: 'house_manual',   icon: '🏠', title: 'House Manual',              label: 'Manual' },
@@ -130,6 +131,13 @@ function buildGuideHTML(prop, guide) {
       if (!d.content && !d.code) continue;
       inner = d.content ? `<div class="prose">${nl2br(d.content)}</div>` : '';
       if (d.code) inner += `<div class="code-box"><div class="code-label">🔑 Access Code</div><div class="code-value">${esc(d.code)}</div></div>`;
+    } else if (sec.key === 'wifi') {
+      if (!d.network && !d.password) continue;
+      inner = `<div class="wifi-box">
+        ${d.network  ? `<div class="wifi-row"><span class="wifi-label">Network</span><span class="wifi-val">${esc(d.network)}</span></div>` : ''}
+        ${d.password ? `<div class="wifi-row"><span class="wifi-label">Password</span><span class="wifi-pass">${esc(d.password)}</span></div>` : ''}
+      </div>`;
+      if (d.content) inner += `<div class="prose" style="margin-top:10px;">${nl2br(d.content)}</div>`;
     } else if (sec.key === 'checkout') {
       inner = d.content ? `<div class="prose">${nl2br(d.content)}</div>` : '';
       if (guide.checkout_time) inner = `<div class="time-badge">🚪 Check-out by ${esc(guide.checkout_time)}</div>` + inner;
@@ -268,6 +276,14 @@ details[open] summary::after{content:'−'}
 .report-btn{display:block;text-align:center;padding:13px 20px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none}
 .report-btn-phone{background:var(--brand);color:white}
 .report-btn-email{background:#f8fafc;color:#334155;border:1.5px solid #e2e8f0}
+
+/* ── WiFi ── */
+.wifi-box{background:#f0f9ff;border:2px solid var(--brand);border-radius:8px;padding:4px 16px;overflow:hidden}
+.wifi-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #e0f2fe}
+.wifi-row:last-child{border-bottom:none}
+.wifi-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;flex-shrink:0}
+.wifi-val{font-size:15px;font-weight:600;color:#0f172a;text-align:right}
+.wifi-pass{font-size:18px;font-weight:700;letter-spacing:3px;color:#0369a1;font-family:monospace;text-align:right}
 
 /* ── Section photos ── */
 .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #e9e9ea}

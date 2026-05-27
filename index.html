@@ -10029,6 +10029,7 @@ function renderAssetDetails() {
 const GUIDE_SECTIONS = [
   { key: 'welcome',        icon: '👋', title: 'Welcome Message',           type: 'text',      placeholder: 'Write a warm welcome message for your guests...' },
   { key: 'key_collection', icon: '🗝️', title: 'Key Collection & Check-in', type: 'text_code', placeholder: 'Instructions for collecting keys or accessing the property...' },
+  { key: 'wifi',           icon: '📶', title: 'WiFi Details',              type: 'wifi' },
   { key: 'getting_there',  icon: '📍', title: 'Getting There',             type: 'text',      placeholder: 'Directions, nearby landmarks, transport options...' },
   { key: 'car_parking',    icon: '🅿️', title: 'Car Parking',              type: 'text',      placeholder: 'Parking instructions, bay numbers, visitor parking...' },
   { key: 'house_manual',   icon: '🏠', title: 'House Manual & Facilities', type: 'text',      placeholder: 'WiFi password, how to use appliances, bins, heating/cooling...' },
@@ -10053,6 +10054,7 @@ function _defaultGuideData() {
     if (s.type === 'text_code') sections[s.key].code = '';
     if (s.type === 'contacts' || s.type === 'poi' || s.type === 'faqs') sections[s.key].items = [];
     if (s.type === 'report') { sections[s.key].email = ''; sections[s.key].phone = ''; }
+    if (s.type === 'wifi') { sections[s.key].network = ''; sections[s.key].password = ''; sections[s.key].content = ''; }
   });
   return { published: false, sections, checkin_time: '3:00pm', checkout_time: '10:00am' };
 }
@@ -10071,6 +10073,7 @@ function renderGuestGuideBuilder() {
       _guideData.sections[s.key] = { enabled: false, photos: [] };
       if (s.type === 'contacts' || s.type === 'poi' || s.type === 'faqs') _guideData.sections[s.key].items = [];
       if (s.type === 'report') { _guideData.sections[s.key].email = ''; _guideData.sections[s.key].phone = ''; }
+      if (s.type === 'wifi') { _guideData.sections[s.key].network = ''; _guideData.sections[s.key].password = ''; _guideData.sections[s.key].content = ''; }
     }
     if (!Array.isArray(_guideData.sections[s.key].photos)) _guideData.sections[s.key].photos = [];
   });
@@ -10157,6 +10160,28 @@ function _renderGuideSectionBody(sd, d) {
           oninput="updateGuideSectionField('${key}','code',this.value)">
       </div>`;
     }
+  } else if (sd.type === 'wifi') {
+    content = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" style="font-size:11px;">Network Name (SSID)</label>
+          <input type="text" class="form-input" placeholder="e.g. HomeWifi_5G"
+            value="${escapeHtml(d.network||'')}"
+            oninput="updateGuideSectionField('${key}','network',this.value)">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label" style="font-size:11px;">Password</label>
+          <input type="text" class="form-input" placeholder="e.g. sunshine2024"
+            value="${escapeHtml(d.password||'')}"
+            oninput="updateGuideSectionField('${key}','password',this.value)">
+        </div>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:11px;">Additional notes (optional)</label>
+        <textarea class="form-textarea" style="min-height:60px;"
+          placeholder="e.g. Signal is strongest in the living room. A second network 'HomeWifi_2G' is also available."
+          oninput="updateGuideSectionField('${key}','content',this.value)">${escapeHtml(d.content||'')}</textarea>
+      </div>`;
   } else if (sd.type === 'contacts') {
     const items = d.items || [];
     const rows = items.map((item, i) => `
@@ -10449,6 +10474,18 @@ async function downloadGuidePDFClient() {
       let text = d.content;
       if (sd.type === 'text_code' && d.code) text += `\n\nAccess Code: ${d.code}`;
       addSection(`${sd.icon} ${sd.title}`, text);
+      wroteContent = true;
+    } else if (sd.type === 'wifi' && (d.network || d.password)) {
+      ensureSpace(14);
+      doc.setFontSize(13); doc.setFont(undefined, 'bold'); doc.setTextColor(20);
+      doc.text(`📶 WiFi Details`, marginX, y); y += 5;
+      doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(55);
+      if (d.network)  { doc.text(`Network:  ${d.network}`,  marginX + 4, y); y += 4.5; }
+      if (d.password) { doc.text(`Password: ${d.password}`, marginX + 4, y); y += 4.5; }
+      if (d.content) {
+        const lines = doc.splitTextToSize(d.content, 176);
+        doc.text(lines, marginX + 4, y); y += lines.length * 4.5 + 2;
+      }
       wroteContent = true;
     } else if (sd.type === 'contacts' && d.items?.length) {
       ensureSpace(14);
