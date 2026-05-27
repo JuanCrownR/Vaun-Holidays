@@ -240,7 +240,7 @@ function buildGuideHTML(prop, guide) {
     <div class="screen-body">
       <div class="content-card">${inner}</div>
     </div>
-    <footer>🌴 Powered by Vaun Holidays</footer>
+    <footer><svg viewBox="0 0 24 24" width="13" height="13" style="display:inline-block;vertical-align:-2px;margin-right:6px;" aria-hidden="true"><path d="M3 4L12 22L21 4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Powered by Vaun Holidays</footer>
   </div>`;
   }).join('');
 
@@ -409,7 +409,7 @@ footer{text-align:center;padding:28px 16px;font-size:11px;color:#64748b;font-wei
     ${homeNavList ? `<p class="home-section-label">Your stay essentials</p>${homeNavList}` : ''}
   </div>
 
-  <footer>🌴 Powered by Vaun Holidays</footer>
+  <footer><svg viewBox="0 0 24 24" width="13" height="13" style="display:inline-block;vertical-align:-2px;margin-right:6px;" aria-hidden="true"><path d="M3 4L12 22L21 4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Powered by Vaun Holidays</footer>
 </div>
 
 <!-- ════════════════ SECTION SCREENS (hamburger) ════════════════ -->
@@ -426,7 +426,7 @@ ${sectionScreens}
   <nav class="menu-nav">
     ${menuItems}
   </nav>
-  <div class="menu-footer">🌴 Powered by Vaun Holidays</div>
+  <div class="menu-footer"><svg viewBox="0 0 24 24" width="13" height="13" style="display:inline-block;vertical-align:-2px;margin-right:6px;" aria-hidden="true"><path d="M3 4L12 22L21 4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Powered by Vaun Holidays</div>
 </div>
 
 <script>
