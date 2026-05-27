@@ -98,10 +98,17 @@ function buildGuideHTML(prop, guide) {
   const HOME_NAV_KEYS    = ['getting_there', 'key_collection', 'car_parking', 'wifi'];
   const HOME_KEYS        = [...HOME_INLINE_KEYS, ...HOME_NAV_KEYS];
 
-  // ── Check if a section has any content ─────────────────────────────────────
+  // ── Should this section appear in the guide? ───────────────────────────────
+  // The builder toggle is the source of truth:
+  //   enabled === false  → never shown (user disabled it)
+  //   enabled === true   → always shown (user explicitly enabled it)
+  //   enabled undefined  → fall back to a content check (legacy data)
   function hasContent(sec) {
     const d = secs[sec.key];
-    if (!d || d.enabled === false) return false;
+    if (!d) return false;
+    if (d.enabled === false) return false;
+    if (d.enabled === true)  return true;
+    // Legacy fallback: section has no explicit toggle → only show if it has content
     const photos = d.photos && d.photos.length > 0;
     if (sec.key === 'wifi')         return d.network || d.password || d.content || photos;
     if (sec.key === 'contacts')     return (d.items||[]).some(c => c.name||c.phone||c.email) || photos;
