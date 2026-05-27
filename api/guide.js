@@ -75,7 +75,13 @@ function esc(str) {
 }
 
 function nl2br(str) {
-  return esc(str).replace(/\n/g, '<br>');
+  // Escape HTML, then auto-link https:// URLs, then convert newlines to <br>
+  const escaped = esc(str);
+  const linked = escaped.replace(
+    /(https?:\/\/[^\s<>"]+)/g,
+    '<a href="$1" target="_blank" rel="noopener" style="color:var(--brand);font-weight:500;text-decoration:underline;word-break:break-all;">📍 Open in Maps</a>'
+  );
+  return linked.replace(/\n/g, '<br>');
 }
 
 function buildGuideHTML(prop, guide) {
@@ -159,8 +165,11 @@ function buildGuideHTML(prop, guide) {
       if (!items.length) continue;
       inner = `<div class="poi-list">${items.map(p => `
         <div class="poi-item">
-          <div class="poi-name">${esc(p.name)}</div>
-          ${p.distance ? `<div class="poi-dist">📍 ${esc(p.distance)} away</div>` : ''}
+          <div class="poi-name-row">
+            <span class="poi-name">${esc(p.name)}</span>
+            ${p.maps_url ? `<a href="${esc(p.maps_url)}" target="_blank" rel="noopener" class="poi-map-btn">📍 Directions</a>` : ''}
+          </div>
+          ${p.distance ? `<div class="poi-dist">${esc(p.distance)} away</div>` : ''}
           ${p.description ? `<div class="poi-desc">${esc(p.description)}</div>` : ''}
         </div>`).join('')}</div>`;
     } else if (sec.key === 'faqs') {
@@ -257,8 +266,10 @@ main{max-width:640px;margin:0 auto;padding:16px 14px 64px}
 /* ── Points of interest ── */
 .poi-item{padding:11px 0;border-bottom:1px solid #e9e9ea}
 .poi-item:last-child{border-bottom:none}
+.poi-name-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .poi-name{font-size:14px;font-weight:600;color:#0f172a}
-.poi-dist{font-size:12px;color:#94a3b8;margin:2px 0}
+.poi-map-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--brand);color:white;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;flex-shrink:0}
+.poi-dist{font-size:12px;color:#94a3b8;margin:3px 0}
 .poi-desc{font-size:13px;color:#475569;margin-top:4px;line-height:1.6}
 
 /* ── FAQs ── */

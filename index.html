@@ -10197,9 +10197,10 @@ function _renderGuideSectionBody(sd, d) {
     const rows = items.map((item, i) => `
       <div class="gg-list-item">
         <button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>
-        <input type="text" class="form-input" placeholder="Place name (e.g. Bondi Beach)" value="${escapeHtml(item.name||'')}" oninput="updateGuideListItem('${key}',${i},'name',this.value)">
+        <input type="text" class="form-input" placeholder="Place name (e.g. Surfers Paradise Beach)" value="${escapeHtml(item.name||'')}" oninput="updateGuideListItem('${key}',${i},'name',this.value)">
         <input type="text" class="form-input" placeholder="Distance (e.g. 5 min walk)" value="${escapeHtml(item.distance||'')}" oninput="updateGuideListItem('${key}',${i},'distance',this.value)">
         <textarea class="form-textarea" style="min-height:50px;" placeholder="Short description (optional)" oninput="updateGuideListItem('${key}',${i},'description',this.value)">${escapeHtml(item.description||'')}</textarea>
+        <input type="url" class="form-input" placeholder="Google Maps link (e.g. https://maps.google.com/?q=...)" value="${escapeHtml(item.maps_url||'')}" oninput="updateGuideListItem('${key}',${i},'maps_url',this.value)" style="font-size:11px;color:var(--text2);">
       </div>`).join('');
     content = rows + `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add Place</button>`;
   } else if (sd.type === 'faqs') {
@@ -10436,9 +10437,11 @@ Failure to comply may result in additional charges or termination of stay.
 
 ✈️ Gold Coast Airport (OOL)
 Approx. 30–40 minutes drive
+https://maps.google.com/?q=Gold+Coast+Airport+OOL+Bilinga+QLD
 
 ✈️ Brisbane Airport (BNE)
 Approx. 1 hr 10 min – 1 hr 30 min drive
+https://maps.google.com/?q=Brisbane+Airport+BNE+QLD
 
 🚕 Taxi, rideshare (Uber / DiDi), and public transport are all available from both airports.`;
     changed = true;
@@ -10454,6 +10457,7 @@ This covers Police, Fire, and Ambulance.
 🏥 Nearest Hospital
 Gold Coast University Hospital
 1 Hospital Blvd, Southport QLD 4215
+https://maps.google.com/?q=Gold+Coast+University+Hospital+Southport+QLD
 
 🔧 Property Support
 For urgent property issues, contact VAUN Holidays.
@@ -10464,11 +10468,11 @@ We aim to respond as quickly as possible.`;
   // ── Points of Interest — pre-populate Gold Coast highlights ───────────────
   if (s.poi && (!s.poi.items || s.poi.items.length === 0)) {
     s.poi.items = [
-      { name: 'Surfers Paradise Beach',      description: 'Iconic beach perfect for swimming and sunbathing.',             distance: '5 min walk' },
-      { name: 'SkyPoint Observation Deck',   description: 'Breathtaking 360° views from level 77 of the Q1 tower.',       distance: '2 min walk' },
-      { name: 'Cavill Avenue',               description: 'Dining, nightlife, shopping and entertainment precinct.',       distance: '3 min walk' },
-      { name: 'Infinity Attraction',         description: 'Interactive art and sensory experience.',                       distance: '5 min walk' },
-      { name: 'Gold Coast University Hospital', description: 'Nearest major hospital.',                                    distance: '15 min drive' },
+      { name: 'Surfers Paradise Beach',      description: 'Iconic beach perfect for swimming and sunbathing.',             distance: '5 min walk',   maps_url: 'https://maps.google.com/?q=Surfers+Paradise+Beach+QLD' },
+      { name: 'SkyPoint Observation Deck',   description: 'Breathtaking 360° views from level 77 of the Q1 tower.',       distance: '2 min walk',   maps_url: 'https://maps.google.com/?q=SkyPoint+Observation+Deck+Surfers+Paradise' },
+      { name: 'Cavill Avenue',               description: 'Dining, nightlife, shopping and entertainment precinct.',       distance: '3 min walk',   maps_url: 'https://maps.google.com/?q=Cavill+Avenue+Surfers+Paradise+QLD' },
+      { name: 'Infinity Attraction',         description: 'Interactive art and sensory experience.',                       distance: '5 min walk',   maps_url: 'https://maps.google.com/?q=Infinity+Attraction+Surfers+Paradise' },
+      { name: 'Gold Coast University Hospital', description: 'Nearest major hospital.',                                    distance: '15 min drive', maps_url: 'https://maps.google.com/?q=Gold+Coast+University+Hospital+Southport+QLD' },
     ];
     changed = true;
   }
@@ -10505,7 +10509,7 @@ function addGuideItem(key) {
   const sd = GUIDE_SECTIONS.find(s => s.key === key);
   if (!sd) return;
   if (sd.type === 'contacts') _guideData.sections[key].items.push({name:'',role:'',phone:'',email:''});
-  else if (sd.type === 'poi') _guideData.sections[key].items.push({name:'',description:'',distance:''});
+  else if (sd.type === 'poi') _guideData.sections[key].items.push({name:'',description:'',distance:'',maps_url:''});
   else if (sd.type === 'faqs') _guideData.sections[key].items.push({question:'',answer:''});
   const body = document.getElementById('gg-body-' + key);
   if (body) body.innerHTML = _renderGuideSectionBody(sd, _guideData.sections[key]);
