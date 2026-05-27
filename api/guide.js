@@ -92,7 +92,7 @@ function buildGuideHTML(prop, guide) {
     { key: 'welcome',        icon: '👋', title: 'Welcome',                   label: 'Welcome' },
     { key: 'key_collection', icon: '🔑', title: 'Key Collection & Check-in', label: 'Check-In' },
     { key: 'wifi',           icon: '📶', title: 'WiFi Details',              label: 'WiFi' },
-    { key: 'getting_there',  icon: '📍', title: 'Getting There',             label: 'Directions' },
+    { key: 'getting_there',  icon: '📍', title: 'Getting to the Property',   label: 'Directions' },
     { key: 'car_parking',    icon: '🅿️', title: 'Car Parking',              label: 'Parking' },
     { key: 'house_manual',   icon: '🏠', title: 'House Manual',              label: 'Manual' },
     { key: 'checkout',       icon: '🚪', title: 'Check-out',                 label: 'Check-Out' },
@@ -131,7 +131,7 @@ function buildGuideHTML(prop, guide) {
       if (!d.content) continue;
       inner = `<div class="prose">${nl2br(d.content)}</div>`;
       if (sec.key === 'getting_there' && prop.address) {
-        inner += `<a href="https://maps.google.com/?q=${encodeURIComponent(prop.address)}" target="_blank" rel="noopener" class="map-btn">📍 Get Directions</a>`;
+        inner += `<a href="https://maps.google.com/?q=${encodeURIComponent(prop.address)}" target="_blank" rel="noopener" class="map-btn">📍 Directions to the Property</a>`;
       }
     } else if (sec.key === 'key_collection') {
       if (!d.content && !d.code) continue;
