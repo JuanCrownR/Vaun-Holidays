@@ -39,6 +39,26 @@ module.exports = async function handler(req, res) {
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+    // Hardening headers. CSP keeps the page from loading anything except
+    // Google Fonts (CSS + woff) and images served from Supabase Storage.
+    // frame-ancestors 'none' blocks clickjacking. 'unsafe-inline' for
+    // scripts/styles is required because the guide ships inline JS/CSS;
+    // a future tightening would move scripts to external files + nonce.
+    res.setHeader('Content-Security-Policy', [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src https://fonts.gstatic.com",
+      "img-src 'self' data: https://*.supabase.co",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'"
+    ].join('; '));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     return res.status(200).send(buildGuideHTML(prop, guide));
   } catch (err) {
     console.error('Guide handler error:', err);
@@ -53,8 +73,23 @@ function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Validate a URL before placing it in an `href`. Blocks `javascript:`,
+// `data:`, `vbscript:`, and any unparseable input. Returns '#' for bad URLs
+// (so the link is harmless if a malicious value was somehow stored).
+// Important: nl2br() and POI map_url both pass through user content, and
+// `esc()` alone doesn't stop `href="javascript:..."` style XSS.
+function safeUrl(u) {
+  try {
+    const url = new URL(String(u || ''));
+    return /^(https?|mailto|tel):$/.test(url.protocol) ? url.href : '#';
+  } catch { return '#'; }
+}
+
 function nl2br(str) {
   const e = esc(str);
+  // Auto-link http(s) URLs in user text. The regex only matches http/https
+  // schemes so `javascript:foo` written in body text becomes plain escaped
+  // text, not a clickable link.
   const linked = e.replace(/(https?:\/\/[^\s<>"]+)/g,
     '<a href="$1" target="_blank" rel="noopener" style="color:var(--brand);font-weight:500;text-decoration:underline;word-break:break-all;">📍 Open in Maps</a>');
   return linked.replace(/\n/g,'<br>');
@@ -65,9 +100,10 @@ function photosHTML(photos) {
   const imgs = photos.filter(p => p.url &&
     ((p.type && p.type.startsWith('image/')) || /\.(jpe?g|png|gif|webp|heic)$/i.test(p.name||'')));
   if (!imgs.length) return '';
-  return `<div class="photo-grid">${imgs.map(p =>
-    `<a href="${esc(p.url)}" target="_blank" rel="noopener"><img src="${esc(p.url)}" alt="" loading="lazy"></a>`
-  ).join('')}</div>`;
+  return `<div class="photo-grid">${imgs.map(p => {
+    const u = safeUrl(p.url);
+    return `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="" loading="lazy"></a>`;
+  }).join('')}</div>`;
 }
 
 // ─── Check-in time gate (Brisbane / Australia time) ─────────────────────────
@@ -217,7 +253,7 @@ function buildGuideHTML(prop, guide) {
         <div class="poi-item">
           <div class="poi-name-row">
             <span class="poi-name">${esc(p.name)}</span>
-            ${p.maps_url ? `<a href="${esc(p.maps_url)}" target="_blank" rel="noopener" class="poi-map-btn">📍 Directions</a>` : ''}
+            ${p.maps_url ? `<a href="${esc(safeUrl(p.maps_url))}" target="_blank" rel="noopener" class="poi-map-btn">📍 Directions</a>` : ''}
           </div>
           ${p.distance    ? `<div class="poi-dist">${esc(p.distance)} away</div>` : ''}
           ${p.description ? `<div class="poi-desc">${esc(p.description)}</div>`   : ''}
@@ -456,7 +492,7 @@ footer{text-align:center;padding:28px 16px;font-size:11px;color:#64748b;font-wei
 <!-- ════════════════ HOME SCREEN ════════════════ -->
 <div id="screen-home" class="screen active">
 
-  <header class="home-header${prop.thumbnail_url ? ' has-thumb' : ''}"${prop.thumbnail_url ? ` style="--thumb-url:url('${esc(prop.thumbnail_url)}')"` : ''}>
+  <header class="home-header${prop.thumbnail_url ? ' has-thumb' : ''}"${prop.thumbnail_url ? ` style="--thumb-url:url('${esc(safeUrl(prop.thumbnail_url)).replace(/'/g,'%27')}')"` : ''}>
     ${prop.thumbnail_url ? '<div class="header-overlay"></div>' : ''}
     <div class="${prop.thumbnail_url ? 'header-content' : ''}" style="position:relative;z-index:2;">
       <button class="ham-btn" onclick="openMenu()" aria-label="More information">

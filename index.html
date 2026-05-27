@@ -2313,9 +2313,12 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <div style="text-align:center;margin-top:10px;">
           <button onclick="showForgotPanel()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px;">Forgot password?</button>
         </div>
+        <!-- Public self-signup has been removed for security. New users must
+             be invited by an admin from the Users panel (calls the gated
+             /api/admin-users endpoint, which assigns the lowest-privilege
+             role and sends a Supabase-issued invite email). -->
         <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
-          <p style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Don't have an account?</p>
-          <button class="login-btn" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);" onclick="showSignup()">Create account</button>
+          <p style="font-size:12px;color:var(--text3);text-align:center;">Don't have an account? Contact your administrator for an invitation.</p>
         </div>
       </div>
 
@@ -2359,28 +2362,11 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <label class="form-label">Password</label>
         <input type="password" class="form-input" id="signup-password" placeholder="Min. 8 characters">
       </div>
-      <div class="form-group">
-        <label class="form-label">Role</label>
-        <div class="role-selector">
-          <div class="role-option selected" onclick="selectRole(this,'admin')">
-            <div class="role-option-name">Admin</div>
-            <div class="role-option-desc">Full access</div>
-          </div>
-          <div class="role-option" onclick="selectRole(this,'manager')">
-            <div class="role-option-name">Manager</div>
-            <div class="role-option-desc">View + manage</div>
-          </div>
-          <div class="role-option" onclick="selectRole(this,'cleaner')">
-            <div class="role-option-name">Cleaner</div>
-            <div class="role-option-desc">Jobs only</div>
-          </div>
-          <div class="role-option" onclick="selectRole(this,'staff')">
-            <div class="role-option-name">Staff</div>
-            <div class="role-option-desc">Assigned tasks</div>
-          </div>
-        </div>
-        <input type="hidden" id="signup-role" value="admin">
-      </div>
+      <!-- Role selector removed: signup is no longer publicly reachable, and
+           on the rare path it is hit (e.g. an invited user setting up), the
+           default role is the lowest-privilege "staff". Admins promote users
+           afterwards via the Users panel (gated /api/admin-users endpoint). -->
+      <input type="hidden" id="signup-role" value="staff">
       <div class="login-error" id="signup-error"></div>
     </div>
     <div class="modal-footer">
@@ -3855,7 +3841,11 @@ async function handleSignup() {
   const name = document.getElementById('signup-name').value.trim();
   const email = document.getElementById('signup-email').value.trim();
   const pass = document.getElementById('signup-password').value;
-  const role = document.getElementById('signup-role').value;
+  // Role is no longer user-selectable. Always create new accounts with the
+  // lowest-privilege role; admins promote via the Users panel (gated server
+  // endpoint /api/admin-users). The hidden input is still here for legacy
+  // reasons but its value is ignored.
+  const role = 'staff';
   const err = document.getElementById('signup-error');
   err.style.display = 'none';
   if (!name || !email || !pass) { err.textContent = 'Please fill in all fields.'; err.style.display = 'block'; return; }
@@ -4310,7 +4300,7 @@ function renderAllDepts() {
     {label:'',            sortKey:null}
   ], j => `
     <div class="table-row grid-cleaning" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
-      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${escapeHtml(propNames[j.property] || '')}</div></span>
       <span style="font-size:12px;color:var(--text2)">${taskTypeLabel(j)}</span>
       <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
@@ -4328,7 +4318,7 @@ function renderAllDepts() {
   ], j => `
     <div class="table-row grid-maintenance" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Maintenance issue')}</span>
-      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${escapeHtml(propNames[j.property] || '')}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span>${statusBadge(j.status)}</span>
@@ -4344,7 +4334,7 @@ function renderAllDepts() {
     {label:'',          sortKey:null}
   ], j => `
     <div class="table-row grid-inspections" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
-      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${escapeHtml(propNames[j.property] || '')}</div></span>
       <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:12px;color:var(--text2)">${taskTypeLabel(j)}</span>
@@ -4362,7 +4352,7 @@ function renderAllDepts() {
   ], j => `
     <div class="table-row grid-operations" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Operations task')}</span>
-      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${escapeHtml(propNames[j.property] || '')}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span>${statusBadge(j.status)}</span>
@@ -4379,7 +4369,7 @@ function renderAllDepts() {
   ], j => `
     <div class="table-row grid-compliance" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml((j.meta && j.meta.heading) || j.notes || 'Compliance task')}</span>
-      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${escapeHtml(propNames[j.property] || '')}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span>${statusBadge(j.status)}</span>
@@ -4396,7 +4386,7 @@ function renderAllDepts() {
   ], j => `
     <div class="table-row grid-keys" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span style="font-size:13px;font-weight:500">${escapeHtml(j.notes || 'Keys task')}</span>
-      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property]}</div></span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${escapeHtml(propNames[j.property] || '')}</div></span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span>${statusBadge(j.status)}</span>
@@ -4519,7 +4509,7 @@ function renderAllTasks() {
     return `<div class="table-row grid-alltasks" style="cursor:pointer;" onclick="viewJob(${JSON.stringify(j).replace(/"/g,'&quot;')})">
       <span><span class="dept-chip" style="background:${dm.bg};color:${dm.color};">${dm.label}</span></span>
       <span style="font-size:13px;font-weight:500">${taskLabel}</span>
-      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${propNames[j.property] || j.property || '—'}</div></span>
+      <span><div class="prop-tag"><div class="prop-tag-dot" style="background:${propColors[j.property]}"></div>${escapeHtml(propNames[j.property] || j.property || '—')}</div></span>
       <span style="font-size:13px;color:var(--text2)">${_assigneeDisplay(j) || '—'}</span>
       <span style="font-size:13px;">${formatDate(j.date)}</span>
       <span>${statusBadge(j.status)}</span>
@@ -5111,8 +5101,15 @@ function renderCalendar() {
       && (!selectedPropertyId || j.property === selectedPropertyId));
     const cell = document.createElement('div');
     cell.className = 'cal-cell' + (isOther ? ' other-month' : '') + (isToday ? ' today' : '') + (dayJobs.length ? ' has-events' : '');
-    let eventsHtml = dayJobs.slice(0,3).map(j => `<div class="cal-event ${j.department}" title="${(propNames[j.property]||'').replace(/"/g,'&quot;')} — ${j.department}" onclick="event.stopPropagation();openCalPreview('${j.id}',this)">${propNames[j.property] || '—'}</div>`).join('');
-    if (dayJobs.length > 3) eventsHtml += `<div class="cal-event" style="color:var(--text3);cursor:pointer;" onclick="event.stopPropagation();openCalPreview('${dayJobs[3].id}',this)">+${dayJobs.length-3} more</div>`;
+    let eventsHtml = dayJobs.slice(0,3).map(j => {
+      const propName = propNames[j.property] || '—';
+      const jobIdAttr = escapeHtml(JSON.stringify(j.id));
+      return `<div class="cal-event ${escapeHtml(j.department)}" title="${escapeHtml(propName + ' — ' + j.department)}" onclick="event.stopPropagation();openCalPreview(${jobIdAttr},this)">${escapeHtml(propName)}</div>`;
+    }).join('');
+    if (dayJobs.length > 3) {
+      const overflowIdAttr = escapeHtml(JSON.stringify(dayJobs[3].id));
+      eventsHtml += `<div class="cal-event" style="color:var(--text3);cursor:pointer;" onclick="event.stopPropagation();openCalPreview(${overflowIdAttr},this)">+${dayJobs.length-3} more</div>`;
+    }
     cell.innerHTML = `<div class="cal-date">${day}</div>${eventsHtml}`;
     body.appendChild(cell);
   }
@@ -5259,7 +5256,7 @@ function openCalPreview(jobId, pillEl) {
   const taskTypeRow = (ttLabel && ttLabel !== '—' && ttLabel !== title)
     ? `<div class="cal-preview-row">
          <span class="cal-preview-label">Task type</span>
-         <span class="cal-preview-value">${ttLabel}</span>
+         <span class="cal-preview-value">${escapeHtml(ttLabel)}</span>
        </div>`
     : '';
 
@@ -5272,19 +5269,19 @@ function openCalPreview(jobId, pillEl) {
        </div>`
     : '';
 
-  // Notes/description (truncated)
+  // Notes/description (truncated). User-controlled — must escape.
   const notes = job.notes || (job.meta && job.meta.description);
   const notesRow = notes
     ? `<div class="cal-preview-row">
          <span class="cal-preview-label">Notes</span>
-         <span class="cal-preview-value" style="color:var(--text2);font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${notes}</span>
+         <span class="cal-preview-value" style="color:var(--text2);font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(notes)}</span>
        </div>`
     : '';
 
   document.getElementById('cal-preview-body').innerHTML = `
     <div class="cal-preview-row">
       <span class="cal-preview-label">Property</span>
-      <span class="cal-preview-value">${propNames[job.property] || '—'}</span>
+      <span class="cal-preview-value">${escapeHtml(propNames[job.property] || '—')}</span>
     </div>
     <div class="cal-preview-row">
       <span class="cal-preview-label">Date</span>
@@ -5701,7 +5698,7 @@ function renderContacts() {
     return `
       <div class="contact-card">
         <div class="contact-avatar-wrap">
-          <div class="contact-avatar" style="background:${cfg.color}">${initials}</div>
+          <div class="contact-avatar" style="background:${cfg.color}">${escapeHtml(initials)}</div>
           <div class="contact-name-block">
             <div class="contact-name">${escapeHtml(c.name)}</div>
             ${c.company ? `<div class="contact-company">${escapeHtml(c.company)}</div>` : ''}
@@ -6109,7 +6106,9 @@ function addActivity(text, dept) {
   const feed = document.getElementById('activity-feed');
   const item = document.createElement('div');
   item.className = 'activity-item';
-  item.innerHTML = `<div class="activity-icon" style="background:${bg}">${icon}</div><div class="activity-content"><div class="activity-text">${text}</div><div class="activity-time">Just now</div></div>`;
+  // text is built by callers from user-controlled fields (job notes, property
+  // names, etc.) — must be HTML-escaped before injection.
+  item.innerHTML = `<div class="activity-icon" style="background:${bg}">${icon}</div><div class="activity-content"><div class="activity-text">${escapeHtml(text)}</div><div class="activity-time">Just now</div></div>`;
   feed.insertBefore(item, feed.firstChild);
 }
 
@@ -11416,29 +11415,34 @@ function renderUsersList(users) {
     const roleColor = roleColors[u.role] || '#9a9a9a';
     const isMe = u.id === meId;
 
+    // Build attribute values for the action-button onclicks. JSON.stringify
+    // gives us a properly quoted JS string literal; we then HTML-escape it
+    // so `</script>` / quote breakouts can't escape the attribute either.
+    const userIdAttr = escapeHtml(JSON.stringify(u.id));
+    const emailAttr  = escapeHtml(JSON.stringify(u.email));
     return `
     <div class="job-row" style="grid-template-columns:36px 1fr 120px 160px 140px 80px;align-items:center;">
-      <div style="width:32px;height:32px;border-radius:50%;background:var(--brand2);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">${initials}</div>
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--brand2);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">${escapeHtml(initials)}</div>
       <div>
-        <div style="font-size:13px;font-weight:500;">${u.email}</div>
+        <div style="font-size:13px;font-weight:500;">${escapeHtml(u.email || '')}</div>
         ${isMe ? '<div style="font-size:11px;color:var(--text3);">You</div>' : ''}
       </div>
-      <div style="font-size:13px;color:var(--text2);">${u.name || '—'}</div>
+      <div style="font-size:13px;color:var(--text2);">${escapeHtml(u.name || '—')}</div>
       <div>
         <select class="form-select" style="font-size:12px;padding:4px 8px;height:auto;border-color:${roleColor}40;color:${roleColor};"
-          onchange="changeUserRole('${u.id}', this.value)" ${isMe ? 'disabled title="You cannot change your own role"' : ''}>
+          onchange="changeUserRole(${userIdAttr}, this.value)" ${isMe ? 'disabled title="You cannot change your own role"' : ''}>
           <option value="staff"   ${u.role==='staff'   ?'selected':''}>Staff</option>
           <option value="cleaner" ${u.role==='cleaner' ?'selected':''}>Cleaner</option>
           <option value="manager" ${u.role==='manager' ?'selected':''}>Manager</option>
           <option value="admin"   ${u.role==='admin'   ?'selected':''}>Admin</option>
         </select>
       </div>
-      <div style="font-size:12px;color:var(--text3);">${lastSeen}</div>
+      <div style="font-size:12px;color:var(--text3);">${escapeHtml(lastSeen)}</div>
       <div style="display:flex;gap:6px;justify-content:flex-end;">
         <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" title="Change password"
-          onclick="openChangePasswordModal('${u.id}','${u.email.replace(/'/g,"\\'")}')" ${isMe ? '' : ''}>🔑</button>
+          onclick="openChangePasswordModal(${userIdAttr},${emailAttr})">🔑</button>
         ${!isMe ? `<button class="btn" style="padding:4px 8px;font-size:11px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;" title="Delete user"
-          onclick="confirmDeleteUser('${u.id}','${u.email.replace(/'/g,"\\'")}')">🗑</button>` : ''}
+          onclick="confirmDeleteUser(${userIdAttr},${emailAttr})">🗑</button>` : ''}
       </div>
     </div>`;
   }).join('');
