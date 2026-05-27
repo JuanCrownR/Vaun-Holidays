@@ -68,260 +68,19 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// ─── HTML helpers ────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function nl2br(str) {
-  // Escape HTML, then auto-link https:// URLs, then convert newlines to <br>
   const escaped = esc(str);
   const linked = escaped.replace(
     /(https?:\/\/[^\s<>"]+)/g,
     '<a href="$1" target="_blank" rel="noopener" style="color:var(--brand);font-weight:500;text-decoration:underline;word-break:break-all;">📍 Open in Maps</a>'
   );
   return linked.replace(/\n/g, '<br>');
-}
-
-function buildGuideHTML(prop, guide) {
-  const color = prop.color || '#2192A3';
-  const s = guide.sections || {};
-
-  const SECTIONS = [
-    { key: 'welcome',        icon: '👋', title: 'Welcome',                   label: 'Welcome' },
-    { key: 'key_collection', icon: '🔑', title: 'Key Collection & Check-in', label: 'Check-In' },
-    { key: 'wifi',           icon: '📶', title: 'WiFi Details',              label: 'WiFi' },
-    { key: 'getting_there',  icon: '📍', title: 'Getting to the Property',   label: 'Directions' },
-    { key: 'car_parking',    icon: '🅿️', title: 'Car Parking',              label: 'Parking' },
-    { key: 'house_manual',   icon: '🏠', title: 'House Manual',              label: 'Manual' },
-    { key: 'checkout',       icon: '🚪', title: 'Check-out',                 label: 'Check-Out' },
-    { key: 'contacts',       icon: '📞', title: 'Contact Details',           label: 'Contact' },
-    { key: 'poi',            icon: '🗺️', title: 'Points of Interest',        label: 'Explore' },
-    { key: 'emergency',      icon: '🚨', title: 'Emergency Info',            label: 'Emergency' },
-    { key: 'faqs',           icon: '❓', title: 'FAQs',                      label: 'FAQs' },
-    { key: 'report_issue',   icon: '⚠️', title: 'Report an Issue',           label: 'Report' },
-  ];
-
-  // Quick-jump nav: all enabled sections
-  const enabledSections = SECTIONS.filter(sec => {
-    const d = s[sec.key];
-    return d && d.enabled !== false;
-  });
-
-  const quickNav = enabledSections.length > 1 ? `
-<nav class="quick-nav">
-  ${enabledSections.map(sec => `<a href="#section-${sec.key}" class="quick-item">
-    <span class="quick-icon">${sec.icon}</span>
-    <span class="quick-label">${sec.label}</span>
-  </a>`).join('')}
-</nav>` : '';
-
-  // Section cards
-  let body = '';
-
-  for (const sec of SECTIONS) {
-    const d = s[sec.key];
-    if (!d || d.enabled === false) continue;
-
-    let inner = '';
-
-    if (sec.key === 'welcome' || sec.key === 'getting_there' || sec.key === 'car_parking' ||
-        sec.key === 'house_manual' || sec.key === 'emergency') {
-      if (d.content) inner = `<div class="prose">${nl2br(d.content)}</div>`;
-      if (sec.key === 'getting_there' && prop.address) {
-        inner += `<a href="https://maps.google.com/?q=${encodeURIComponent(prop.address)}" target="_blank" rel="noopener" class="map-btn">📍 Directions to the Property</a>`;
-      }
-    } else if (sec.key === 'key_collection') {
-      if (d.content) inner = `<div class="prose">${nl2br(d.content)}</div>`;
-      if (d.code) inner += `<div class="code-box"><div class="code-label">🔑 Access Code</div><div class="code-value">${esc(d.code)}</div></div>`;
-    } else if (sec.key === 'wifi') {
-      if (d.network || d.password) {
-        inner = `<div class="wifi-box">
-          ${d.network  ? `<div class="wifi-row"><span class="wifi-label">Network</span><span class="wifi-val">${esc(d.network)}</span></div>` : ''}
-          ${d.password ? `<div class="wifi-row"><span class="wifi-label">Password</span><span class="wifi-pass">${esc(d.password)}</span></div>` : ''}
-        </div>`;
-      }
-      if (d.content) inner += `<div class="prose" style="margin-top:10px;">${nl2br(d.content)}</div>`;
-    } else if (sec.key === 'checkout') {
-      inner = d.content ? `<div class="prose">${nl2br(d.content)}</div>` : '';
-      if (guide.checkout_time) inner = `<div class="time-badge">🚪 Check-out by ${esc(guide.checkout_time)}</div>` + inner;
-    } else if (sec.key === 'contacts') {
-      const items = (d.items || []).filter(c => c.name || c.phone || c.email);
-      if (items.length) inner = `<div class="contact-list">${items.map(c => `
-        <div class="contact-item">
-          <div class="contact-name">${esc(c.name)}</div>
-          ${c.role ? `<div class="contact-role">${esc(c.role)}</div>` : ''}
-          <div class="contact-actions">
-            ${c.phone ? `<a href="tel:${esc(c.phone.replace(/\s/g, ''))}" class="contact-btn primary">📱 ${esc(c.phone)}</a>` : ''}
-            ${c.email ? `<a href="mailto:${esc(c.email)}" class="contact-btn">✉️ Email</a>` : ''}
-          </div>
-        </div>`).join('')}</div>`;
-    } else if (sec.key === 'poi') {
-      const items = (d.items || []).filter(p => p.name);
-      if (items.length) inner = `<div class="poi-list">${items.map(p => `
-        <div class="poi-item">
-          <div class="poi-name-row">
-            <span class="poi-name">${esc(p.name)}</span>
-            ${p.maps_url ? `<a href="${esc(p.maps_url)}" target="_blank" rel="noopener" class="poi-map-btn">📍 Directions</a>` : ''}
-          </div>
-          ${p.distance ? `<div class="poi-dist">${esc(p.distance)} away</div>` : ''}
-          ${p.description ? `<div class="poi-desc">${esc(p.description)}</div>` : ''}
-        </div>`).join('')}</div>`;
-    } else if (sec.key === 'faqs') {
-      const items = (d.items || []).filter(f => f.question);
-      if (items.length) inner = `<div class="faq-list">${items.map(f => `
-        <details class="faq-item">
-          <summary>${esc(f.question)}</summary>
-          <div class="faq-answer">${nl2br(f.answer)}</div>
-        </details>`).join('')}</div>`;
-    } else if (sec.key === 'report_issue') {
-      if (d.email || d.phone) inner = `<p class="report-intro">Need to report a problem? Contact us directly:</p>
-        <div class="report-btns">
-          ${d.phone ? `<a href="tel:${esc(d.phone.replace(/\s/g, ''))}" class="report-btn report-btn-phone">📱 Call ${esc(d.phone)}</a>` : ''}
-          ${d.email ? `<a href="mailto:${esc(d.email)}" class="report-btn report-btn-email">✉️ Email Us</a>` : ''}
-        </div>`;
-    }
-
-    // Always append photos — section is only skipped if BOTH content and photos are empty
-    inner += photosHTML(d.photos);
-    if (!inner.trim()) continue;
-
-    body += `
-    <div class="section-card" id="section-${sec.key}">
-      <div class="section-header">
-        <span class="section-icon">${sec.icon}</span>
-        <span class="section-title">${sec.title}</span>
-      </div>
-      <div class="section-body">${inner}</div>
-    </div>`;
-  }
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Guest Guide — ${esc(prop.name)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{--brand:${color}}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f4f8;color:#303336;line-height:1.6;-webkit-font-smoothing:antialiased}
-
-/* ── Header ── */
-.header{background:var(--brand);padding:24px 16px 22px;color:white}
-.header-name{font-size:26px;font-weight:700;line-height:1.2;margin-bottom:5px}
-.header-addr{font-size:13px;opacity:.85;margin-bottom:14px}
-.times{display:flex;gap:8px;flex-wrap:wrap}
-.time-chip{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:600;white-space:nowrap}
-
-/* ── Quick-jump nav ── */
-.quick-nav{background:white;border-bottom:1px solid #e9e9ea;padding:14px 16px;display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:0;z-index:10}
-.quick-nav::-webkit-scrollbar{display:none}
-.quick-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 12px;border-radius:8px;background:white;box-shadow:0 3px 10px rgba(0,0,0,.10);text-decoration:none;color:#303336;min-width:58px;flex-shrink:0;transition:box-shadow .15s,transform .15s}
-.quick-item:active{box-shadow:0 1px 4px rgba(0,0,0,.08);transform:scale(.97)}
-.quick-icon{font-size:20px;line-height:1}
-.quick-label{font-size:10px;font-weight:600;text-align:center;white-space:nowrap;color:#64748b}
-
-/* ── Main ── */
-main{max-width:640px;margin:0 auto;padding:16px 14px 64px}
-
-/* ── Section cards ── */
-.section-card{background:white;border-radius:8px;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.07)}
-.section-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e9e9ea}
-.section-icon{font-size:20px;flex-shrink:0;line-height:1}
-.section-title{font-size:16px;font-weight:700;color:#0f172a}
-.section-body{padding:14px 16px;font-size:14px;color:#475569;line-height:1.75}
-.prose{font-size:14px;color:#475569;line-height:1.75}
-
-/* ── Access code ── */
-.code-box{background:#f0fdf4;border:2px solid var(--brand);border-radius:8px;padding:18px 16px;margin-top:12px;text-align:center}
-.code-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px}
-.code-value{font-size:28px;font-weight:700;letter-spacing:7px;color:#166534;line-height:1.2}
-
-/* ── Time badge ── */
-.time-badge{display:inline-flex;align-items:center;gap:6px;background:#e0f2fe;color:#0369a1;border-radius:6px;padding:7px 14px;font-size:14px;font-weight:600;margin-bottom:10px}
-
-/* ── Map button ── */
-.map-btn{display:inline-flex;align-items:center;gap:6px;margin-top:14px;background:var(--brand);color:white;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:600;text-decoration:none}
-
-/* ── Contacts ── */
-.contact-item{padding:12px 0;border-bottom:1px solid #e9e9ea}
-.contact-item:last-child{border-bottom:none;padding-bottom:0}
-.contact-name{font-size:15px;font-weight:600;color:#0f172a;margin-bottom:2px}
-.contact-role{font-size:12px;color:#94a3b8;margin-bottom:8px}
-.contact-actions{display:flex;gap:8px}
-.contact-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:9px 10px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;text-decoration:none;font-weight:500;text-align:center}
-.contact-btn.primary{background:var(--brand);color:white;border-color:var(--brand)}
-
-/* ── Points of interest ── */
-.poi-item{padding:11px 0;border-bottom:1px solid #e9e9ea}
-.poi-item:last-child{border-bottom:none}
-.poi-name-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.poi-name{font-size:14px;font-weight:600;color:#0f172a}
-.poi-map-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--brand);color:white;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;flex-shrink:0}
-.poi-dist{font-size:12px;color:#94a3b8;margin:3px 0}
-.poi-desc{font-size:13px;color:#475569;margin-top:4px;line-height:1.6}
-
-/* ── FAQs ── */
-details.faq-item{border-bottom:1px solid #e9e9ea}
-details.faq-item:last-child{border-bottom:none}
-summary{padding:12px 4px;font-size:14px;font-weight:600;color:#0f172a;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
-summary::-webkit-details-marker{display:none}
-summary::after{content:'+';color:#94a3b8;font-size:20px;font-weight:300;flex-shrink:0}
-details[open] summary::after{content:'−'}
-.faq-answer{padding:0 4px 12px;font-size:13px;color:#475569;line-height:1.65}
-
-/* ── Report issue ── */
-.report-intro{font-size:13px;color:#64748b;margin-bottom:12px}
-.report-btns{display:flex;flex-direction:column;gap:10px}
-.report-btn{display:block;text-align:center;padding:13px 20px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none}
-.report-btn-phone{background:var(--brand);color:white}
-.report-btn-email{background:#f8fafc;color:#334155;border:1.5px solid #e2e8f0}
-
-/* ── WiFi ── */
-.wifi-box{background:#f0f9ff;border:2px solid var(--brand);border-radius:8px;padding:4px 16px;overflow:hidden}
-.wifi-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #e0f2fe}
-.wifi-row:last-child{border-bottom:none}
-.wifi-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;flex-shrink:0}
-.wifi-val{font-size:15px;font-weight:600;color:#0f172a;text-align:right}
-.wifi-pass{font-size:18px;font-weight:700;letter-spacing:3px;color:#0369a1;font-family:monospace;text-align:right}
-
-/* ── Section photos ── */
-.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #e9e9ea}
-.photo-grid a{display:block;aspect-ratio:1;overflow:hidden;border-radius:6px;background:#f8fafc}
-.photo-grid img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .2s}
-.photo-grid img:hover{opacity:.88}
-
-/* ── Footer ── */
-footer{text-align:center;padding:24px 16px;font-size:11px;color:#94a3b8}
-</style>
-</head>
-<body>
-
-<header class="header">
-  <div class="header-name">${esc(prop.name)}</div>
-  ${prop.address ? `<div class="header-addr">📍 ${esc(prop.address)}</div>` : ''}
-  <div class="times">
-    ${guide.checkin_time ? `<span class="time-chip">✅ Check-in from ${esc(guide.checkin_time)}</span>` : ''}
-    ${guide.checkout_time ? `<span class="time-chip">🚪 Check-out by ${esc(guide.checkout_time)}</span>` : ''}
-  </div>
-</header>
-
-${quickNav}
-
-<main>
-${body}
-</main>
-
-<footer>Powered by Vaun Holidays</footer>
-
-</body>
-</html>`;
 }
 
 function photosHTML(photos) {
@@ -335,6 +94,310 @@ function photosHTML(photos) {
   }</div>`;
 }
 
+// ─── Main HTML builder ────────────────────────────────────────────────────────
+
+function buildGuideHTML(prop, guide) {
+  const color = prop.color || '#2192A3';
+  const secs  = guide.sections || {};
+
+  const SECTIONS = [
+    { key: 'welcome',        icon: '👋', title: 'Welcome',                   label: 'Welcome',    sub: 'Your stay overview'   },
+    { key: 'key_collection', icon: '🔑', title: 'Key Collection & Check-in', label: 'Check-In',   sub: 'Access & entry'       },
+    { key: 'wifi',           icon: '📶', title: 'WiFi Details',              label: 'WiFi',       sub: 'Network & password'   },
+    { key: 'getting_there',  icon: '📍', title: 'Getting to the Property',   label: 'Directions', sub: 'Maps & transport'     },
+    { key: 'car_parking',    icon: '🅿️', title: 'Car Parking',              label: 'Parking',    sub: 'Parking info'         },
+    { key: 'house_manual',   icon: '🏠', title: 'House Manual',              label: 'Manual',     sub: 'Appliances & rules'   },
+    { key: 'checkout',       icon: '🚪', title: 'Check-out',                 label: 'Check-Out',  sub: 'Before you leave'     },
+    { key: 'contacts',       icon: '📞', title: 'Contact Details',           label: 'Contact',    sub: 'Get in touch'         },
+    { key: 'poi',            icon: '🗺️', title: 'Points of Interest',        label: 'Explore',    sub: 'Local highlights'     },
+    { key: 'emergency',      icon: '🚨', title: 'Emergency Info',            label: 'Emergency',  sub: 'Important numbers'    },
+    { key: 'faqs',           icon: '❓', title: 'FAQs',                      label: 'FAQs',       sub: 'Common questions'     },
+    { key: 'report_issue',   icon: '⚠️', title: 'Report an Issue',           label: 'Report',     sub: 'Report a problem'     },
+  ];
+
+  // ── Determine which sections have content ──────────────────────────────────
+  function hasContent(sec) {
+    const d = secs[sec.key];
+    if (!d || d.enabled === false) return false;
+    const hasPhotos = d.photos && d.photos.length > 0;
+    if (sec.key === 'wifi')         return d.network || d.password || d.content || hasPhotos;
+    if (sec.key === 'contacts')     return (d.items || []).some(c => c.name || c.phone || c.email) || hasPhotos;
+    if (sec.key === 'poi')          return (d.items || []).some(p => p.name) || hasPhotos;
+    if (sec.key === 'faqs')         return (d.items || []).some(f => f.question) || hasPhotos;
+    if (sec.key === 'report_issue') return d.email || d.phone || hasPhotos;
+    if (sec.key === 'checkout')     return d.content || guide.checkout_time || hasPhotos;
+    return d.content || d.code || hasPhotos;
+  }
+
+  const activeSections = SECTIONS.filter(hasContent);
+
+  // ── Build inner HTML for each section ─────────────────────────────────────
+  function buildInner(sec) {
+    const d = secs[sec.key];
+    let html = '';
+
+    if (['welcome','getting_there','car_parking','house_manual','emergency'].includes(sec.key)) {
+      if (d.content) html = `<div class="prose">${nl2br(d.content)}</div>`;
+      if (sec.key === 'getting_there' && prop.address) {
+        html += `<a href="https://maps.google.com/?q=${encodeURIComponent(prop.address)}" target="_blank" rel="noopener" class="map-btn">📍 Directions to the Property</a>`;
+      }
+    } else if (sec.key === 'key_collection') {
+      if (d.content) html = `<div class="prose">${nl2br(d.content)}</div>`;
+      if (d.code)    html += `<div class="code-box"><div class="code-label">🔑 Access Code</div><div class="code-value">${esc(d.code)}</div></div>`;
+    } else if (sec.key === 'wifi') {
+      if (d.network || d.password) {
+        html = `<div class="wifi-box">
+          ${d.network  ? `<div class="wifi-row"><span class="wifi-label">Network</span><span class="wifi-val">${esc(d.network)}</span></div>` : ''}
+          ${d.password ? `<div class="wifi-row"><span class="wifi-label">Password</span><span class="wifi-pass">${esc(d.password)}</span></div>` : ''}
+        </div>`;
+      }
+      if (d.content) html += `<div class="prose" style="margin-top:12px;">${nl2br(d.content)}</div>`;
+    } else if (sec.key === 'checkout') {
+      if (guide.checkout_time) html = `<div class="time-badge">🚪 Check-out by ${esc(guide.checkout_time)}</div>`;
+      if (d.content) html += `<div class="prose">${nl2br(d.content)}</div>`;
+    } else if (sec.key === 'contacts') {
+      const items = (d.items || []).filter(c => c.name || c.phone || c.email);
+      if (items.length) html = items.map(c => `
+        <div class="contact-item">
+          <div class="contact-name">${esc(c.name)}</div>
+          ${c.role ? `<div class="contact-role">${esc(c.role)}</div>` : ''}
+          <div class="contact-actions">
+            ${c.phone ? `<a href="tel:${esc(c.phone.replace(/\s/g,''))}" class="contact-btn primary">📱 ${esc(c.phone)}</a>` : ''}
+            ${c.email ? `<a href="mailto:${esc(c.email)}" class="contact-btn">✉️ Email</a>` : ''}
+          </div>
+        </div>`).join('');
+    } else if (sec.key === 'poi') {
+      const items = (d.items || []).filter(p => p.name);
+      if (items.length) html = items.map(p => `
+        <div class="poi-item">
+          <div class="poi-name-row">
+            <span class="poi-name">${esc(p.name)}</span>
+            ${p.maps_url ? `<a href="${esc(p.maps_url)}" target="_blank" rel="noopener" class="poi-map-btn">📍 Directions</a>` : ''}
+          </div>
+          ${p.distance    ? `<div class="poi-dist">${esc(p.distance)} away</div>` : ''}
+          ${p.description ? `<div class="poi-desc">${esc(p.description)}</div>`   : ''}
+        </div>`).join('');
+    } else if (sec.key === 'faqs') {
+      const items = (d.items || []).filter(f => f.question);
+      if (items.length) html = items.map(f => `
+        <details class="faq-item">
+          <summary>${esc(f.question)}</summary>
+          <div class="faq-answer">${nl2br(f.answer)}</div>
+        </details>`).join('');
+    } else if (sec.key === 'report_issue') {
+      if (d.email || d.phone) html = `
+        <p class="report-intro">Need to report a problem? Contact us directly:</p>
+        <div class="report-btns">
+          ${d.phone ? `<a href="tel:${esc(d.phone.replace(/\s/g,''))}" class="report-btn report-btn-phone">📱 Call ${esc(d.phone)}</a>` : ''}
+          ${d.email ? `<a href="mailto:${esc(d.email)}" class="report-btn report-btn-email">✉️ Email Us</a>` : ''}
+        </div>`;
+    }
+
+    html += photosHTML(d.photos);
+    return html;
+  }
+
+  // ── Welcome snippet for home screen ───────────────────────────────────────
+  const welcomeD = secs.welcome;
+  const welcomeText = welcomeD && welcomeD.content ? welcomeD.content.split('\n')[0] : '';
+  const welcomeSnippet = welcomeText.length > 130
+    ? welcomeText.substring(0, 130) + '…'
+    : welcomeText;
+  const hasWelcomeScreen = activeSections.some(sec => sec.key === 'welcome');
+
+  // ── Home screen: section grid ─────────────────────────────────────────────
+  // Welcome is shown as snippet on home, not as a grid card — unless it's the only content
+  const gridSections = activeSections.filter(sec => sec.key !== 'welcome');
+  const gridCards = gridSections.map(sec => `
+    <a href="#${sec.key}" class="grid-card">
+      <span class="grid-icon">${sec.icon}</span>
+      <span class="grid-title">${sec.label}</span>
+      <span class="grid-sub">${sec.sub}</span>
+    </a>`).join('');
+
+  // ── Individual section screens ─────────────────────────────────────────────
+  const sectionScreens = activeSections.map(sec => {
+    const inner = buildInner(sec);
+    if (!inner.trim()) return '';
+    return `
+  <div id="screen-${sec.key}" class="screen">
+    <div class="topbar">
+      <button onclick="goHome()" class="back-btn">← Back</button>
+      <span class="topbar-title">${sec.icon} ${sec.title}</span>
+    </div>
+    <div class="screen-body">
+      <div class="content-card">${inner}</div>
+    </div>
+    <footer>Powered by Vaun Holidays</footer>
+  </div>`;
+  }).join('');
+
+  // ── Full HTML ──────────────────────────────────────────────────────────────
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guest Guide — ${esc(prop.name)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--brand:${color}}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:#f0f4f8;color:#303336;-webkit-font-smoothing:antialiased}
+
+/* ── Screen routing ── */
+.screen{display:none;min-height:100vh}
+.screen.active{display:block;animation:fadeUp .18s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── Home: header ── */
+.home-header{background:var(--brand);padding:28px 16px 24px;color:white}
+.home-name{font-size:26px;font-weight:700;line-height:1.2;margin-bottom:5px}
+.home-addr{font-size:13px;opacity:.85;margin-bottom:14px}
+.times{display:flex;gap:8px;flex-wrap:wrap}
+.time-chip{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:600;white-space:nowrap}
+
+/* ── Home: welcome card ── */
+.welcome-card{background:white;margin:16px 14px 0;border-radius:12px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.welcome-card-heading{font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px}
+.welcome-card-text{font-size:13px;color:#475569;line-height:1.65}
+.welcome-card-more{color:var(--brand);font-weight:600;text-decoration:none;white-space:nowrap}
+
+/* ── Home: section grid ── */
+.grid-wrap{padding:20px 14px 40px}
+.grid-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:12px}
+.section-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:white;border-radius:14px;padding:22px 12px 18px;box-shadow:0 2px 10px rgba(0,0,0,.07);text-decoration:none;color:#303336;text-align:center;transition:transform .12s,box-shadow .12s;-webkit-tap-highlight-color:transparent}
+.grid-card:active{transform:scale(.96);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.grid-icon{font-size:34px;line-height:1;margin-bottom:2px}
+.grid-title{font-size:14px;font-weight:700;color:#0f172a}
+.grid-sub{font-size:11px;color:#94a3b8}
+
+/* ── Section screen topbar ── */
+.topbar{background:var(--brand);padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;min-height:52px}
+.back-btn{background:rgba(255,255,255,.2);border:none;color:white;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;font-family:inherit;flex-shrink:0}
+.back-btn:active{background:rgba(255,255,255,.35)}
+.topbar-title{font-size:15px;font-weight:700;color:white;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Section screen body ── */
+.screen-body{max-width:640px;margin:0 auto;padding:16px 14px 24px}
+.content-card{background:white;border-radius:12px;padding:18px 16px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.prose{font-size:14px;color:#475569;line-height:1.75}
+
+/* ── Code box ── */
+.code-box{background:#f0fdf4;border:2px solid var(--brand);border-radius:8px;padding:18px 16px;margin-top:14px;text-align:center}
+.code-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px}
+.code-value{font-size:28px;font-weight:700;letter-spacing:7px;color:#166534}
+
+/* ── Time badge ── */
+.time-badge{display:inline-flex;align-items:center;gap:6px;background:#e0f2fe;color:#0369a1;border-radius:6px;padding:7px 14px;font-size:14px;font-weight:600;margin-bottom:12px}
+
+/* ── Map button ── */
+.map-btn{display:inline-flex;align-items:center;gap:6px;margin-top:16px;background:var(--brand);color:white;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:600;text-decoration:none}
+
+/* ── WiFi ── */
+.wifi-box{background:#f0f9ff;border:2px solid var(--brand);border-radius:8px;padding:4px 16px}
+.wifi-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #e0f2fe}
+.wifi-row:last-child{border-bottom:none}
+.wifi-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;flex-shrink:0}
+.wifi-val{font-size:15px;font-weight:600;color:#0f172a;text-align:right}
+.wifi-pass{font-size:18px;font-weight:700;letter-spacing:3px;color:#0369a1;font-family:monospace;text-align:right}
+
+/* ── Contacts ── */
+.contact-item{padding:14px 0;border-bottom:1px solid #e9e9ea}
+.contact-item:last-child{border-bottom:none;padding-bottom:0}
+.contact-name{font-size:15px;font-weight:600;color:#0f172a;margin-bottom:2px}
+.contact-role{font-size:12px;color:#94a3b8;margin-bottom:10px}
+.contact-actions{display:flex;gap:8px}
+.contact-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;text-decoration:none;font-weight:500}
+.contact-btn.primary{background:var(--brand);color:white;border-color:var(--brand)}
+
+/* ── POI ── */
+.poi-item{padding:12px 0;border-bottom:1px solid #e9e9ea}
+.poi-item:last-child{border-bottom:none}
+.poi-name-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.poi-name{font-size:14px;font-weight:600;color:#0f172a}
+.poi-map-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:var(--brand);color:white;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;flex-shrink:0}
+.poi-dist{font-size:12px;color:#94a3b8;margin:3px 0}
+.poi-desc{font-size:13px;color:#475569;margin-top:4px;line-height:1.6}
+
+/* ── FAQs ── */
+details.faq-item{border-bottom:1px solid #e9e9ea}
+details.faq-item:last-child{border-bottom:none}
+summary{padding:13px 0;font-size:14px;font-weight:600;color:#0f172a;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:'+';color:#94a3b8;font-size:20px;font-weight:300;flex-shrink:0}
+details[open] summary::after{content:'−'}
+.faq-answer{padding:0 0 12px;font-size:13px;color:#475569;line-height:1.65}
+
+/* ── Report issue ── */
+.report-intro{font-size:13px;color:#64748b;margin-bottom:14px}
+.report-btns{display:flex;flex-direction:column;gap:10px}
+.report-btn{display:block;text-align:center;padding:14px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none}
+.report-btn-phone{background:var(--brand);color:white}
+.report-btn-email{background:#f8fafc;color:#334155;border:1.5px solid #e2e8f0}
+
+/* ── Photos ── */
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid #e9e9ea}
+.photo-grid a{display:block;aspect-ratio:1;overflow:hidden;border-radius:8px;background:#f1f5f9}
+.photo-grid img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* ── Footer ── */
+footer{text-align:center;padding:24px 16px;font-size:11px;color:#94a3b8}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HOME SCREEN ═══════════════ -->
+<div id="screen-home" class="screen active">
+
+  <header class="home-header">
+    <div class="home-name">${esc(prop.name)}</div>
+    ${prop.address ? `<div class="home-addr">📍 ${esc(prop.address)}</div>` : ''}
+    <div class="times">
+      ${guide.checkin_time  ? `<span class="time-chip">✅ Check-in from ${esc(guide.checkin_time)}</span>`  : ''}
+      ${guide.checkout_time ? `<span class="time-chip">🚪 Check-out by ${esc(guide.checkout_time)}</span>` : ''}
+    </div>
+  </header>
+
+  ${welcomeSnippet ? `
+  <div class="welcome-card">
+    <div class="welcome-card-heading">👋 Welcome!</div>
+    <div class="welcome-card-text">${esc(welcomeSnippet)}${hasWelcomeScreen ? ` <a href="#welcome" class="welcome-card-more">Read more →</a>` : ''}</div>
+  </div>` : ''}
+
+  <div class="grid-wrap">
+    <div class="grid-label">Your Guide</div>
+    <div class="section-grid">${gridCards}</div>
+  </div>
+
+  <footer>Powered by Vaun Holidays</footer>
+</div>
+
+<!-- ═══════════════ SECTION SCREENS ═══════════════ -->
+${sectionScreens}
+
+<script>
+function goHome(){location.hash='';window.scrollTo(0,0)}
+function route(){
+  var h=(location.hash||'').replace('#','');
+  document.querySelectorAll('.screen').forEach(function(el){el.classList.remove('active')});
+  var t=h?document.getElementById('screen-'+h):null;
+  var home=document.getElementById('screen-home');
+  (t||home).classList.add('active');
+  window.scrollTo(0,0);
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+
+</body>
+</html>`;
+}
+
 function errorPage(msg) {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not Found</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;color:#334155;}</style></head><body><div style="text-align:center;padding:32px 20px;"><div style="font-size:52px;margin-bottom:20px;">🏠</div><h2 style="font-size:20px;font-weight:700;color:#0f172a;margin-bottom:8px;">Guide not available</h2><p style="font-size:14px;color:#64748b;">${msg}</p></div></body></html>`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not Found</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;color:#334155}</style></head><body><div style="text-align:center;padding:32px 20px"><div style="font-size:52px;margin-bottom:20px">🏠</div><h2 style="font-size:20px;font-weight:700;color:#0f172a;margin-bottom:8px">Guide not available</h2><p style="font-size:14px;color:#64748b">${msg}</p></div></body></html>`;
 }
