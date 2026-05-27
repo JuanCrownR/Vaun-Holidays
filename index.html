@@ -195,6 +195,27 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .login-btn:hover { background: #222; }
 .login-btn:active { transform: scale(0.98); }
 .login-btn.loading { background: var(--border); color: var(--text3); cursor: not-allowed; }
+
+/* Secondary login button (used for the magic-link option) */
+.login-btn.login-btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.login-btn.login-btn-secondary:hover { background: var(--surface3, #eeeeeb); }
+.login-btn.login-btn-secondary:disabled { color: var(--text3); cursor: not-allowed; }
+
+/* "or" divider with a line on either side */
+.login-divider {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--text3); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  margin: 18px 0 4px;
+}
+.login-divider::before,
+.login-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
 .login-error {
   background: #fef2f2;
   border: 1px solid #fecaca;
@@ -2313,6 +2334,13 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
         <div style="text-align:center;margin-top:10px;">
           <button onclick="showForgotPanel()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px;">Forgot password?</button>
         </div>
+
+        <!-- Magic link: passwordless sign-in via emailed one-click link -->
+        <div class="login-divider"><span>or</span></div>
+        <button class="login-btn login-btn-secondary" id="magic-link-submit" onclick="handleMagicLink()">✨ Email me a sign-in link</button>
+        <div id="magic-link-success" style="display:none;margin-top:12px;padding:12px 14px;background:#dcfce7;color:#166534;border-radius:8px;font-size:13px;line-height:1.5;">
+          ✅ Sign-in link sent to <strong id="magic-link-email-shown"></strong>. Check your inbox (and spam folder) and click the link to sign in.
+        </div>
         <!-- Public self-signup has been removed for security. New users must
              be invited by an admin from the Users panel (calls the gated
              /api/admin-users endpoint, which assigns the lowest-privilege
@@ -3911,7 +3939,7 @@ sb.auth.getSession().then(({ data }) => {
   if (splash) splash.style.display = 'none';
 });
 
-// Handle password recovery redirect (user clicked reset link in email)
+// Handle password recovery + magic-link returns (user clicked link in email)
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     document.getElementById('login-page').style.display = 'none';
@@ -3921,8 +3949,74 @@ sb.auth.onAuthStateChange((event, session) => {
     document.getElementById('new-password').value = '';
     document.getElementById('confirm-new-password').value = '';
     document.getElementById('set-password-modal').classList.add('open');
+    return;
+  }
+  // SIGNED_IN fires both for password sign-ins (handled inline by handleLogin)
+  // and for magic-link returns where the user lands on the page from the email
+  // link. Guard against double-load by checking whether the app is already up.
+  if (event === 'SIGNED_IN' && session) {
+    const app = document.getElementById('app');
+    if (app && app.style.display !== 'block') {
+      loadApp(session.user);
+      const splash = document.getElementById('auth-splash');
+      if (splash) splash.style.display = 'none';
+      // Clean the access_token hash out of the URL for a tidy address bar
+      if (location.hash && location.hash.indexOf('access_token') !== -1) {
+        history.replaceState({ view: 'overview' }, '', '#overview');
+      }
+    }
   }
 });
+
+// Send a magic sign-in link to the email entered in the login form.
+async function handleMagicLink() {
+  const email = document.getElementById('login-email').value.trim();
+  const btn = document.getElementById('magic-link-submit');
+  const err = document.getElementById('login-error');
+  const succ = document.getElementById('magic-link-success');
+  err.style.display = 'none';
+  succ.style.display = 'none';
+  if (!email) {
+    err.textContent = 'Enter your email address to receive a sign-in link.';
+    err.style.display = 'block';
+    return;
+  }
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+  try {
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: {
+        // Important: prevents magic-link from silently creating new accounts.
+        // Only existing users can sign in this way; combined with admin-only
+        // invites, that's the policy we want.
+        shouldCreateUser: false,
+        emailRedirectTo: window.location.origin + window.location.pathname,
+      }
+    });
+    btn.textContent = '✨ Email me a sign-in link';
+    btn.disabled = false;
+    if (error) {
+      const msg = error.message || '';
+      if (msg.toLowerCase().includes('signup') || msg.toLowerCase().includes('not allowed')) {
+        err.textContent = 'No account found for that email. Ask your administrator to invite you.';
+      } else if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('too many')) {
+        err.textContent = 'Too many requests. Please wait a few minutes before trying again.';
+      } else {
+        err.textContent = msg || 'Could not send sign-in link. Please try again.';
+      }
+      err.style.display = 'block';
+      return;
+    }
+    document.getElementById('magic-link-email-shown').textContent = email;
+    succ.style.display = 'block';
+  } catch (e) {
+    btn.textContent = '✨ Email me a sign-in link';
+    btn.disabled = false;
+    err.textContent = 'Connection error — please check your internet and try again.';
+    err.style.display = 'block';
+  }
+}
 
 async function handleSetNewPassword() {
   const pass1 = document.getElementById('new-password').value;
