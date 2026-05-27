@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const resp = await fetch(
-      `${supabaseUrl}/rest/v1/properties?id=eq.${encodeURIComponent(id)}&select=id,name,address,color,guest_guide&limit=1`,
+      `${supabaseUrl}/rest/v1/properties?id=eq.${encodeURIComponent(id)}&select=id,name,address,guest_guide&limit=1`,
       { headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' } }
     );
     if (!resp.ok) {
@@ -73,7 +73,9 @@ function photosHTML(photos) {
 // ─── Main builder ─────────────────────────────────────────────────────────────
 
 function buildGuideHTML(prop, guide) {
-  const color = prop.color || '#2192A3';
+  // Guide brand colour is fixed Vaun Holidays navy — NOT tied to properties.color
+  // (properties.color is a staff dashboard setting; guide is a separate guest-facing product)
+  const VAUN_NAVY = '#0c1b33';
   const secs  = guide.sections || {};
 
   const SECTIONS = [
@@ -246,7 +248,7 @@ function buildGuideHTML(prop, guide) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--brand:${color}}
+:root{--brand:${VAUN_NAVY}}
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{font-family:'Poppins',-apple-system,BlinkMacSystemFont,sans-serif;background:#ffffff;color:#0f172a;-webkit-font-smoothing:antialiased}
@@ -284,7 +286,7 @@ body{font-family:'Poppins',-apple-system,BlinkMacSystemFont,sans-serif;backgroun
 
 /* ── Home quick-access nav list ── */
 .home-nav-list{background:white;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);margin-bottom:16px}
-.home-nav-item{display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;color:#2d2318;border-bottom:1px solid #e2e8f0;transition:background .14s;-webkit-tap-highlight-color:transparent}
+.home-nav-item{display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;color:#0f172a;border-bottom:1px solid #e2e8f0;transition:background .14s;-webkit-tap-highlight-color:transparent}
 .home-nav-item:last-child{border-bottom:none}
 .home-nav-item:active{background:#f1f5f9}
 .home-nav-icon{width:46px;height:46px;background:#eef2ff;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;line-height:1}
@@ -315,7 +317,7 @@ body{font-family:'Poppins',-apple-system,BlinkMacSystemFont,sans-serif;backgroun
 .menu-close{background:rgba(255,255,255,.25);border:none;color:white;font-size:20px;width:36px;height:36px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .menu-close:active{background:rgba(255,255,255,.4)}
 .menu-nav{overflow-y:auto;flex:1;padding:8px 0}
-.menu-item{display:flex;align-items:center;gap:14px;padding:15px 18px;text-decoration:none;color:#2d2318;border-bottom:1px solid #e2e8f0;transition:background .14s;-webkit-tap-highlight-color:transparent}
+.menu-item{display:flex;align-items:center;gap:14px;padding:15px 18px;text-decoration:none;color:#0f172a;border-bottom:1px solid #e2e8f0;transition:background .14s;-webkit-tap-highlight-color:transparent}
 .menu-item:last-child{border-bottom:none}
 .menu-item:active{background:#f1f5f9}
 .menu-item-icon{font-size:22px;flex-shrink:0;width:38px;text-align:center;line-height:1}
