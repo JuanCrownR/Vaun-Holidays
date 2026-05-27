@@ -198,7 +198,11 @@ function buildGuideHTML(prop, guide) {
   })() : '';
 
   // ── Home: quick-access nav list (Getting There, Key Collection, Parking, WiFi) ──
-  const homeNavSections = SECTIONS.filter(sec => HOME_NAV_KEYS.includes(sec.key) && hasContent(sec));
+  // Map HOME_NAV_KEYS to sections so the rendered order matches the array order
+  // (a .filter on SECTIONS would inherit SECTIONS' order, not HOME_NAV_KEYS').
+  const homeNavSections = HOME_NAV_KEYS
+    .map(key => SECTIONS.find(s => s.key === key))
+    .filter(sec => sec && hasContent(sec));
   const homeNavList = homeNavSections.length ? `
   <div class="home-nav-list">
     ${homeNavSections.map(sec => `
