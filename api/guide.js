@@ -95,7 +95,7 @@ function buildGuideHTML(prop, guide) {
 
   // Welcome shown inline on home; these 4 shown as nav buttons on home
   const HOME_INLINE_KEYS = ['welcome'];
-  const HOME_NAV_KEYS    = ['getting_there', 'key_collection', 'car_parking', 'wifi'];
+  const HOME_NAV_KEYS    = ['key_collection', 'getting_there', 'car_parking', 'wifi'];
   const HOME_KEYS        = [...HOME_INLINE_KEYS, ...HOME_NAV_KEYS];
 
   // ── Should this section appear in the guide? ───────────────────────────────
