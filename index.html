@@ -10078,11 +10078,8 @@ function renderGuestGuideBuilder() {
     if (!Array.isArray(_guideData.sections[s.key].photos)) _guideData.sections[s.key].photos = [];
   });
 
-  // Auto-fill welcome message on first use (empty content)
-  if (!_guideData.sections.welcome.content) {
-    _guideData.sections.welcome.content = _buildWelcomeTemplate(prop);
-    scheduleGuideSave();
-  }
+  // Auto-fill all section templates on first use
+  _applyDefaultTemplates(prop);
 
   const published = !!_guideData.published;
   const guideUrl = `${window.location.origin}/api/guide?id=${prop.id}`;
@@ -10339,19 +10336,144 @@ function updateGuideSectionField(key, field, value) {
 }
 
 function _buildWelcomeTemplate(prop) {
-  const name  = prop.name    || 'this property';
-  const addr  = prop.address ? `\nAddress: ${prop.address}\n` : '\n';
-  const cin   = _guideData?.checkin_time  || '3:00pm';
-  const cout  = _guideData?.checkout_time || '10:00am';
-  return `Welcome to ${name}!
+  const name = prop.name || 'this property';
+  const addr = prop.address ? ` in ${prop.address}` : '';
+  return `Welcome to your stay with VAUN Holidays. We are delighted to host you and hope you have a relaxing, comfortable, and memorable experience at ${name}${addr}.
 
-We're so pleased to have you as our guest and hope you have a wonderful stay.
-${addr}
-This guide has everything you need for a smooth and comfortable visit — from getting in, to local tips and check-out details.
+This guide contains everything you need for a seamless stay, including check-in instructions, Wi-Fi details, house information, and local emergency contacts.
 
-Check-in is from ${cin} and check-out is by ${cout}.
+If you need assistance at any time, our team is here to help.`;
+}
 
-Please don't hesitate to reach out if there's anything we can help with. Enjoy your stay!`;
+function _applyDefaultTemplates(prop) {
+  if (!_guideData || !prop) return;
+  const s   = _guideData.sections;
+  const cin  = _guideData.checkin_time  || '3:00 PM';
+  const cout = _guideData.checkout_time || '10:00 AM';
+  let changed = false;
+
+  // ── Welcome ──────────────────────────────────────────────────────────────
+  if (!s.welcome?.content) {
+    s.welcome.content = _buildWelcomeTemplate(prop);
+    changed = true;
+  }
+
+  // ── Key Collection / Check-In ────────────────────────────────────────────
+  if (!s.key_collection?.content) {
+    s.key_collection.content =
+`Check-in is available from ${cin} onwards.
+
+Early check-in may be available upon request and is subject to availability.
+
+Self Check-In Instructions:
+• Arrive at the property address provided in your booking confirmation
+• Locate the lockbox / key safe (details provided prior to arrival)
+• Enter your unique access code
+• Retrieve the keys and unlock the property
+• Ensure the keys remain secure throughout your stay
+
+If you experience any issues accessing the property, please contact us immediately.`;
+    changed = true;
+  }
+
+  // ── WiFi (notes only — network/password filled manually per property) ────
+  if (s.wifi && !s.wifi.content) {
+    s.wifi.content = `Please ensure Wi-Fi details remain confidential and are not shared publicly.`;
+    changed = true;
+  }
+
+  // ── House Manual ─────────────────────────────────────────────────────────
+  if (!s.house_manual?.content) {
+    s.house_manual.content =
+`❄️ Air Conditioning
+Please ensure all doors and windows are closed when using air conditioning to maintain efficiency.
+
+🍳 Kitchen & Appliances
+Instructions for all appliances are provided within the property.
+Please clean all used dishes and return items to their original location.
+Do not leave food waste behind at checkout.
+
+🚗 Parking
+Parking details (if applicable) are included in your booking instructions.
+Please ensure you only park in the allocated space.
+
+🗑️ Rubbish Disposal
+General waste and recycling bins are provided.
+Please dispose of all rubbish before departure.
+
+🔇 Quiet Hours
+Please respect neighbours and observe quiet hours between 10:00 PM – 7:00 AM.`;
+    changed = true;
+  }
+
+  // ── Check-Out ────────────────────────────────────────────────────────────
+  if (!s.checkout?.content) {
+    s.checkout.content =
+`🌿 House Rules — please ensure the following during and before departure:
+✔ No smoking inside the property
+✔ No parties or events unless approved
+✔ No unregistered guests staying overnight
+✔ Please respect noise levels at all times
+✔ Please treat the property as your home
+
+Before you leave:
+• Remove all personal belongings
+• Place used towels in the bathroom
+• Close all windows, doors and blinds
+• Leave the property clean and tidy
+• Place keys back in the lockbox
+
+Failure to comply may result in additional charges or termination of stay.
+
+💙 We hope you had a wonderful stay! Warm regards, VAUN Holidays — Luxury Short Stay Management`;
+    changed = true;
+  }
+
+  // ── Getting There ─────────────────────────────────────────────────────────
+  if (!s.getting_there?.content) {
+    s.getting_there.content =
+`Your property address is provided in your booking confirmation.
+
+✈️ Gold Coast Airport (OOL)
+Approx. 30–40 minutes drive
+
+✈️ Brisbane Airport (BNE)
+Approx. 1 hr 10 min – 1 hr 30 min drive
+
+🚕 Taxi, rideshare (Uber / DiDi), and public transport are all available from both airports.`;
+    changed = true;
+  }
+
+  // ── Emergency ────────────────────────────────────────────────────────────
+  if (!s.emergency?.content) {
+    s.emergency.content =
+`🚓 Emergency Services
+In case of emergency, dial: 000
+This covers Police, Fire, and Ambulance.
+
+🏥 Nearest Hospital
+Gold Coast University Hospital
+1 Hospital Blvd, Southport QLD 4215
+
+🔧 Property Support
+For urgent property issues, contact VAUN Holidays.
+We aim to respond as quickly as possible.`;
+    changed = true;
+  }
+
+  // ── Points of Interest — pre-populate Gold Coast highlights ───────────────
+  if (s.poi && (!s.poi.items || s.poi.items.length === 0)) {
+    s.poi.items = [
+      { name: 'Surfers Paradise Beach',      description: 'Iconic beach perfect for swimming and sunbathing.',             distance: '5 min walk' },
+      { name: 'SkyPoint Observation Deck',   description: 'Breathtaking 360° views from level 77 of the Q1 tower.',       distance: '2 min walk' },
+      { name: 'Cavill Avenue',               description: 'Dining, nightlife, shopping and entertainment precinct.',       distance: '3 min walk' },
+      { name: 'Infinity Attraction',         description: 'Interactive art and sensory experience.',                       distance: '5 min walk' },
+      { name: 'Gold Coast University Hospital', description: 'Nearest major hospital.',                                    distance: '15 min drive' },
+    ];
+    changed = true;
+  }
+
+  if (changed) scheduleGuideSave();
 }
 
 function applyWelcomeTemplate() {
