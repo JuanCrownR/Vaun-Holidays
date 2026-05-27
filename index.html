@@ -3071,6 +3071,26 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
       <button class="modal-close" onclick="closeAddPropertyModal()">✕</button>
     </div>
     <div class="modal-body">
+      <!-- ── Property Thumbnail ── -->
+      <div class="form-group">
+        <label class="form-label">Property Thumbnail</label>
+        <div id="prop-thumb-area" style="position:relative;border-radius:10px;overflow:hidden;cursor:pointer;" onclick="document.getElementById('prop-thumbnail-input').click()">
+          <div id="prop-thumb-empty" style="border:2px dashed var(--border);border-radius:10px;background:var(--surface2);padding:28px;text-align:center;">
+            <div style="font-size:26px;margin-bottom:6px;">📷</div>
+            <div style="font-size:13px;font-weight:500;color:var(--text2);">Click to upload a property photo</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">JPG · PNG · WEBP — recommended 16:9</div>
+          </div>
+          <div id="prop-thumb-preview" style="display:none;position:relative;">
+            <img id="prop-thumb-img" style="width:100%;height:180px;object-fit:cover;display:block;" alt="Property thumbnail">
+            <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:white;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;pointer-events:none;">✎ Change</div>
+          </div>
+          <div id="prop-thumb-loading" style="display:none;border:2px dashed var(--border);border-radius:10px;background:var(--surface2);padding:28px;text-align:center;">
+            <div style="font-size:13px;color:var(--text3);">Uploading…</div>
+          </div>
+        </div>
+        <input type="file" accept="image/*" id="prop-thumbnail-input" style="display:none" onchange="handlePropThumbnailChange(this)">
+      </div>
+
       <div class="form-group">
         <label class="form-label">Property name</label>
         <input type="text" class="form-input" id="prop-name" placeholder="e.g. Ocean View Apartment">
@@ -9676,6 +9696,50 @@ async function syncFobExpiryTasks() {
 // ===== ADD / EDIT PROPERTY =====
 let editingPropertyId = null;
 
+// ===== PROPERTY THUMBNAIL =====
+let _propThumbnailUrl = null;
+
+function _setPropThumbState(state) {
+  // state: 'empty' | 'preview' | 'loading'
+  document.getElementById('prop-thumb-empty').style.display   = state === 'empty'   ? '' : 'none';
+  document.getElementById('prop-thumb-preview').style.display = state === 'preview' ? '' : 'none';
+  document.getElementById('prop-thumb-loading').style.display = state === 'loading' ? '' : 'none';
+}
+
+function _setPropThumbUrl(url) {
+  _propThumbnailUrl = url || null;
+  if (url) {
+    document.getElementById('prop-thumb-img').src = url;
+    _setPropThumbState('preview');
+  } else {
+    _setPropThumbState('empty');
+  }
+}
+
+async function handlePropThumbnailChange(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  input.value = ''; // reset so same file can trigger change again
+  _setPropThumbState('loading');
+  try {
+    const propId = editingPropertyId || ('new-' + Date.now().toString(36));
+    const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') : 'jpg';
+    const path = `property-thumbnails/${_safeSeg(propId)}/thumbnail.${ext}`;
+    const dataUrl = await compressImageFile(file);
+    const blob = await _dataUrlToBlob(dataUrl);
+    const { data, error } = await sb.storage.from(PHOTO_BUCKET).upload(path, blob, {
+      contentType: 'image/jpeg', upsert: true
+    });
+    if (error) throw error;
+    const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(data.path);
+    _setPropThumbUrl(pub.publicUrl);
+  } catch (e) {
+    console.warn('Thumbnail upload failed:', e);
+    _setPropThumbState(_propThumbnailUrl ? 'preview' : 'empty');
+    alert('Could not upload thumbnail: ' + (e.message || e));
+  }
+}
+
 function openAddPropertyModal() {
   editingPropertyId = null;
   document.getElementById('property-modal-title').textContent = 'Add Property';
@@ -9696,6 +9760,7 @@ function openAddPropertyModal() {
   document.getElementById('prop-color').value = randomPropColor();
   document.getElementById('prop-notes').value = '';
   document.getElementById('prop-error').style.display = 'none';
+  _setPropThumbUrl(null);
   editingFobs = [];
   renderFobsList();
   renderPropDeptAssignments({});
@@ -9723,6 +9788,7 @@ function openEditPropertyModal(id) {
   document.getElementById('prop-owner-address').value = prop.owner_address || '';
   document.getElementById('prop-color').value = prop.color || '#4f8ef7';
   document.getElementById('prop-notes').value = prop.notes || '';
+  _setPropThumbUrl(prop.thumbnail_url || null);
   // Clone so edits don't mutate the live property until Save
   editingFobs = Array.isArray(prop.fobs) ? JSON.parse(JSON.stringify(prop.fobs)) : [];
   renderFobsList();
@@ -9805,7 +9871,8 @@ async function saveProperty() {
     owner_email: owner_email || null,
     owner_phone: owner_phone || null,
     owner_address: owner_address || null,
-    notes: notes || null
+    notes: notes || null,
+    thumbnail_url: _propThumbnailUrl || null
   };
 
   if (isEdit) {
@@ -9918,7 +9985,13 @@ function renderPropertiesGrid() {
         <button class="prop-card-btn edit" title="Edit property" onclick="event.stopPropagation(); openEditPropertyModal('${p.id}')">✎</button>
         <button class="prop-card-btn delete" title="Remove property" onclick="event.stopPropagation(); confirmDeleteProperty('${p.id}')">🗑</button>
       </div>
-      <div style="height:6px;background:${p.color}"></div>
+      ${p.thumbnail_url
+        ? `<div style="position:relative;height:160px;overflow:hidden;">
+             <img src="${escapeHtml(p.thumbnail_url)}" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" loading="lazy">
+             <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:${p.color};"></div>
+           </div>`
+        : `<div style="height:6px;background:${p.color}"></div>`
+      }
       <div class="card-body">
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.name)}</div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">${escapeHtml(p.address || '—')}</div>
