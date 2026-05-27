@@ -128,30 +128,27 @@ function buildGuideHTML(prop, guide) {
 
     if (sec.key === 'welcome' || sec.key === 'getting_there' || sec.key === 'car_parking' ||
         sec.key === 'house_manual' || sec.key === 'emergency') {
-      if (!d.content) continue;
-      inner = `<div class="prose">${nl2br(d.content)}</div>`;
+      if (d.content) inner = `<div class="prose">${nl2br(d.content)}</div>`;
       if (sec.key === 'getting_there' && prop.address) {
         inner += `<a href="https://maps.google.com/?q=${encodeURIComponent(prop.address)}" target="_blank" rel="noopener" class="map-btn">📍 Directions to the Property</a>`;
       }
     } else if (sec.key === 'key_collection') {
-      if (!d.content && !d.code) continue;
-      inner = d.content ? `<div class="prose">${nl2br(d.content)}</div>` : '';
+      if (d.content) inner = `<div class="prose">${nl2br(d.content)}</div>`;
       if (d.code) inner += `<div class="code-box"><div class="code-label">🔑 Access Code</div><div class="code-value">${esc(d.code)}</div></div>`;
     } else if (sec.key === 'wifi') {
-      if (!d.network && !d.password) continue;
-      inner = `<div class="wifi-box">
-        ${d.network  ? `<div class="wifi-row"><span class="wifi-label">Network</span><span class="wifi-val">${esc(d.network)}</span></div>` : ''}
-        ${d.password ? `<div class="wifi-row"><span class="wifi-label">Password</span><span class="wifi-pass">${esc(d.password)}</span></div>` : ''}
-      </div>`;
+      if (d.network || d.password) {
+        inner = `<div class="wifi-box">
+          ${d.network  ? `<div class="wifi-row"><span class="wifi-label">Network</span><span class="wifi-val">${esc(d.network)}</span></div>` : ''}
+          ${d.password ? `<div class="wifi-row"><span class="wifi-label">Password</span><span class="wifi-pass">${esc(d.password)}</span></div>` : ''}
+        </div>`;
+      }
       if (d.content) inner += `<div class="prose" style="margin-top:10px;">${nl2br(d.content)}</div>`;
     } else if (sec.key === 'checkout') {
       inner = d.content ? `<div class="prose">${nl2br(d.content)}</div>` : '';
       if (guide.checkout_time) inner = `<div class="time-badge">🚪 Check-out by ${esc(guide.checkout_time)}</div>` + inner;
-      if (!inner) continue;
     } else if (sec.key === 'contacts') {
-      const items = d.items || [];
-      if (!items.length) continue;
-      inner = `<div class="contact-list">${items.map(c => `
+      const items = (d.items || []).filter(c => c.name || c.phone || c.email);
+      if (items.length) inner = `<div class="contact-list">${items.map(c => `
         <div class="contact-item">
           <div class="contact-name">${esc(c.name)}</div>
           ${c.role ? `<div class="contact-role">${esc(c.role)}</div>` : ''}
@@ -161,9 +158,8 @@ function buildGuideHTML(prop, guide) {
           </div>
         </div>`).join('')}</div>`;
     } else if (sec.key === 'poi') {
-      const items = d.items || [];
-      if (!items.length) continue;
-      inner = `<div class="poi-list">${items.map(p => `
+      const items = (d.items || []).filter(p => p.name);
+      if (items.length) inner = `<div class="poi-list">${items.map(p => `
         <div class="poi-item">
           <div class="poi-name-row">
             <span class="poi-name">${esc(p.name)}</span>
@@ -173,24 +169,23 @@ function buildGuideHTML(prop, guide) {
           ${p.description ? `<div class="poi-desc">${esc(p.description)}</div>` : ''}
         </div>`).join('')}</div>`;
     } else if (sec.key === 'faqs') {
-      const items = d.items || [];
-      if (!items.length) continue;
-      inner = `<div class="faq-list">${items.map(f => `
+      const items = (d.items || []).filter(f => f.question);
+      if (items.length) inner = `<div class="faq-list">${items.map(f => `
         <details class="faq-item">
           <summary>${esc(f.question)}</summary>
           <div class="faq-answer">${nl2br(f.answer)}</div>
         </details>`).join('')}</div>`;
     } else if (sec.key === 'report_issue') {
-      if (!d.email && !d.phone) continue;
-      inner = `<p class="report-intro">Need to report a problem? Contact us directly:</p>
+      if (d.email || d.phone) inner = `<p class="report-intro">Need to report a problem? Contact us directly:</p>
         <div class="report-btns">
           ${d.phone ? `<a href="tel:${esc(d.phone.replace(/\s/g, ''))}" class="report-btn report-btn-phone">📱 Call ${esc(d.phone)}</a>` : ''}
           ${d.email ? `<a href="mailto:${esc(d.email)}" class="report-btn report-btn-email">✉️ Email Us</a>` : ''}
         </div>`;
     }
 
-    // Append section photos (sequential order)
+    // Always append photos — section is only skipped if BOTH content and photos are empty
     inner += photosHTML(d.photos);
+    if (!inner.trim()) continue;
 
     body += `
     <div class="section-card" id="section-${sec.key}">
