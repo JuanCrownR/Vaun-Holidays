@@ -555,6 +555,33 @@ h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
 .gg-status-badge.published { background: #dcfce7; color: #15803d; }
 .gg-status-badge.draft { background: var(--surface3, #f1f5f9); color: var(--text2); }
 
+/* ── Per-section lock bar (View only / Editing) ────────────────────────── */
+.gg-lock-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; font-weight: 500; }
+.gg-lock-bar.locked  { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.gg-lock-bar.editing { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.gg-lock-text { display: inline-flex; align-items: center; gap: 6px; }
+.gg-lock-btn  { font-size: 11px; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 600; transition: background 0.15s; flex-shrink: 0; }
+.gg-lock-btn.edit { background: var(--text); color: white; }
+.gg-lock-btn.edit:hover { background: var(--brand); }
+.gg-lock-btn.done { background: #16a34a; color: white; }
+.gg-lock-btn.done:hover { background: #15803d; }
+
+/* Read-only fields inside guide section bodies — selectable so guests can
+   still copy WiFi passwords / access codes / addresses, but visually muted
+   to signal that they aren't editable until Edit is clicked. */
+.gg-section-body input[readonly],
+.gg-section-body textarea[readonly] {
+  background: var(--surface2);
+  cursor: default;
+  color: var(--text);
+}
+.gg-section-body input[readonly]:focus,
+.gg-section-body textarea[readonly]:focus {
+  outline: none;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 16px;
@@ -10140,6 +10167,9 @@ const GUIDE_SECTIONS = [
 let _guideData = null;
 let _guideOpenSections = new Set(['welcome']);
 let _guideSaveTimer = null;
+// Sections currently in edit mode. Empty by default — every section is
+// locked (read-only) until the user clicks Edit and confirms.
+let _guideEditingSections = new Set();
 
 function _defaultGuideData() {
   const sections = {};
@@ -10245,10 +10275,27 @@ function renderGuestGuideBuilder() {
 
 function _renderGuideSectionBody(sd, d) {
   const key = sd.key;
+  const editing = _guideEditingSections.has(key);
+  // `ro` is injected into every input/textarea. Either ' readonly' (locked,
+  // user can still see and copy) or '' (editable). All oninput handlers stay
+  // attached; readonly just blocks input.
+  const ro = editing ? '' : ' readonly';
+
+  // Lock indicator + Edit/Done button at the top of every section body
+  const lockBar = `
+    <div class="gg-lock-bar ${editing ? 'editing' : 'locked'}">
+      <span class="gg-lock-text">${editing
+        ? '<span style="font-size:13px;">✎</span> Editing — your changes save automatically'
+        : '<span style="font-size:13px;">🔒</span> View only — click Edit to make changes'}</span>
+      ${editing
+        ? `<button type="button" class="gg-lock-btn done" onclick="lockGuideSection('${key}')">✓ Done editing</button>`
+        : `<button type="button" class="gg-lock-btn edit" onclick="requestEditGuideSection('${key}')">✎ Edit</button>`}
+    </div>`;
+
   let content = '';
 
   if (sd.type === 'text' || sd.type === 'text_code') {
-    const templateBtn = (key === 'welcome') ? `
+    const templateBtn = (key === 'welcome' && editing) ? `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <span style="font-size:11px;color:var(--text3);">Automatically uses your property name &amp; address.</span>
         <button type="button" class="btn btn-secondary" style="font-size:11px;padding:4px 10px;white-space:nowrap;"
@@ -10256,13 +10303,13 @@ function _renderGuideSectionBody(sd, d) {
       </div>` : '';
     content = templateBtn + `<textarea class="form-textarea" style="min-height:110px;"
       id="${key === 'welcome' ? 'gg-welcome-textarea' : ''}"
-      placeholder="${escapeHtml(sd.placeholder||'')}"
+      placeholder="${escapeHtml(sd.placeholder||'')}"${ro}
       oninput="updateGuideSectionField('${key}','content',this.value)">${escapeHtml(d.content||'')}</textarea>`;
     if (sd.type === 'text_code') {
       content += `<div style="margin-top:10px;">
         <label class="form-label" style="font-size:11px;">Access Code / PIN (optional)</label>
         <input type="text" class="form-input" placeholder="e.g. 1234# or Lockbox A1"
-          value="${escapeHtml(d.code||'')}"
+          value="${escapeHtml(d.code||'')}"${ro}
           oninput="updateGuideSectionField('${key}','code',this.value)">
       </div>`;
     }
@@ -10272,74 +10319,98 @@ function _renderGuideSectionBody(sd, d) {
         <div class="form-group" style="margin:0;">
           <label class="form-label" style="font-size:11px;">Network Name (SSID)</label>
           <input type="text" class="form-input" placeholder="e.g. HomeWifi_5G"
-            value="${escapeHtml(d.network||'')}"
+            value="${escapeHtml(d.network||'')}"${ro}
             oninput="updateGuideSectionField('${key}','network',this.value)">
         </div>
         <div class="form-group" style="margin:0;">
           <label class="form-label" style="font-size:11px;">Password</label>
           <input type="text" class="form-input" placeholder="e.g. sunshine2024"
-            value="${escapeHtml(d.password||'')}"
+            value="${escapeHtml(d.password||'')}"${ro}
             oninput="updateGuideSectionField('${key}','password',this.value)">
         </div>
       </div>
       <div class="form-group" style="margin:0;">
         <label class="form-label" style="font-size:11px;">Additional notes (optional)</label>
         <textarea class="form-textarea" style="min-height:60px;"
-          placeholder="e.g. Signal is strongest in the living room. A second network 'HomeWifi_2G' is also available."
+          placeholder="e.g. Signal is strongest in the living room. A second network 'HomeWifi_2G' is also available."${ro}
           oninput="updateGuideSectionField('${key}','content',this.value)">${escapeHtml(d.content||'')}</textarea>
       </div>`;
   } else if (sd.type === 'contacts') {
     const items = d.items || [];
     const rows = items.map((item, i) => `
       <div class="gg-list-item">
-        <button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>
+        ${editing ? `<button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>` : ''}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <input type="text" class="form-input" placeholder="Name" value="${escapeHtml(item.name||'')}" oninput="updateGuideListItem('${key}',${i},'name',this.value)">
-          <input type="text" class="form-input" placeholder="Role (e.g. Property Manager)" value="${escapeHtml(item.role||'')}" oninput="updateGuideListItem('${key}',${i},'role',this.value)">
-          <input type="tel" class="form-input" placeholder="Phone" value="${escapeHtml(item.phone||'')}" oninput="updateGuideListItem('${key}',${i},'phone',this.value)">
-          <input type="email" class="form-input" placeholder="Email" value="${escapeHtml(item.email||'')}" oninput="updateGuideListItem('${key}',${i},'email',this.value)">
+          <input type="text" class="form-input" placeholder="Name" value="${escapeHtml(item.name||'')}"${ro} oninput="updateGuideListItem('${key}',${i},'name',this.value)">
+          <input type="text" class="form-input" placeholder="Role (e.g. Property Manager)" value="${escapeHtml(item.role||'')}"${ro} oninput="updateGuideListItem('${key}',${i},'role',this.value)">
+          <input type="tel" class="form-input" placeholder="Phone" value="${escapeHtml(item.phone||'')}"${ro} oninput="updateGuideListItem('${key}',${i},'phone',this.value)">
+          <input type="email" class="form-input" placeholder="Email" value="${escapeHtml(item.email||'')}"${ro} oninput="updateGuideListItem('${key}',${i},'email',this.value)">
         </div>
       </div>`).join('');
-    content = rows + `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add Contact</button>`;
+    content = rows + (editing ? `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add Contact</button>` : '');
   } else if (sd.type === 'poi') {
     const items = d.items || [];
     const rows = items.map((item, i) => `
       <div class="gg-list-item">
-        <button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>
-        <input type="text" class="form-input" placeholder="Place name (e.g. Surfers Paradise Beach)" value="${escapeHtml(item.name||'')}" oninput="updateGuideListItem('${key}',${i},'name',this.value)">
-        <input type="text" class="form-input" placeholder="Distance (e.g. 5 min walk)" value="${escapeHtml(item.distance||'')}" oninput="updateGuideListItem('${key}',${i},'distance',this.value)">
-        <textarea class="form-textarea" style="min-height:50px;" placeholder="Short description (optional)" oninput="updateGuideListItem('${key}',${i},'description',this.value)">${escapeHtml(item.description||'')}</textarea>
-        <input type="url" class="form-input" placeholder="Google Maps link (e.g. https://maps.google.com/?q=...)" value="${escapeHtml(item.maps_url||'')}" oninput="updateGuideListItem('${key}',${i},'maps_url',this.value)" style="font-size:11px;color:var(--text2);">
+        ${editing ? `<button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>` : ''}
+        <input type="text" class="form-input" placeholder="Place name (e.g. Surfers Paradise Beach)" value="${escapeHtml(item.name||'')}"${ro} oninput="updateGuideListItem('${key}',${i},'name',this.value)">
+        <input type="text" class="form-input" placeholder="Distance (e.g. 5 min walk)" value="${escapeHtml(item.distance||'')}"${ro} oninput="updateGuideListItem('${key}',${i},'distance',this.value)">
+        <textarea class="form-textarea" style="min-height:50px;" placeholder="Short description (optional)"${ro} oninput="updateGuideListItem('${key}',${i},'description',this.value)">${escapeHtml(item.description||'')}</textarea>
+        <input type="url" class="form-input" placeholder="Google Maps link (e.g. https://maps.google.com/?q=...)" value="${escapeHtml(item.maps_url||'')}"${ro} oninput="updateGuideListItem('${key}',${i},'maps_url',this.value)" style="font-size:11px;color:var(--text2);">
       </div>`).join('');
-    content = rows + `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add Place</button>`;
+    content = rows + (editing ? `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add Place</button>` : '');
   } else if (sd.type === 'faqs') {
     const items = d.items || [];
     const rows = items.map((item, i) => `
       <div class="gg-list-item">
-        <button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>
-        <input type="text" class="form-input" placeholder="Question" value="${escapeHtml(item.question||'')}" oninput="updateGuideListItem('${key}',${i},'question',this.value)">
-        <textarea class="form-textarea" style="min-height:60px;" placeholder="Answer" oninput="updateGuideListItem('${key}',${i},'answer',this.value)">${escapeHtml(item.answer||'')}</textarea>
+        ${editing ? `<button type="button" class="gg-item-remove" onclick="removeGuideItem('${key}',${i})">✕</button>` : ''}
+        <input type="text" class="form-input" placeholder="Question" value="${escapeHtml(item.question||'')}"${ro} oninput="updateGuideListItem('${key}',${i},'question',this.value)">
+        <textarea class="form-textarea" style="min-height:60px;" placeholder="Answer"${ro} oninput="updateGuideListItem('${key}',${i},'answer',this.value)">${escapeHtml(item.answer||'')}</textarea>
       </div>`).join('');
-    content = rows + `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add FAQ</button>`;
+    content = rows + (editing ? `<button type="button" class="gg-add-btn" onclick="addGuideItem('${key}')">+ Add FAQ</button>` : '');
   } else if (sd.type === 'report') {
     content = `<p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Guests will see buttons to contact you when they need to report an issue.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div class="form-group" style="margin:0;">
           <label class="form-label" style="font-size:11px;">Contact email</label>
-          <input type="email" class="form-input" placeholder="manager@example.com" value="${escapeHtml(d.email||'')}" oninput="updateGuideSectionField('${key}','email',this.value)">
+          <input type="email" class="form-input" placeholder="manager@example.com" value="${escapeHtml(d.email||'')}"${ro} oninput="updateGuideSectionField('${key}','email',this.value)">
         </div>
         <div class="form-group" style="margin:0;">
           <label class="form-label" style="font-size:11px;">Contact phone</label>
-          <input type="tel" class="form-input" placeholder="+61 400 000 000" value="${escapeHtml(d.phone||'')}" oninput="updateGuideSectionField('${key}','phone',this.value)">
+          <input type="tel" class="form-input" placeholder="+61 400 000 000" value="${escapeHtml(d.phone||'')}"${ro} oninput="updateGuideSectionField('${key}','phone',this.value)">
         </div>
       </div>`;
   }
 
-  // Photo area — appended to every section
-  return content + _renderGuideSectionPhotos(key, d.photos || []);
+  // Photo area — appended to every section. Pass `editing` so the photo
+  // helper can hide the remove ✕ and upload buttons when locked.
+  return lockBar + content + _renderGuideSectionPhotos(key, d.photos || [], editing);
 }
 
-function _renderGuideSectionPhotos(key, photos) {
+// ── Lock / Edit helpers ─────────────────────────────────────────────────────
+function requestEditGuideSection(key) {
+  const ok = confirm('Are you sure you want to edit this information?');
+  if (!ok) return;
+  _guideEditingSections.add(key);
+  _rerenderGuideSection(key);
+}
+
+function lockGuideSection(key) {
+  _guideEditingSections.delete(key);
+  _rerenderGuideSection(key);
+}
+
+function _rerenderGuideSection(key) {
+  const sd = GUIDE_SECTIONS.find(s => s.key === key);
+  const body = document.getElementById('gg-body-' + key);
+  const d = _guideData?.sections?.[key];
+  if (sd && body && d) body.innerHTML = _renderGuideSectionBody(sd, d);
+}
+
+function _renderGuideSectionPhotos(key, photos, editing) {
+  // When locked, photos stay visible (and clickable to open full-size) but
+  // the remove ✕ button and the Take photo / Upload tiles are hidden.
+  if (!editing && photos.length === 0) return '';
   const photoItems = photos.map((p, i) => {
     const url = p.url || '';
     const isImg = (p.type && p.type.startsWith('image/')) || /\.(jpe?g|png|gif|webp|heic)$/i.test(p.name || '');
@@ -10347,24 +10418,26 @@ function _renderGuideSectionPhotos(key, photos) {
       ${isImg && url
         ? `<img src="${escapeHtml(url)}" alt="" style="cursor:pointer;width:100%;height:100%;object-fit:cover;" onclick="window.open('${escapeHtml(url)}','_blank')">`
         : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">📄</div>`}
-      <button class="checklist-photo-remove" onclick="removeGuideSectionPhoto('${key}',${i})">✕</button>
+      ${editing ? `<button class="checklist-photo-remove" onclick="removeGuideSectionPhoto('${key}',${i})">✕</button>` : ''}
     </div>`;
   }).join('');
+  const uploadTiles = editing ? `
+    <label class="checklist-photo-add" title="Take a photo">
+      <span class="checklist-photo-add-icon">📷</span>Take photo
+      <input type="file" accept="image/*" capture="environment" multiple style="display:none"
+        onchange="addGuideSectionPhotos('${key}',this)">
+    </label>
+    <label class="checklist-photo-add" style="border-style:solid;" title="Upload file">
+      <span class="checklist-photo-add-icon">📎</span>Upload
+      <input type="file" accept="image/*,application/pdf,.doc,.docx" multiple style="display:none"
+        onchange="addGuideSectionPhotos('${key}',this)">
+    </label>` : '';
   return `
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:8px;">Photos${photos.length ? ' (' + photos.length + ')' : ''}</div>
       <div class="checklist-photo-grid">
         ${photoItems}
-        <label class="checklist-photo-add" title="Take a photo">
-          <span class="checklist-photo-add-icon">📷</span>Take photo
-          <input type="file" accept="image/*" capture="environment" multiple style="display:none"
-            onchange="addGuideSectionPhotos('${key}',this)">
-        </label>
-        <label class="checklist-photo-add" style="border-style:solid;" title="Upload file">
-          <span class="checklist-photo-add-icon">📎</span>Upload
-          <input type="file" accept="image/*,application/pdf,.doc,.docx" multiple style="display:none"
-            onchange="addGuideSectionPhotos('${key}',this)">
-        </label>
+        ${uploadTiles}
       </div>
     </div>`;
 }
@@ -10408,6 +10481,8 @@ function toggleGuideSection(key) {
   const isEnabled = d && d.enabled !== false;
   if (_guideOpenSections.has(key)) {
     _guideOpenSections.delete(key);
+    // Auto-lock on collapse — re-opening starts back in view-only mode.
+    _guideEditingSections.delete(key);
     body.classList.remove('open');
     if (chev) chev.textContent = '▼';
   } else {
