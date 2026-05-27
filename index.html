@@ -3984,6 +3984,14 @@ function showView(name, el) {
   if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
   // Re-render dept tables so filter scoping picks up; reset filters to default
   if (['cleaning','maintenance','inspections','operations','compliance','keys','alltasks'].includes(name)) {
+    // Clear any per-property scope from a previous sidebar click. Department
+    // views should always show all tasks across all properties — same as if
+    // the user had clicked "All Properties" first, then the department.
+    if (selectedPropertyId !== null) {
+      selectedPropertyId = null;
+      renderPropertySwitcher();
+      renderSidebarProperties();
+    }
     deptFilters = { ...DEPT_FILTER_DEFAULT };
     renderAllDepts();
   }
