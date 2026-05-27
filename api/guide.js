@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const resp = await fetch(
-      `${supabaseUrl}/rest/v1/properties?id=eq.${encodeURIComponent(id)}&select=id,name,address,thumbnail_url,guest_guide&limit=1`,
+      `${supabaseUrl}/rest/v1/properties?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
       { headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' } }
     );
     if (!resp.ok) {
