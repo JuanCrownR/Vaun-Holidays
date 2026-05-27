@@ -18,14 +18,27 @@ const { createClient } = require('@supabase/supabase-js');
 // Allowed roles
 const VALID_ROLES = ['admin', 'manager', 'cleaner', 'staff'];
 
-function corsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+// Allowed client origins. JWT auth still gates everything, but tightening
+// CORS removes the broad `*` and makes drive-by abuse attempts (e.g. from
+// a malicious site that managed to extract a user's JWT) noisier.
+const ALLOWED_ORIGINS = new Set([
+  'https://vaun-holidays.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+]);
+
+function corsHeaders(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
 }
 
 module.exports = async function handler(req, res) {
-  corsHeaders(res);
+  corsHeaders(req, res);
 
   // Handle preflight
   if (req.method === 'OPTIONS') {

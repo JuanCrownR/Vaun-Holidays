@@ -6070,27 +6070,24 @@ async function sendSupplierEmail() {
   btn.textContent = 'Sending…';
 
   try {
-    const resp = await fetch('/api/send-email', {
+    // /api/send-email now requires the Supabase auth JWT. _adminApiFetch
+    // attaches the session token and throws on non-2xx.
+    const result = await _adminApiFetch('/api/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to, subject, html })
     });
-    const result = await resp.json();
+    if (!result.success) throw new Error(result.error || 'Unknown error');
 
     const banner = document.getElementById('send-status-banner');
-    if (resp.ok && result.success) {
-      banner.className = 'send-status-banner success';
-      banner.textContent = `✅ Work order sent to ${to}`;
-      btn.textContent = '✓ Sent';
-      // Log in meta
-      if (!job.meta) job.meta = {};
-      if (!Array.isArray(job.meta.emails_sent)) job.meta.emails_sent = [];
-      job.meta.emails_sent.push({ to, subject, template: templateKey, sent_at: new Date().toISOString() });
-      try { await sb.from('jobs').update({ meta: job.meta }).eq('id', job.id); } catch(e) {}
-      addActivity(`Work order emailed to ${to}`, job.department);
-    } else {
-      throw new Error(result.error || 'Unknown error');
-    }
+    banner.className = 'send-status-banner success';
+    banner.textContent = `✅ Work order sent to ${to}`;
+    btn.textContent = '✓ Sent';
+    // Log in meta
+    if (!job.meta) job.meta = {};
+    if (!Array.isArray(job.meta.emails_sent)) job.meta.emails_sent = [];
+    job.meta.emails_sent.push({ to, subject, template: templateKey, sent_at: new Date().toISOString() });
+    try { await sb.from('jobs').update({ meta: job.meta }).eq('id', job.id); } catch(e) {}
+    addActivity(`Work order emailed to ${to}`, job.department);
   } catch(err) {
     const banner = document.getElementById('send-status-banner');
     banner.className = 'send-status-banner error';
@@ -11321,9 +11318,10 @@ async function sendAssignmentEmail(toEmail, toName, subject, body) {
       </div>
     </div>`;
   try {
-    await fetch('/api/send-email', {
+    // /api/send-email now requires a Supabase auth JWT. _adminApiFetch
+    // attaches the session token automatically.
+    await _adminApiFetch('/api/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to: toEmail, subject, html })
     });
   } catch(e) { console.warn('sendAssignmentEmail failed:', e); }
