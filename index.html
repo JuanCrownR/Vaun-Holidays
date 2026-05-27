@@ -9003,24 +9003,17 @@ async function loadProperties() {
   try {
     const { data, error } = await sb.from('properties').select('*').order('id');
     if (!error && Array.isArray(data) && data.length > 0) {
-      // Normalise — accept rows that may not have every field
+      // Preserve EVERY DB column — spread the row first, then apply
+      // defaults only to fields the UI expects to always be defined.
+      // Without the spread, fields like department_assignments, thumbnail_url
+      // and guest_guide would be silently dropped on every page load,
+      // and the next save would overwrite them with null.
       properties = data.map(p => ({
-        id: p.id,
+        ...p,
         name: p.name || p.id,
         color: p.color || '#888',
         address: p.address || '',
-        bedrooms: p.bedrooms ?? null,
-        bathrooms: p.bathrooms ?? null,
-        car_parks: p.car_parks ?? null,
-        capacity: p.capacity ?? null,
-        keys_total: p.keys_total ?? null,
-        keys_guest: p.keys_guest ?? null,
         fobs: Array.isArray(p.fobs) ? p.fobs : [],
-        owner_1_name: p.owner_1_name || null,
-        owner_2_name: p.owner_2_name || null,
-        owner_email: p.owner_email || null,
-        owner_phone: p.owner_phone || null,
-        owner_address: p.owner_address || null,
         status: p.status || 'active',
         notes: p.notes || ''
       }));
