@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const resp = await fetch(
-      `${supabaseUrl}/rest/v1/properties?id=eq.${encodeURIComponent(id)}&select=id,name,address,guest_guide&limit=1`,
+      `${supabaseUrl}/rest/v1/properties?id=eq.${encodeURIComponent(id)}&select=id,name,address,thumbnail_url,guest_guide&limit=1`,
       { headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' } }
     );
     if (!resp.ok) {
@@ -259,7 +259,11 @@ body{font-family:'Poppins',-apple-system,BlinkMacSystemFont,sans-serif;backgroun
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
 /* ═══════════ HOME HEADER ═══════════ */
-.home-header{background:linear-gradient(150deg,var(--brand) 40%,rgba(0,0,0,.18) 150%),var(--brand);padding:56px 20px 56px;color:white;position:relative}
+.home-header{background:linear-gradient(150deg,var(--brand) 40%,rgba(0,0,0,.18) 150%),var(--brand);padding:56px 20px 56px;color:white;position:relative;background-size:cover;background-position:center}
+.home-header.has-thumb{background:none}
+.home-header.has-thumb::before{content:'';position:absolute;inset:0;background-image:var(--thumb-url);background-size:cover;background-position:center;z-index:0}
+.home-header.has-thumb .header-overlay{position:absolute;inset:0;background:linear-gradient(160deg,rgba(12,27,51,.82) 0%,rgba(12,27,51,.55) 100%);z-index:1}
+.home-header.has-thumb .header-content{position:relative;z-index:2}
 .home-header::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:34px;background:#ffffff;border-radius:34px 34px 0 0}
 .ham-btn{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.25);border:1.5px solid rgba(255,255,255,.5);color:white;border-radius:14px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit;letter-spacing:.02em}
 .ham-btn:active{background:rgba(255,255,255,.4)}
@@ -377,16 +381,19 @@ footer{text-align:center;padding:28px 16px;font-size:11px;color:#64748b;font-wei
 <!-- ════════════════ HOME SCREEN ════════════════ -->
 <div id="screen-home" class="screen active">
 
-  <header class="home-header">
-    <button class="ham-btn" onclick="openMenu()" aria-label="More information">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6"  x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      More Info
-    </button>
-    <div class="home-prop-name">${esc(prop.name)}</div>
-    ${prop.address ? `<div class="home-prop-addr">📍 ${esc(prop.address)}</div>` : ''}
-    <div class="times">
-      ${guide.checkin_time  ? `<span class="time-chip">✅ Check-in from ${esc(guide.checkin_time)}</span>`  : ''}
-      ${guide.checkout_time ? `<span class="time-chip">🚪 Check-out by ${esc(guide.checkout_time)}</span>` : ''}
+  <header class="home-header${prop.thumbnail_url ? ' has-thumb' : ''}"${prop.thumbnail_url ? ` style="--thumb-url:url('${esc(prop.thumbnail_url)}')"` : ''}>
+    ${prop.thumbnail_url ? '<div class="header-overlay"></div>' : ''}
+    <div class="${prop.thumbnail_url ? 'header-content' : ''}" style="position:relative;z-index:2;">
+      <button class="ham-btn" onclick="openMenu()" aria-label="More information">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6"  x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        More Info
+      </button>
+      <div class="home-prop-name">${esc(prop.name)}</div>
+      ${prop.address ? `<div class="home-prop-addr">📍 ${esc(prop.address)}</div>` : ''}
+      <div class="times">
+        ${guide.checkin_time  ? `<span class="time-chip">✅ Check-in from ${esc(guide.checkin_time)}</span>`  : ''}
+        ${guide.checkout_time ? `<span class="time-chip">🚪 Check-out by ${esc(guide.checkout_time)}</span>` : ''}
+      </div>
     </div>
   </header>
 
