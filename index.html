@@ -11415,7 +11415,7 @@ function renderUsersList(users) {
 
     // Build attribute values for the action-button onclicks. JSON.stringify
     // gives us a properly quoted JS string literal; we then HTML-escape it
-    // so `</script>` / quote breakouts can't escape the attribute either.
+    // so quote / angle-bracket breakouts can't escape the attribute either.
     const userIdAttr = escapeHtml(JSON.stringify(u.id));
     const emailAttr  = escapeHtml(JSON.stringify(u.email));
     return `
