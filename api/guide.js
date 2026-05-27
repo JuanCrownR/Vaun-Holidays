@@ -70,6 +70,43 @@ function photosHTML(photos) {
   ).join('')}</div>`;
 }
 
+// ─── Check-in time gate (Brisbane / Australia time) ─────────────────────────
+
+// Parse a check-in time string like "3:00pm" / "3pm" / "15:00" into minutes-since-midnight.
+function parseCheckinTimeToMinutes(str) {
+  if (!str) return 15 * 60; // default 3:00pm
+  const s = String(str).toLowerCase().trim();
+  const m = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+  if (!m) return 15 * 60;
+  let h = parseInt(m[1], 10);
+  const min = m[2] ? parseInt(m[2], 10) : 0;
+  const ampm = m[3];
+  if (ampm === 'pm' && h < 12) h += 12;
+  if (ampm === 'am' && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+// Current minutes-since-midnight in Brisbane (UTC+10, no DST). Server is on Vercel/UTC.
+function getBrisbaneMinutesNow() {
+  const fmt = new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Brisbane',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const parts = fmt.formatToParts(new Date());
+  const hour = parseInt(parts.find(p => p.type === 'hour').value, 10);
+  const minute = parseInt(parts.find(p => p.type === 'minute').value, 10);
+  return hour * 60 + minute;
+}
+
+// "850" -> "2:10pm"
+function formatMinutesAsTime(mins) {
+  let h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2, '0')}${ampm}`;
+}
+
 // ─── Main builder ─────────────────────────────────────────────────────────────
 
 function buildGuideHTML(prop, guide) {
@@ -77,6 +114,18 @@ function buildGuideHTML(prop, guide) {
   // (properties.color is a staff dashboard setting; guide is a separate guest-facing product)
   const VAUN_NAVY = '#0c1b33';
   const secs  = guide.sections || {};
+
+  // ── Check-in time gate for the access code ──────────────────────────────────
+  // Code is hidden until `checkin_time` - 10 minutes (Brisbane TZ), unless the
+  // staff has toggled "early check-in" on.
+  const checkinMin = parseCheckinTimeToMinutes(guide.checkin_time);
+  const releaseMin = Math.max(0, checkinMin - 10);
+  const nowMin     = getBrisbaneMinutesNow();
+  const earlyCheckin = guide.early_checkin === true;
+  const codeGateOpen = earlyCheckin || nowMin >= releaseMin;
+  const minsUntilRelease = Math.max(0, releaseMin - nowMin);
+  const checkinTimeFmt = formatMinutesAsTime(checkinMin);
+  const releaseTimeFmt = formatMinutesAsTime(releaseMin);
 
   const SECTIONS = [
     { key: 'welcome',        icon: '👋', title: 'Welcome',                   sub: 'Your stay overview'  },
@@ -129,7 +178,17 @@ function buildGuideHTML(prop, guide) {
         html += `<a href="https://maps.google.com/?q=${encodeURIComponent(prop.address)}" target="_blank" rel="noopener" class="map-btn">📍 Directions to the Property</a>`;
     } else if (sec.key === 'key_collection') {
       if (d.content) html = `<div class="prose">${nl2br(d.content)}</div>`;
-      if (d.code)    html += `<div class="code-box"><div class="code-label">🔑 Access Code</div><div class="code-value">${esc(d.code)}</div></div>`;
+      if (d.code) {
+        if (codeGateOpen) {
+          html += `<div class="code-box"><div class="code-label">🔑 Access Code</div><div class="code-value">${esc(d.code)}</div></div>`;
+        } else {
+          html += `<div class="code-gate">
+            <div class="code-gate-icon">🕐</div>
+            <div class="code-gate-title">Check-in is at ${checkinTimeFmt}</div>
+            <div class="code-gate-msg">For your convenience the code will be released here at <strong>${releaseTimeFmt}</strong>.<br>Please check back here later.</div>
+          </div>`;
+        }
+      }
     } else if (sec.key === 'wifi') {
       if (d.network || d.password) {
         html = `<div class="wifi-box">
@@ -347,6 +406,11 @@ body{font-family:'Poppins',-apple-system,BlinkMacSystemFont,sans-serif;backgroun
 .code-box{background:#f0f7ff;border:2px solid var(--brand);border-radius:14px;padding:22px 16px;margin-top:16px;text-align:center}
 .code-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:10px}
 .code-value{font-size:34px;font-weight:800;letter-spacing:8px;color:#1a6620}
+.code-gate{background:#fffaf0;border:1.5px solid #fcd34d;border-radius:14px;padding:20px 18px;margin-top:16px;text-align:center}
+.code-gate-icon{font-size:30px;margin-bottom:8px;line-height:1}
+.code-gate-title{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:8px}
+.code-gate-msg{font-size:13px;color:#475569;line-height:1.65}
+.code-gate-msg strong{color:#92400e;font-weight:700}
 .time-badge{display:inline-flex;align-items:center;gap:6px;background:#e0f5fe;color:#0369a1;border-radius:10px;padding:8px 16px;font-size:14px;font-weight:700;margin-bottom:14px}
 .map-btn{display:inline-flex;align-items:center;gap:8px;margin-top:18px;background:var(--brand);color:white;border-radius:14px;padding:13px 22px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(0,0,0,.18)}
 .wifi-box{background:#f0f9ff;border:2px solid var(--brand);border-radius:14px;padding:4px 18px}
@@ -456,6 +520,13 @@ function route(){
 window.addEventListener('hashchange',route);
 window.addEventListener('popstate',route);
 route();
+
+// Auto-refresh when the access code is about to be released.
+// Only kicks in if the gate is closed AND the release time is within an hour,
+// so we don't keep a tab refreshing pointlessly all day.
+${(!codeGateOpen && minsUntilRelease > 0 && minsUntilRelease <= 60) ? `
+setTimeout(function(){ location.reload(); }, ${(minsUntilRelease * 60 + 5) * 1000});
+` : ''}
 </script>
 
 </body>

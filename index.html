@@ -10213,7 +10213,7 @@ function renderGuestGuideBuilder() {
         </button>
       </div>
 
-      <div style="display:flex;gap:12px;margin-bottom:16px;">
+      <div style="display:flex;gap:12px;margin-bottom:12px;">
         <div class="form-group" style="flex:1;margin:0;">
           <label class="form-label" style="font-size:11px;">Check-in time</label>
           <input type="text" class="form-input" value="${escapeHtml(_guideData.checkin_time||'3:00pm')}" placeholder="3:00pm"
@@ -10223,6 +10223,19 @@ function renderGuestGuideBuilder() {
           <label class="form-label" style="font-size:11px;">Check-out time</label>
           <input type="text" class="form-input" value="${escapeHtml(_guideData.checkout_time||'10:00am')}" placeholder="10:00am"
             oninput="updateGuideTopField('checkout_time',this.value)">
+        </div>
+      </div>
+
+      <!-- ── Early check-in override ────────────────────────────────────────── -->
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;">
+        <button type="button" class="gg-toggle ${_guideData.early_checkin ? 'on' : ''}"
+          onclick="toggleEarlyCheckin(this)" title="Toggle early check-in"></button>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);">Allow early check-in</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5;">
+            When <strong>OFF</strong>, the access code is hidden from guests until 10 minutes before check-in.<br>
+            When <strong>ON</strong>, the code is shown immediately for this guest's early arrival.
+          </div>
         </div>
       </div>
 
@@ -10589,6 +10602,15 @@ function applyWelcomeTemplate() {
 function updateGuideTopField(field, value) {
   if (!_guideData) return;
   _guideData[field] = value;
+  scheduleGuideSave();
+}
+
+function toggleEarlyCheckin(btn) {
+  if (!_guideData) return;
+  const next = !_guideData.early_checkin;
+  _guideData.early_checkin = next;
+  btn.classList.toggle('on', next);
+  btn.title = next ? 'Early check-in ON — code is visible' : 'Early check-in OFF — code released 10 min before check-in';
   scheduleGuideSave();
 }
 
